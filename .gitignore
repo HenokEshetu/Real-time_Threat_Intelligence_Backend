@@ -16,6 +16,9 @@ lerna-debug.log*
 .DS_Store
 
 # Tests
+# Ignore all .spec.ts files
+*.spec.ts
+
 /coverage
 /.nyc_output
 
