@@ -9,7 +9,7 @@ import { IngestionFromApiFeedsModule } from './modules/ingestion-from-api-feeds/
 import { IntegrationModule } from './modules/integration/integration.module';
 import { MitreAttackMappingModule } from './modules/mitre-attack-mapping/mitre-attack-mapping.module';
 import { SearchModule } from './modules/search/search.module';
-import { StixCoreModule } from './modules/stix-objects/stix-core.module';
+import { StixObjectsModule } from './modules/stix-objects/stix-objects.module';
 
 @Module({
   imports: [
@@ -23,7 +23,7 @@ import { StixCoreModule } from './modules/stix-objects/stix-core.module';
     IntegrationModule,
     MitreAttackMappingModule,
     SearchModule,
-    StixCoreModule,
+    StixObjectsModule,
   ],
 })
 export class CtiPlatformModule {}
