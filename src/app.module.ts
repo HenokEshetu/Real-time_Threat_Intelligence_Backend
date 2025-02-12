@@ -8,6 +8,8 @@ import { UserManagementModule } from './user-management/user-management.module';
 import databaseConfig from './config/database.config';
 import authConfig from './config/auth.config';
 import { join } from 'path';
+import { CtiPlatformModule } from './cti_platform/cti_platform.module';
+
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { join } from 'path';
       context: ({ req }) => ({ req }),
     }),
     UserManagementModule,
+    CtiPlatformModule,
+    
   ],
   controllers: [],
   providers: [],
