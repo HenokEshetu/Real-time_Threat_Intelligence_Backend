@@ -8,18 +8,22 @@ import { comparePasswords, hashPassword } from 'src/user-management/utils/passwo
 import { createTokenPayload, generateToken } from 'src/user-management/utils/token.util';
 import { AuthenticationError, handleAuthError } from '../../utils/error.util';
 import {InternalServerErrorException } from '@nestjs/common';
-
+import { SignOutDto } from 'src/user-management/dto/sign-out.dto';
 import { AuthValidationService } from 'src/user-management/services/auth/auth-validation/auth-validation.service';
 import { AuthTokenService } from 'src/user-management/services/auth/auth-token/auth-token.service';
 import { UserCommandService } from 'src/user-management/services/user-command/user-command.service';
-
-
+import { TokenBlacklistService } from 'src/user-management/services/auth/auth-token/token-blacklist.service';
+import { AuthSessionService } from './auth-session.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private userService: UserService,
     private jwtService: JwtService,
+    private authSessionService: AuthSessionService,
+    private authValidationService: AuthValidationService,
+    private authTokenService: AuthTokenService,
+    private userCommandService: UserCommandService,
   ) {}
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -65,6 +69,15 @@ export class AuthService {
     }
   }
 
+  async signOut(token: SignOutDto): Promise<void> {
+    if (!token) {
+      throw new AuthenticationError('Token is required');
+    }
+    
+    await this.authSessionService.signOut(token);
+  }
+
+
   async changePassword(userId: string, changePasswordDto: ChangePasswordDto): Promise<void> {
     try {
       const user = await this.userService.findOne(userId);
@@ -88,3 +101,6 @@ export class AuthService {
     }
   }
 }
+
+
+
