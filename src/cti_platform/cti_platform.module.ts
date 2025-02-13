@@ -7,7 +7,6 @@ import { ExportStixReportModule } from './modules/export-stix-report/export-stix
 import { IngestionFromApiFeedsModule } from './modules/ingestion-from-api-feeds/ingestion-from-api-feeds.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { MitreAttackMappingModule } from './modules/mitre-attack-mapping/mitre-attack-mapping.module';
-import { SearchModule } from './modules/search/search.module';
 import { StixObjectsModule } from './modules/stix-objects/stix-objects.module';
 
 @Module({
@@ -20,7 +19,6 @@ import { StixObjectsModule } from './modules/stix-objects/stix-objects.module';
     IngestionFromApiFeedsModule,
     IntegrationModule,
     MitreAttackMappingModule,
-    SearchModule,
     StixObjectsModule,
   ],
 })
