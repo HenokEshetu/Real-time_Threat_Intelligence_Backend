@@ -14,7 +14,7 @@ import { UserManagementModule } from './user-management/user-management.module';
       context: ({ req }) => ({ req }),
     }),
     CtiPlatformModule,
-    //UserManagementModule,
+    UserManagementModule,
   ],
 })
 export class AppModule {}
