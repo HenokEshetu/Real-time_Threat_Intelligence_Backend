@@ -1,57 +1,112 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { JwtModule } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { PassportModule } from '@nestjs/passport';
+
+import { Permission } from './entities/permission.entity';
 import { User } from './entities/user.entity';
 import { Role } from './entities/role.entity';
-import { Permission } from 'src/user-management/entities/permission.entity';
-import { UserService } from 'src/user-management/services/user/user.service';
-import { AuthService } from 'src/user-management/services/auth/auth.service';
-import { UserResolver } from 'src/user-management/resolvers/user/user.resolver';
-import { AuthResolver } from 'src/user-management/resolvers/auth/auth.resolver';
-import { JwtStrategy } from 'src/user-management/strategies/jwt.strategy';
-import { LocalStrategy } from 'src/user-management/strategies/local.strategy';
-import { GoogleStrategy } from 'src/user-management/strategies/google.strategy';
-import { RoleService } from 'src/user-management/services/role/role.service';
-import { PermissionService } from 'src/user-management/services/permission/permission.service';
-import { UserQueryService } from 'src/user-management/services/user-query/user-query.service';
-import { UserCommandService } from 'src/user-management/services/user-command/user-command.service';
-import { AuthValidationService } from 'src/user-management/services/auth/auth-validation/auth-validation.service';
-import { AuthTokenService } from 'src/user-management/services/auth/auth-token/auth-token.service';
-import { PasswordReset } from 'src/user-management/entities/password-reset.entity';
-import { PasswordResetService } from 'src/user-management/services/password-reset.service';
-import { PasswordResetTokenService } from 'src/user-management/services/password-reset-token.service';
-import { PasswordResetResolver } from 'src/user-management/resolvers/password-reset.resolver';
-import { TokenBlacklistService } from 'src/user-management/services/auth/auth-token/token-blacklist.service';
-import { AuthSessionService } from 'src/user-management/services/auth/auth-session.service';
 
+import { PasswordReset } from './entities/password-reset.entity';
+
+// Services
+import { UserService } from './services/user/user.service';
+import { RoleService } from './services/role/role.service';
+import { PermissionService } from './services/permission/permission.service';
+import { AuthService } from './services/auth/auth.service';
+import { UserQueryService } from './services/user-query/user-query.service';
+import { UserCommandService } from './services/user-command/user-command.service';
+import { AuthValidationService } from './services/auth/auth-validation/auth-validation.service';
+import { AuthTokenService } from './services/auth/auth-token/auth-token.service';
+import { PasswordResetService } from './services/password-reset.service';
+import { PasswordResetTokenService } from './services/password-reset-token.service';
+import { TokenBlacklistService } from './services/auth/auth-token/token-blacklist.service';
+import { AuthSessionService } from './services/auth/auth-session.service';
+
+// Resolvers
+import { UserResolver } from './resolvers/user/user.resolver';
+import { AuthResolver } from './resolvers/auth/auth.resolver';
+import { PasswordResetResolver } from './resolvers/password-reset.resolver';
+
+// Strategies
+import { JwtStrategy } from './strategies/jwt.strategy';
+import { LocalStrategy } from './strategies/local.strategy';
+import { GoogleStrategy } from './strategies/google.strategy';
+
+import {GraphQLModule} from '@nestjs/graphql';
+import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
+import { join } from 'path';
+
+import databaseConfig from '../config/database.config';
+import authConfig from '../config/auth.config';
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role, Permission, PasswordReset]),
-    JwtModule.registerAsync({
+    // Global Configuration
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [databaseConfig, authConfig],
+    }),
+
+    // PostgreSQL Connection (User Management)
+    TypeOrmModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        secret: configService.get('auth.jwtSecret'),
-        signOptions: { expiresIn: configService.get('auth.jwtExpiresIn') },
+        ...configService.get('database'),
+        autoLoadEntities: true,
+      }),
+    }),
+
+    // GraphQL Configuration
+    GraphQLModule.forRoot<ApolloDriverConfig>({
+      driver: ApolloDriver,
+      autoSchemaFile: join(process.cwd(), 'src/userSchema.gql'),
+      sortSchema: true,
+      playground: true,
+      context: ({ req }) => ({ req }),
+    }),
+
+    
+    TypeOrmModule.forFeature([User, Role, Permission, PasswordReset]),
+    PassportModule.register({ defaultStrategy: 'jwt' }),
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: async (configService: ConfigService) => ({
+        secret: configService.get<string>('AUTH_JWT_SECRET'),
+        signOptions: {
+          expiresIn: configService.get<string>('AUTH_JWT_EXPIRES_IN') || '1h',
+        },
       }),
     }),
   ],
   providers: [
+    // Core Services
     UserService,
-    AuthSessionService,
-    TokenBlacklistService,
-    UserQueryService,
-    UserCommandService,
     AuthService,
-    AuthValidationService,
-    AuthTokenService,
-    PasswordResetService,
-    PasswordResetTokenService,
     RoleService,
     PermissionService,
+    AuthSessionService,
+
+    // Authentication
+    AuthValidationService,
+    AuthTokenService,
+    TokenBlacklistService,
+
+    // Query & Command Services
+    UserQueryService,
+    UserCommandService,
+
+    // Password Reset
+    PasswordResetService,
+    PasswordResetTokenService,
+
+    // GraphQL Resolvers
     UserResolver,
     AuthResolver,
     PasswordResetResolver,
+
+    // Strategies
     JwtStrategy,
     LocalStrategy,
     GoogleStrategy,
@@ -61,7 +116,8 @@ import { AuthSessionService } from 'src/user-management/services/auth/auth-sessi
     AuthService,
     RoleService,
     PermissionService,
-    PasswordResetService,
+    AuthTokenService,
+    JwtModule,
   ],
 })
 export class UserManagementModule {}

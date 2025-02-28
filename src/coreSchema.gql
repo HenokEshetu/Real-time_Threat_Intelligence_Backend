@@ -1,0 +1,4606 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+input AlternateDataStreamInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  size: Float
+  spec_version: String!
+  type: String!
+}
+
+type Artifact {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  decryption_key: String
+  defanged: Boolean
+  encryption_algorithm: Float
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  hashes: Hashes
+  id: ID!
+  labels: [String!]
+  lang: String
+  mime_type: String
+  modified: String!
+  object_marking_refs: [String!]
+  payload_bin: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  url: String
+}
+
+type AttackPattern {
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  kill_chain_phases: [KillChainPhase!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  version: String
+}
+
+type AutonomousSystem {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  rir: String
+  spec_version: String!
+  type: String!
+}
+
+type Bundle {
+  id: ID!
+  objects: [JSON!]!
+  type: String!
+}
+
+type Campaign {
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  first_seen: DateTime
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  objective: String
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type CourseOfAction {
+  action: String
+  action_bin: String
+  action_reference: String
+  action_type: String
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateArtifactInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  decryption_key: String
+  defanged: Boolean
+  encryption_algorithm: Float
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID!
+  labels: [String!]
+  lang: String
+  mime_type: String
+  modified: String!
+  object_marking_refs: [String!]
+  payload_bin: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  url: String
+}
+
+input CreateAttackPatternInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  version: String
+}
+
+input CreateAutonomousSystemInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String
+  number: Int!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  rir: String
+  spec_version: String!
+  type: String!
+}
+
+input CreateBundleInput {
+  id: ID!
+  objects: [JSON!]!
+  type: String! = "bundle"
+}
+
+input CreateCampaignInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  objective: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateCourseOfActionInput {
+  Relationship: [RelationshipCommonInput!]
+  action: String
+  action_bin: String
+  action_reference: String
+  action_type: String
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateDirectoryInput {
+  atime: DateTime
+  confidence: Float
+  contains_refs: Boolean
+  created: String!
+  created_by_ref: String
+  ctime: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  mtime: DateTime
+  object_marking_refs: [String!]
+  path: String!
+  path_enc: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateDomainNameInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input CreateEmailAddressInput {
+  belongs_to_refs: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  display_name: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input CreateEmailMessageInput {
+  bcc_refs: [String!]
+  body: String
+  body_multipart: [EmailMIMEComponentInput!]
+  cc_refs: [String!]
+  confidence: Float
+  content_type: String
+  created: String!
+  created_by_ref: String
+  date: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  from_ref: String
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  is_multipart: Boolean
+  labels: [String!]
+  lang: String
+  message_id: String
+  modified: String!
+  object_marking_refs: [String!]
+  raw_email_ref: String
+  received_lines: [String!]
+  revoked: Boolean
+  sender_ref: [String!]
+  spec_version: String!
+  subject: String
+  to_refs: [String!]
+  type: String!
+}
+
+input CreateFileInput {
+  atime: DateTime
+  confidence: Float
+  contains_refs: [String!]
+  content_ref: String
+  created: String!
+  created_by_ref: String
+  ctime: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID!
+  labels: [String!]
+  lang: String
+  magic_number_hex: String
+  mime_type: String
+  modified: String!
+  mtime: DateTime
+  name: String
+  name_enc: String
+  ntfs_ext: NTFSFileExtensionInput
+  object_marking_refs: [String!]
+  parent_directory_ref: [String!]
+  pdf_ext: PDFFileExtensionInput
+  raster_image_ext: RasterImageFileExtensionInput
+  revoked: Boolean
+  size: Float
+  spec_version: String!
+  type: String!
+  unix_ext: UnixFileExtensionInput
+  windows_pe_binary_ext: WindowsPEBinaryFileExtensionInput
+}
+
+input CreateGroupingInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  context: String!
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateIPv4AddressInput {
+  belongs_to_refs: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input CreateIPv6AddressInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input CreateIdentityInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  contact_information: String
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  identity_class: IdentityClass!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  roles: [String!]
+  sectors: [IndustrySector!]
+  spec_version: String!
+  type: String!
+}
+
+input CreateIncidentInput {
+  Relationship: [RelationshipCommonInput!]
+  affected_assets: [String!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  incident_types: [String!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  severity: String
+  source: String
+  spec_version: String!
+  status: String
+  type: String!
+}
+
+input CreateIndicatorInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  indicator_types: [IndicatorType!]
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  pattern: String!
+  pattern_type: PatternType!
+  pattern_version: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  valid_from: DateTime!
+  valid_until: DateTime
+}
+
+input CreateInfrastructureInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  infrastructure_types: [InfrastructureType!]
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateIntrusionSetInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  goals: [String!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  primary_motivation: String
+  resource_level: String
+  revoked: Boolean
+  secondary_motivations: [String!]
+  spec_version: String!
+  type: String!
+}
+
+input CreateLocationInput {
+  Relationship: [RelationshipCommonInput!]
+  administrative_area: String
+  city: String
+  confidence: Float
+  country: String
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  latitude: String
+  location_type: LocationType!
+  longitude: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  postal_code: String
+  precision: String
+  region: String
+  revoked: Boolean
+  spec_version: String!
+  street_address: String
+  type: String!
+}
+
+input CreateMACAddressInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input CreateMalwareAnalysisInput {
+  Relationship: [RelationshipCommonInput!]
+  analysis_definition_version: String
+  analysis_ended: DateTime
+  analysis_engine_version: String
+  analysis_sco_refs: [String!]
+  analysis_started: DateTime
+  confidence: Float
+  configuration_version: [String!]!
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  host_vm_ref: [String!]!
+  id: ID!
+  installed_software_ref: [String!]!
+  labels: [String!]
+  lang: String
+  modified: String!
+  modules: [String!]
+  object_marking_refs: [String!]
+  operating_system_ref: [String!]!
+  product: String!
+  result: String!
+  revoked: Boolean
+  sample_ref: [String!]
+  spec_version: String!
+  submitted: DateTime!
+  type: String!
+  version: String
+}
+
+input CreateMalwareInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  architecture_execution_envs: [String!]
+  capabilities: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  implementation_languages: [String!]
+  is_family: Boolean!
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  malware_types: [MalwareType!]!
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  operating_system_refs: [String!]
+  revoked: Boolean
+  sample_refs: String
+  spec_version: String!
+  type: String!
+}
+
+input CreateMutexInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateNetworkTrafficInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  dst_byte_count: Float
+  dst_packets: Float
+  dst_payload_ref: String
+  dst_port: Float
+  dst_ref: String
+  encapsulated_by_ref: String
+  encapsulates_refs: [String!]
+  end: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  ipfix: Boolean
+  is_active: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  protocols: [String!]
+  revoked: Boolean
+  spec_version: String!
+  src_byte_count: Float
+  src_packets: Float
+  src_payload_ref: String
+  src_port: Float
+  src_ref: String
+  start: String
+  type: String!
+}
+
+input CreateNoteInput {
+  Relationship: [RelationshipCommonInput!]
+  abstract: String!
+  authors: [String!]
+  confidence: Float
+  content: String!
+  content_type: String
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateObservedDataInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_observed: DateTime!
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_observed: DateTime!
+  modified: String!
+  number_observed: Float!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateOpinionInput {
+  Relationship: [RelationshipCommonInput!]
+  authors: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  explanation: String!
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  opinion: String!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateProcessInput {
+  arguments: JSON
+  child_refs: [String!]
+  command_line: String
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  created_time: String
+  creator_user_ref: String
+  cwd: String
+  defanged: Boolean
+  environment_variables: [String!]
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  image_ref: String
+  is_hidden: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  opened_connection_refs: [String!]
+  parent_ref: String
+  pid: Float
+  revoked: Boolean
+  service_dll_refs: JSON
+  spec_version: String!
+  type: String!
+}
+
+input CreateRelationshipInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  relationship_type: RelationshipType!
+  revoked: Boolean
+  source_ref: String!
+  spec_version: String!
+  start_time: String!
+  stop_time: String!
+  target_ref: String!
+  type: String!
+}
+
+input CreateReportInput {
+  Relationship: [RelationshipCommonInput!]
+  authors: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  published: DateTime!
+  report_types: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input CreateSightingInput {
+  confidence: Float
+  count: Int
+  created: String!
+  created_by_ref: String
+  detected: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime!
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime!
+  modified: String!
+  object_marking_refs: [String!]
+  observed_data_refs: [String!]
+  revoked: Boolean
+  sighting_of_ref: String!
+  spec_version: String!
+  summary: String
+  type: String!
+  where_sighted_refs: [String!]
+}
+
+input CreateSoftwareInput {
+  confidence: Float
+  cpe: String
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  languages: [String!]
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  swid: [String!]
+  type: String!
+  vendor: String
+  version: String
+}
+
+input CreateThreatActorInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  goals: [String!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  personal_motivations: String
+  primary_motivation: Boolean
+  resource_level: String
+  revoked: Boolean
+  roles: [String!]
+  secondary_motivations: [String!]
+  sophistication: String
+  spec_version: String!
+  threat_actor_types: [ThreatActorType!]!
+  type: String!
+}
+
+input CreateToolInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  tool_types: [ToolType!]!
+  tool_version: String
+  type: String!
+}
+
+input CreateUrlInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input CreateUserAccountInput {
+  account_created: String
+  account_expires: String
+  account_first_login: String
+  account_last_login: String
+  account_login: String
+  account_type: String
+  can_escalate_privs: Boolean
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  credential: String
+  credential_last_changed: String
+  defanged: Boolean
+  display_name: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  is_disabled: Boolean
+  is_privileged: Boolean
+  is_service_account: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  user_id: String
+}
+
+input CreateVulnerabilityInput {
+  Relationship: [RelationshipCommonInput!]
+  affected_products: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  cve_id: String
+  cvss_v3_score: String
+  cvss_v3_vector: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_modified_date: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  published_date: DateTime
+  references: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  vulnerability_status: String
+}
+
+input CreateWindowsRegistryKeyInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  creator_user_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  key: String
+  labels: [String!]
+  lang: String
+  modified: String!
+  modified_time: String
+  number_of_subkeys: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  values: [WindowsRegistryValueInput!]
+}
+
+input CreateX509CertificateInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID!
+  is_self_signed: Boolean
+  issuer: String
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  serial_number: String
+  signature_algorithm: String
+  spec_version: String!
+  subject: String
+  subject_public_key_algorithm: String
+  subject_public_key_exponent: String
+  subject_public_key_modulus: String
+  type: String!
+  validity_not_after: DateTime
+  validity_not_before: DateTime
+  version: String
+  x509_v3_extensions: [String!]
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type Directory {
+  atime: DateTime
+  confidence: Float
+  contains_refs: Boolean
+  created: String!
+  created_by_ref: String
+  ctime: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  mtime: DateTime
+  object_marking_refs: [String!]
+  path: String!
+  path_enc: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type DomainName {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+type EmailAddress {
+  belongs_to_refs: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  display_name: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input EmailMIMEComponentInput {
+  body: String!
+  body_raw_ref: String
+  confidence: Float
+  content_disposition: String
+  content_type: String
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type EmailMessage {
+  additional_header_fields: JSON
+  bcc_refs: [String!]
+  body: String
+  body_multipart: String
+  cc_refs: [String!]
+  confidence: Float
+  content_type: String
+  created: String!
+  created_by_ref: String
+  date: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  from_ref: String
+  granular_markings: [GranularMarking!]
+  id: ID!
+  is_multipart: String
+  labels: [String!]
+  lang: String
+  message_id: String
+  modified: String!
+  object_marking_refs: [String!]
+  raw_email_ref: String
+  received_lines: [String!]
+  revoked: Boolean
+  sender_ref: [String!]
+  spec_version: String!
+  subject: String
+  to_refs: [String!]
+  type: String!
+}
+
+type ExternalReference {
+  description: String
+  external_id: String
+  hashes: Hashes
+  id: ID!
+  source_name: String!
+  url: String
+}
+
+input ExternalReferenceInput {
+  description: String
+  external_id: String
+  hashes: HashesInput
+  id: ID!
+  source_name: String!
+  url: String
+}
+
+type File {
+  atime: DateTime
+  confidence: Float
+  contains_refs: Boolean
+  content_ref: String
+  created: String!
+  created_by_ref: String
+  ctime: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  hashes: Hashes
+  id: ID!
+  labels: [String!]
+  lang: String
+  magic_number_hex: String
+  mime_type: String
+  modified: String!
+  mtime: DateTime
+  name: String
+  name_enc: String
+  ntfs_ext: NTFSFileExtension
+  object_marking_refs: [String!]
+  parent_directory_ref: [String!]
+  pdf_ext: PDFFileExtension
+  raster_image_ext: RasterImageFileExtension
+  revoked: Boolean
+  size: Float
+  spec_version: String!
+  type: String!
+  unix_ext: UnixFileExtension
+  windows_pe_binary_ext: WindowsPEBinaryFileExtension
+}
+
+type GranularMarking {
+  id: ID!
+  lang: String
+  marking_ref: String
+  selectors: [String!]!
+}
+
+input GranularMarkingInput {
+  id: ID!
+  lang: String
+  marking_ref: String
+  selectors: [String!]!
+}
+
+type Grouping {
+  confidence: Float
+  context: String!
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type Hashes {
+  MD5: String
+  SHA_1: String
+  SHA_256: String
+  SHA_512: String
+}
+
+input HashesInput {
+  MD5: String
+  SHA_1: String
+  SHA_256: String
+  SHA_512: String
+}
+
+type IPv4Address {
+  belongs_to_refs: String
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+type IPv6Address {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+type Identity {
+  confidence: Float
+  contact_information: String
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  identity_class: IdentityClass!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  roles: [String!]
+  sectors: [IndustrySector!]
+  spec_version: String!
+  type: String!
+}
+
+enum IdentityClass {
+  CLASS
+  GROUP
+  INDIVIDUAL
+  ORGANIZATION
+  SYSTEM
+  UNKNOWN
+}
+
+type Incident {
+  affected_assets: [String!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  first_seen: DateTime
+  granular_markings: [GranularMarking!]
+  id: ID!
+  incident_types: [String!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  severity: String
+  source: String
+  spec_version: String!
+  status: String
+  type: String!
+}
+
+type Indicator {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  default: PatternType!
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  indicator_types: [IndicatorType!]
+  kill_chain_phases: [KillChainPhase!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  pattern: String!
+  pattern_version: String
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  valid_from: DateTime!
+  valid_until: DateTime
+}
+
+enum IndicatorType {
+  ANOMALOUS_ACTIVITY
+  ANONYMIZATION
+  ATTRIBUTION
+  BENIGN
+  COMPROMISED
+  MALICIOUS_ACTIVITY
+  UNKNOWN
+}
+
+enum IndustrySector {
+  AEROSPACE
+  AGRICULTURE
+  AUTOMOTIVE
+  CHEMICAL
+  COMMERCIAL
+  COMMUNICATIONS
+  CONSTRUCTION
+  DEFENSE
+  EDUCATION
+  ENERGY
+  ENTERTAINMENT
+  FINANCIAL_SERVICES
+  GOVERNMENT
+  HEALTHCARE
+  HOSPITALITY_LEISURE
+  INFRASTRUCTURE
+  INSURANCE
+  MANUFACTURING
+  MINING
+  NON_PROFIT
+  PHARMACEUTICALS
+  RETAIL
+  TECHNOLOGY
+  TELECOMMUNICATIONS
+  TRANSPORTATION
+  UTILITIES
+}
+
+type Infrastructure {
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  first_seen: DateTime
+  granular_markings: [GranularMarking!]
+  id: ID!
+  infrastructure_types: [InfrastructureType!]
+  kill_chain_phases: [KillChainPhase!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+enum InfrastructureType {
+  AMPLIFICATION
+  ANONYMIZATION
+  BOTNET
+  COMMAND_AND_CONTROL
+  EXFILTRATION
+  HOSTING_MALWARE
+  HOSTING_TARGET_LISTS
+  PHISHING
+  RECONNAISSANCE
+  STAGING
+  UNKNOWN
+}
+
+type IntrusionSet {
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  first_seen: DateTime
+  goals: [String!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  kill_chain_phases: [KillChainPhase!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  primary_motivation: String
+  relationship: [RelationshipCommonProperties!]
+  resource_level: String
+  revoked: Boolean
+  secondary_motivations: [String!]
+  spec_version: String!
+  type: String!
+}
+
+"""
+The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSON
+
+type KillChainPhase {
+  id: ID!
+  kill_chain_name: String!
+  phase_name: String!
+}
+
+input KillChainPhaseInput {
+  id: ID!
+  kill_chain_name: String!
+  phase_name: String!
+}
+
+type Location {
+  administrative_area: String
+  city: String
+  confidence: Float
+  country: String
+  created: String!
+  created_by_ref: String
+  default: LocationType!
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  latitude: String
+  longitude: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  postal_code: String
+  precision: String
+  region: String
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  street_address: String
+  type: String!
+}
+
+enum LocationType {
+  ADMINISTRATIVE_AREA
+  ASTRONOMICAL_OBJECT
+  CITY
+  CONTINENT
+  COUNTRY
+  MARITIME_REGION
+  REGION
+  UNKNOWN
+}
+
+type MACAddress {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+type Malware {
+  aliases: [String!]
+  architecture_execution_envs: [String!]
+  capabilities: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  first_seen: DateTime
+  granular_markings: [GranularMarking!]
+  id: ID!
+  implementation_languages: [String!]
+  is_family: Boolean!
+  kill_chain_phases: [KillChainPhase!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  malware_types: [MalwareType!]!
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  operating_system_refs: [String!]
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  sample_refs: String
+  spec_version: String!
+  type: String!
+}
+
+type MalwareAnalysis {
+  analysis_definition_version: String
+  analysis_ended: DateTime
+  analysis_engine_version: String
+  analysis_sco_refs: [String!]
+  analysis_started: DateTime
+  confidence: Float
+  configuration_version: [String!]!
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  host_vm_ref: [String!]!
+  id: ID!
+  installed_software_ref: [String!]!
+  labels: [String!]
+  lang: String
+  modified: String!
+  modules: [String!]
+  object_marking_refs: [String!]
+  operating_system_ref: [String!]!
+  product: String!
+  relationship: [RelationshipCommonProperties!]
+  result: String!
+  revoked: Boolean
+  sample_ref: [String!]
+  spec_version: String!
+  submitted: DateTime!
+  type: String!
+  version: String
+}
+
+enum MalwareType {
+  ADWARE
+  BACKDOOR
+  BOT
+  DDOS
+  DROPPER
+  EXPLOIT_KIT
+  KEYLOGGER
+  RANSOMWARE
+  REMOTE_ACCESS_TROJAN
+  RESOURCE_EXPLOITATION
+  ROGUE_SECURITY_SOFTWARE
+  ROOTKIT
+  SCREEN_CAPTURE
+  SPYWARE
+  TROJAN
+  UNKNOWN
+  VIRUS
+  WEBSHELL
+  WIPER
+  WORM
+}
+
+type Mutation {
+  createArtifact(createArtifactInput: CreateArtifactInput!): Artifact!
+  createAttackPattern(input: CreateAttackPatternInput!): AttackPattern!
+  createAutonomousSystem(createAutonomousSystemInput: CreateAutonomousSystemInput!): AutonomousSystem!
+  createBundle(createBundleInput: CreateBundleInput!): Bundle!
+  createCampaign(input: CreateCampaignInput!): Campaign!
+  createCourseOfAction(createCourseOfActionInput: CreateCourseOfActionInput!): CourseOfAction!
+  createDirectory(createDirectoryInput: CreateDirectoryInput!): Directory!
+  createDomainName(createDomainNameInput: CreateDomainNameInput!): DomainName!
+  createEmailAddress(createEmailAddressInput: CreateEmailAddressInput!): EmailAddress!
+  createEmailMessage(createEmailMessageInput: CreateEmailMessageInput!): EmailMessage!
+  createFile(createFileInput: CreateFileInput!): File!
+  createGrouping(createGroupingInput: CreateGroupingInput!): Grouping!
+  createIPv4Address(createIPv4AddressInput: CreateIPv4AddressInput!): IPv4Address!
+  createIPv6Address(createIPv6AddressInput: CreateIPv6AddressInput!): IPv6Address!
+  createIdentity(createGroupingInput: CreateIdentityInput!): Identity!
+  createIncident(input: CreateIncidentInput!): Incident!
+  createIndicator(createIndicatorInput: CreateIndicatorInput!): Indicator!
+  createInfrastructure(createInfrastructureInput: CreateInfrastructureInput!): Infrastructure!
+  createIntrusionSet(createIntrusionSetInput: CreateIntrusionSetInput!): IntrusionSet!
+  createLocation(createLocationInput: CreateLocationInput!): Location!
+  createMACAddress(createMACAddressInput: CreateMACAddressInput!): MACAddress!
+  createMalware(createMalwareInput: CreateMalwareInput!): Malware!
+  createMalwareAnalysis(input: CreateMalwareAnalysisInput!): MalwareAnalysis!
+  createMutex(createMutexInput: CreateMutexInput!): Mutex!
+  createNetworkTraffic(createNetworkTrafficInput: CreateNetworkTrafficInput!): NetworkTraffic!
+  createNote(createNoteInput: CreateNoteInput!): Note!
+  createObservedData(input: CreateObservedDataInput!): ObservedData!
+  createOpinion(input: CreateOpinionInput!): Opinion!
+  createProcess(createProcessInput: CreateProcessInput!): Process!
+  createRelationship(createRelationshipInput: CreateRelationshipInput!): StixRelationship!
+  createReport(createReportInput: CreateReportInput!): Report!
+  createSighting(input: CreateSightingInput!): Sighting!
+  createSoftware(createSoftwareInput: CreateSoftwareInput!): Software!
+  createThreatActor(input: CreateThreatActorInput!): ThreatActor!
+  createTool(createToolInput: CreateToolInput!): Tool!
+  createUrl(createUrlInput: CreateUrlInput!): Url!
+  createUserAccount(createUserAccountInput: CreateUserAccountInput!): UserAccount!
+  createVulnerability(createVulnerabilityInput: CreateVulnerabilityInput!): Vulnerability!
+  createWindowsRegistryKey(createWindowsRegistryKeyInput: CreateWindowsRegistryKeyInput!): WindowsRegistryKey!
+  createX509Certificate(createX509CertificateInput: CreateX509CertificateInput!): X509Certificate!
+  deleteAttackPattern(id: String!): Boolean!
+  deleteCampaign(id: String!): Boolean!
+  deleteCourseOfAction(id: String!): Boolean!
+  deleteGrouping(id: String!): Boolean!
+  deleteIdentity(id: String!): Boolean!
+  deleteIncident(id: String!): Boolean!
+  deleteIndicator(id: String!): Boolean!
+  deleteIntrusionSet(id: String!): Boolean!
+  deleteNote(id: String!): Boolean!
+  deleteObservedData(id: String!): Boolean!
+  deleteOpinion(id: String!): Boolean!
+  deleteSighting(id: String!): Boolean!
+  removeArtifact(id: String!): Boolean!
+  removeAutonomousSystem(id: String!): Boolean!
+  removeBundle(id: String!): Boolean!
+  removeDirectory(id: String!): Boolean!
+  removeDomainName(id: String!): Boolean!
+  removeEmailAddress(id: String!): Boolean!
+  removeEmailMessage(id: String!): Boolean!
+  removeFile(id: String!): Boolean!
+  removeIPv4Address(id: String!): Boolean!
+  removeIPv6Address(id: String!): Boolean!
+  removeInfrastructure(id: String!): Boolean!
+  removeLocation(id: String!): Boolean!
+  removeMACAddress(id: String!): Boolean!
+  removeMalware(id: String!): Boolean!
+  removeMalwareAnalysis(id: String!): Boolean!
+  removeMutex(id: String!): Boolean!
+  removeNetworkTraffic(id: String!): Boolean!
+  removeProcess(id: String!): Boolean!
+  removeRelationship(id: String!): Boolean!
+  removeReport(id: String!): Boolean!
+  removeSoftware(id: String!): Boolean!
+  removeThreatActor(id: String!): Boolean!
+  removeTool(id: String!): Boolean!
+  removeUrl(id: String!): Boolean!
+  removeUserAccount(id: String!): Boolean!
+  removeVulnerability(id: String!): Boolean!
+  removeWindowsRegistryKey(id: String!): Boolean!
+  removeX509Certificate(id: String!): Boolean!
+  updateArtifact(id: String!, updateArtifactInput: UpdateArtifactInput!): Artifact!
+  updateAttackPattern(id: String!, input: UpdateAttackPatternInput!): AttackPattern!
+  updateAutonomousSystem(id: String!, updateAutonomousSystemInput: UpdateAutonomousSystemInput!): AutonomousSystem!
+  updateBundle(id: String!, updateBundleInput: UpdateBundleInput!): Bundle!
+  updateCampaign(id: String!, input: UpdateCampaignInput!): Campaign!
+  updateCourseOfAction(id: String!, updateCourseOfActionInput: UpdateCourseOfActionInput!): CourseOfAction!
+  updateDirectory(id: String!, updateDirectoryInput: UpdateDirectoryInput!): Directory!
+  updateDomainName(id: String!, updateDomainNameInput: UpdateDomainNameInput!): DomainName!
+  updateEmailAddress(id: String!, updateEmailAddressInput: UpdateEmailAddressInput!): EmailAddress!
+  updateEmailMessage(id: String!, updateEmailMessageInput: UpdateEmailMessageInput!): EmailMessage!
+  updateFile(id: String!, updateFileInput: UpdateFileInput!): File!
+  updateGrouping(id: String!, updateGroupingInput: UpdateGroupingInput!): Grouping!
+  updateIPv4Address(id: String!, updateIPv4AddressInput: UpdateIPv4AddressInput!): IPv4Address!
+  updateIPv6Address(id: String!, updateIPv6AddressInput: UpdateIPv6AddressInput!): IPv6Address!
+  updateIdentity(id: String!, updateIdentityInput: UpdateIdentityInput!): Identity!
+  updateIncident(id: String!, input: UpdateIncidentInput!): Incident!
+  updateIndicator(id: String!, updateIndicatorInput: UpdateIndicatorInput!): Indicator!
+  updateInfrastructure(id: String!, updateInfrastructureInput: UpdateInfrastructureInput!): Infrastructure!
+  updateIntrusionSet(id: String!, updateIntrusionSetInput: UpdateIntrusionSetInput!): IntrusionSet!
+  updateLocation(id: String!, updateLocationInput: UpdateLocationInput!): Location!
+  updateMACAddress(id: String!, updateMACAddressInput: UpdateMACAddressInput!): MACAddress!
+  updateMalware(id: String!, updateMalwareInput: UpdateMalwareInput!): Malware!
+  updateMalwareAnalysis(id: String!, input: UpdateMalwareAnalysisInput!): MalwareAnalysis!
+  updateMutex(id: String!, updateMutexInput: UpdateMutexInput!): Mutex!
+  updateNetworkTraffic(id: String!, updateNetworkTrafficInput: UpdateNetworkTrafficInput!): NetworkTraffic!
+  updateNote(id: String!, updateNoteInput: UpdateNoteInput!): Note!
+  updateObservedData(id: String!, input: UpdateObservedDataInput!): ObservedData!
+  updateOpinion(id: String!, input: UpdateOpinionInput!): Opinion!
+  updateProcess(id: String!, updateProcessInput: UpdateProcessInput!): Process!
+  updateRelationship(id: String!, updateRelationshipInput: UpdateRelationshipInput!): StixRelationship!
+  updateReport(id: String!, updateReportInput: UpdateReportInput!): Report!
+  updateSighting(id: String!, input: UpdateSightingInput!): Sighting!
+  updateSoftware(id: String!, updateSoftwareInput: UpdateSoftwareInput!): Software!
+  updateThreatActor(id: String!, input: UpdateThreatActorInput!): ThreatActor!
+  updateTool(id: String!, updateToolInput: UpdateToolInput!): Tool!
+  updateUrl(id: String!, updateUrlInput: UpdateUrlInput!): Url!
+  updateUserAccount(id: String!, updateUserAccountInput: UpdateUserAccountInput!): UserAccount!
+  updateVulnerability(id: String!, updateVulnerabilityInput: UpdateVulnerabilityInput!): Vulnerability!
+  updateWindowsRegistryKey(id: String!, updateWindowsRegistryKeyInput: UpdateWindowsRegistryKeyInput!): WindowsRegistryKey!
+  updateX509Certificate(id: String!, updateX509CertificateInput: UpdateX509CertificateInput!): X509Certificate!
+}
+
+type Mutex {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type NTFSFileExtension {
+  alternate_data_streams: [String!]
+  sid: String
+}
+
+input NTFSFileExtensionInput {
+  alternate_data_streams: [AlternateDataStreamInput!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  sid: String
+  spec_version: String!
+  type: String!
+}
+
+type NetworkTraffic {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  dst_byte_count: String
+  dst_packets: String
+  dst_payload_ref: String
+  dst_port: String
+  dst_ref: String
+  encapsulated_by_ref: String
+  encapsulates_refs: String
+  end: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  ipfix: Boolean
+  is_active: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  protocols: [String!]
+  revoked: Boolean
+  spec_version: String!
+  src_byte_count: String
+  src_packets: String
+  src_payload_ref: String
+  src_port: String
+  src_ref: String
+  start: String
+  type: String!
+}
+
+type Note {
+  abstract: String!
+  authors: [String!]
+  confidence: Float
+  content: String!
+  content_type: String
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type ObservedData {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  first_observed: DateTime!
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_observed: DateTime!
+  modified: String!
+  number_observed: Float!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type Opinion {
+  authors: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  explanation: String!
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  opinion: String!
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type PDFFileExtension {
+  document_info_dict: String
+  is_optimized: Float
+  pdfid0: Float
+  pdfid1: Float
+  version: Float
+}
+
+input PDFFileExtensionInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  document_info_dict: JSON
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  is_optimized: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  pdfid0: String
+  pdfid1: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  version: Float
+}
+
+enum PatternType {
+  PCRE
+  SIGMA
+  SNORT
+  STIX
+  SURICATA
+  YARA
+}
+
+type Process {
+  arguments: JSON
+  child_refs: [String!]
+  command_line: String
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  created_time: String
+  creator_user_ref: [String!]
+  cwd: String
+  defanged: Boolean
+  environment_variables: [String!]
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  image_ref: [String!]
+  is_hidden: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  opened_connection_refs: Boolean
+  parent_ref: [String!]
+  pid: Float
+  revoked: Boolean
+  service_dll_refs: JSON
+  spec_version: String!
+  type: String!
+}
+
+type Query {
+  Campaign(id: String!): Campaign
+  artifact(id: String!): Artifact!
+  artifacts(page: Int! = 1, pageSize: Int! = 10, searchParams: SearchArtifactInput): [Artifact!]!
+  attackPattern(id: String!): AttackPattern
+  autonomousSystem(id: String!): AutonomousSystem!
+  autonomousSystemByNumber(number: Float!): AutonomousSystem!
+  autonomousSystems(page: Int! = 1, pageSize: Int! = 10, searchParams: SearchAutonomousSystemInput): [AutonomousSystem!]!
+  bundle(id: String!): Bundle!
+  directories(filters: SearchDirectoryInput, page: Float = 1, pageSize: Float = 10): [Directory!]!
+  directoriesByPath(path: String!): [Directory!]!
+  directory(id: String!): Directory!
+  domainName(id: String!): DomainName!
+  domainNames(filters: SearchDomainNameInput, page: Float! = 1, pageSize: Float! = 10): [DomainName!]!
+  domainNamesByValue(value: String!): [DomainName!]!
+  emailAddress(id: String!): EmailAddress!
+  emailAddressesByDisplayName(displayName: String!): [EmailAddress!]!
+  emailAddressesByValue(value: String!): [EmailAddress!]!
+  emailMessage(id: String!): EmailMessage!
+
+  """Find all expanded related objects"""
+  expandedRelatedObjects(objectId: String!): [StixRelationship!]!
+  file(id: String!): File!
+  findVulnerabilityByCveId(cveId: String!): Vulnerability
+  findVulnerabilityById(id: String!): Vulnerability
+  getCourseOfAction(id: String!): CourseOfAction
+  getGrouping(id: String!): Grouping
+  getIdentity(id: String!): Identity
+  getIncident(id: String!): Incident
+  getIndicator(id: String!): Indicator
+  getInfrastructure(id: String!): Infrastructure
+  getIntrusionSet(id: String!): IntrusionSet
+  getLocation(id: String!): Location
+  getNoteById(id: String!): Note
+  getObservedData(id: String!): ObservedData
+  getOpinion(id: String!): Opinion
+  getReport(id: String!): Report
+  getSighting(id: String!): Sighting
+  getThreatActor(id: String!): ThreatActor
+  getTool(id: String!): Tool
+  ipv4Address(id: String!): IPv4Address!
+  ipv6Address(id: String!): IPv6Address!
+  macAddress(id: String!): MACAddress!
+  mac_addresses(filter: SearchMACAddressInput, from: Float, size: Float): [MACAddress!]!
+  malware(id: String!): Malware
+  malwareAnalysis(id: String!): MalwareAnalysis
+  mutex(id: String!): Mutex!
+  mutexes(filter: SearchMutexInput, from: Float, size: Float): [Mutex!]!
+  mutexesByName(name: String!): [Mutex!]!
+  networkTraffic(id: String!): NetworkTraffic!
+  network_traffic(filter: SearchNetworkTrafficInput, from: Float, size: Float): [NetworkTraffic!]!
+  process(id: String!): Process!
+
+  """Find related objects for a given STIX ID"""
+  relatedObjects(objectId: String!): [StixRelationship!]!
+  relationship(id: String!): StixRelationship!
+  searchAddress(filters: SearchIPv4AddressInput, page: Float! = 1, pageSize: Float! = 10): [IPv4Address!]!
+  searchAttackPatterns(filters: SearchAttackPatternInput, page: Int! = 1, pageSize: Int! = 10): [AttackPattern!]!
+  searchCampaign(filters: SearchCampaignInput, page: Int! = 1, pageSize: Int! = 10): [Campaign!]!
+  searchCourseOfActions(filters: SearchCourseOfActionInput, page: Float! = 1, pageSize: Float! = 10): CourseOfAction!
+  searchEmailAddress(filters: SearchEmailAddressInput, page: Float! = 1, pageSize: Float! = 10): [EmailAddress!]!
+  searchEmailMessage(filters: SearchEmailMessageInput, page: Float! = 1, pageSize: Float! = 10): [EmailMessage!]!
+  searchFile(filters: SearchFileInput, page: Float! = 1, pageSize: Float! = 10): [File!]!
+  searchGrouping(filters: SearchGroupingInput, page: Float! = 1, pageSize: Float! = 10): Grouping!
+  searchIPv6Address(filters: SearchIPv6AddressInput, page: Float! = 1, pageSize: Float! = 10): [IPv6Address!]!
+  searchIdentity(filters: SearchIdentityInput, page: Float! = 1, pageSize: Float! = 10): Identity!
+  searchIncidents(filters: SearchIncidentInput, page: Float = 1, pageSize: Float = 10): [Incident!]!
+  searchIndicators(filters: SearchIndicatorInput, page: Float = 1, pageSize: Float = 10): [Indicator!]!
+  searchInfrastructureWithFilters(filters: CreateInfrastructureInput, page: Float! = 1, pageSize: Float! = 10): [Infrastructure!]!
+  searchIntrusionSets(filters: SearchIntrusionSetInput, page: Float! = 1, pageSize: Float! = 10): IntrusionSet!
+  searchLocations(filters: SearchLocationInput, page: Float = 1, pageSize: Float = 10): [Location!]!
+  searchMalwareAnalysisWithFilters(filters: SearchMalwareAnalysisInput, page: Float = 1, pageSize: Float = 10): [MalwareAnalysis!]!
+  searchMalwareWithFilters(filters: SearchMalwareInput, page: Float, pageSize: Float): [Malware!]!
+  searchNotesWithFilters(filters: SearchObservedDataInput, page: Float = 1, pageSize: Float = 10): [ObservedData!]!
+  searchOpinionWithDynamicFilters(filters: SearchOpinionInput, page: Float = 1, pageSize: Float = 10): [Opinion!]!
+
+  """Search relationships with filters"""
+  searchRelationships(filters: SearchRelationshipInput, page: Float! = 1, pageSize: Float! = 10): StixRelationship!
+  searchReports(filters: SearchReportInput, page: Float! = 1, pageSize: Float! = 10): Report!
+  searchSightings(filters: SearchSightingInput, page: Int! = 1, pageSize: Int! = 10): [Sighting!]!
+  searchThreatActors(filters: SearchThreatActorInput, page: Float! = 1, pageSize: Float! = 10): [ThreatActor!]!
+  searchTools(filters: SearchToolInput, page: Float, pageSize: Float): [Tool!]!
+
+  """Search URLs with dynamic filters and pagination"""
+  searchUrlsWithFilters(page: Float! = 1, pageSize: Float! = 10, searchParams: SearchUrlInput): Url!
+
+  """Search User Accounts with dynamic filters and pagination"""
+  searchUserAccounts(page: Float! = 1, pageSize: Float! = 10, searchParams: SearchUrlUserAccountInput): UserAccount!
+  searchVulnerabilities(filters: SearchVulnerabilityInput, page: Float! = 1, pageSize: Float! = 10, sortField: String! = "created", sortOrder: String! = "desc"): Vulnerability!
+
+  """Search Windows Registry Keys with filters and pagination"""
+  searchWindowsRegistryKeys(page: Float! = 1, pageSize: Float! = 10, searchParams: SearchX509CertificateInput): X509Certificate!
+  serchBundle(page: Int! = 1, pageSize: Int! = 10, searchParams: SearchBundleInput): [Bundle!]!
+  software(id: String!): Software!
+  url(id: String!): Url!
+  userAccount(id: String!): UserAccount!
+  windowsRegistryKey(id: String!): WindowsRegistryKey!
+  x509Certificate(id: String!): X509Certificate!
+  x509Certificates: [X509Certificate!]!
+}
+
+type RasterImageFileExtension {
+  bits_per_pixel: Float
+  exif_tags: [String!]
+  image_height: Float
+  image_width: Float
+}
+
+input RasterImageFileExtensionInput {
+  bits_per_pixel: Float
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  exif_tags: JSON
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  image_height: Float
+  image_width: Float
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input RelationshipCommonInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  relationship_type: RelationshipType!
+  revoked: Boolean
+  source_ref: String!
+  spec_version: String!
+  start_time: String!
+  stop_time: String!
+  target_ref: String!
+  type: String!
+}
+
+type RelationshipCommonProperties {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  relationship_type: String!
+  revoked: Boolean
+  source_ref: ID!
+  spec_version: String!
+  start_time: String!
+  stop_time: String!
+  target_ref: ID!
+  type: String!
+}
+
+"""STIX Core Relationship Types"""
+enum RelationshipType {
+  ANALYSIS_OF
+  ATTRIBUTED_TO
+  BASED_ON
+  BELONGS_TO
+  CHARACTERIZES
+  COMMUNICATES_WITH
+  COMPROMISES
+  CONSISTS_OF
+  CONTROLS
+  DELIVERS
+  DERIVED_FROM
+  DOWNLOADS
+  DROPS
+  DUPLICATE_OF
+  DYNAMIC_ANALYSIS_OF
+  EXFILTRATE_TO
+  EXPLOITS
+  HAS
+  HOSTS
+  IMPERSONATES
+  INDICATES
+  INVESTIGATES
+  LOCATED_AT
+  MITIGATES
+  ORIGINATES_FROM
+  OWNS
+  RELATED_TO
+  STATIC_ANALYSIS_OF
+  TARGETS
+  USES
+  VARIANT_OF
+}
+
+type Report {
+  authors: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  published: DateTime!
+  relationship: [RelationshipCommonProperties!]
+  report_types: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input SearchArtifactInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  decryption_key: String
+  defanged: Boolean
+  encryption_algorithm: Float
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID
+  labels: [String!]
+  lang: String
+  mime_type: String
+  modified: String
+  object_marking_refs: [String!]
+  payload_bin: String
+  revoked: Boolean
+  spec_version: String
+  type: String
+  url: String
+}
+
+input SearchAttackPatternInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+  version: String
+}
+
+input SearchAutonomousSystemInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  number: Int
+  object_marking_refs: [String!]
+  revoked: Boolean
+  rir: String
+  spec_version: String
+  type: String
+}
+
+input SearchBundleInput {
+  id: ID
+  objects: [JSON!]
+  type: String = "bundle"
+}
+
+input SearchCampaignInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  objective: String
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchCourseOfActionInput {
+  Relationship: [RelationshipCommonInput!]
+  action: String
+  action_bin: String
+  action_reference: String
+  action_type: String
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchDirectoryInput {
+  atime: DateTime
+  confidence: Float
+  contains_refs: Boolean
+  created: String
+  created_by_ref: String
+  ctime: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  mtime: DateTime
+  object_marking_refs: [String!]
+  path: String
+  path_enc: String
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchDomainNameInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  resolves_to_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+  value: String
+}
+
+input SearchEmailAddressInput {
+  belongs_to_refs: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  display_name: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+  value: String
+}
+
+input SearchEmailMessageInput {
+  bcc_refs: [String!]
+  body: String
+  body_multipart: [EmailMIMEComponentInput!]
+  cc_refs: [String!]
+  confidence: Float
+  content_type: String
+  created: String
+  created_by_ref: String
+  date: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  from_ref: String
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  is_multipart: Boolean
+  labels: [String!]
+  lang: String
+  message_id: String
+  modified: String
+  object_marking_refs: [String!]
+  raw_email_ref: String
+  received_lines: [String!]
+  revoked: Boolean
+  sender_ref: [String!]
+  spec_version: String
+  subject: String
+  to_refs: [String!]
+  type: String
+}
+
+input SearchFileInput {
+  atime: DateTime
+  confidence: Float
+  contains_refs: [String!]
+  content_ref: String
+  created: String
+  created_by_ref: String
+  ctime: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID
+  labels: [String!]
+  lang: String
+  magic_number_hex: String
+  mime_type: String
+  modified: String
+  mtime: DateTime
+  name: String
+  name_enc: String
+  ntfs_ext: NTFSFileExtensionInput
+  object_marking_refs: [String!]
+  parent_directory_ref: [String!]
+  pdf_ext: PDFFileExtensionInput
+  raster_image_ext: RasterImageFileExtensionInput
+  revoked: Boolean
+  size: Float
+  spec_version: String
+  type: String
+  unix_ext: UnixFileExtensionInput
+  windows_pe_binary_ext: WindowsPEBinaryFileExtensionInput
+}
+
+input SearchGroupingInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  context: String
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  object_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchIPv4AddressInput {
+  belongs_to_refs: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  resolves_to_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+  value: String
+}
+
+input SearchIPv6AddressInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  resolves_to_refs: String
+  revoked: Boolean
+  spec_version: String
+  type: String
+  value: String
+}
+
+input SearchIdentityInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  contact_information: String
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  identity_class: IdentityClass
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  roles: [String!]
+  sectors: [IndustrySector!]
+  spec_version: String
+  type: String
+}
+
+input SearchIncidentInput {
+  Relationship: [RelationshipCommonInput!]
+  affected_assets: [String!]
+  aliases: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  incident_types: [String!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  severity: String
+  source: String
+  spec_version: String
+  status: String
+  type: String
+}
+
+input SearchIndicatorInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  indicator_types: [IndicatorType!]
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  pattern: String
+  pattern_type: PatternType
+  pattern_version: String
+  revoked: Boolean
+  spec_version: String
+  type: String
+  valid_from: DateTime
+  valid_until: DateTime
+}
+
+input SearchIntrusionSetInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  goals: [String!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  primary_motivation: String
+  resource_level: String
+  revoked: Boolean
+  secondary_motivations: [String!]
+  spec_version: String
+  type: String
+}
+
+input SearchLocationInput {
+  Relationship: [RelationshipCommonInput!]
+  administrative_area: String
+  city: String
+  confidence: Float
+  country: String
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  latitude: String
+  location_type: LocationType
+  longitude: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  postal_code: String
+  precision: String
+  region: String
+  revoked: Boolean
+  spec_version: String
+  street_address: String
+  type: String
+}
+
+input SearchMACAddressInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+  value: String
+}
+
+input SearchMalwareAnalysisInput {
+  Relationship: [RelationshipCommonInput!]
+  analysis_definition_version: String
+  analysis_ended: DateTime
+  analysis_engine_version: String
+  analysis_sco_refs: [String!]
+  analysis_started: DateTime
+  confidence: Float
+  configuration_version: [String!]
+  created: String
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  host_vm_ref: [String!]
+  id: ID
+  installed_software_ref: [String!]
+  labels: [String!]
+  lang: String
+  modified: String
+  modules: [String!]
+  object_marking_refs: [String!]
+  operating_system_ref: [String!]
+  product: String
+  result: String
+  revoked: Boolean
+  sample_ref: [String!]
+  spec_version: String
+  submitted: DateTime
+  type: String
+  version: String
+}
+
+input SearchMalwareInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  architecture_execution_envs: [String!]
+  capabilities: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  implementation_languages: [String!]
+  is_family: Boolean
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  malware_types: [MalwareType!]
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  operating_system_refs: [String!]
+  revoked: Boolean
+  sample_refs: String
+  spec_version: String
+  type: String
+}
+
+input SearchMutexInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchNetworkTrafficInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  dst_byte_count: Float
+  dst_packets: Float
+  dst_payload_ref: String
+  dst_port: Float
+  dst_ref: String
+  encapsulated_by_ref: String
+  encapsulates_refs: [String!]
+  end: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  ipfix: Boolean
+  is_active: Boolean
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  protocols: [String!]
+  revoked: Boolean
+  spec_version: String
+  src_byte_count: Float
+  src_packets: Float
+  src_payload_ref: String
+  src_port: Float
+  src_ref: String
+  start: String
+  type: String
+}
+
+input SearchObservedDataInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_observed: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  last_observed: DateTime
+  modified: String
+  number_observed: Float
+  object_marking_refs: [String!]
+  object_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchOpinionInput {
+  Relationship: [RelationshipCommonInput!]
+  authors: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  explanation: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  object_refs: [String!]
+  opinion: String
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchRelationshipInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  relationship_type: RelationshipType
+  revoked: Boolean
+  source_ref: String
+  spec_version: String
+  start_time: String
+  stop_time: String
+  target_ref: String
+  type: String
+}
+
+input SearchReportInput {
+  Relationship: [RelationshipCommonInput!]
+  authors: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  object_refs: [String!]
+  published: DateTime
+  report_types: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchSightingInput {
+  confidence: Float
+  count: Int
+  created: String
+  created_by_ref: String
+  detected: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String
+  object_marking_refs: [String!]
+  observed_data_refs: [String!]
+  revoked: Boolean
+  sighting_of_ref: String
+  spec_version: String
+  summary: String
+  type: String
+  where_sighted_refs: [String!]
+}
+
+input SearchThreatActorInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  goals: [String!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  personal_motivations: String
+  primary_motivation: Boolean
+  resource_level: String
+  revoked: Boolean
+  roles: [String!]
+  secondary_motivations: [String!]
+  sophistication: String
+  spec_version: String
+  threat_actor_types: [ThreatActorType!]
+  type: String
+}
+
+input SearchToolInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  tool_types: [ToolType!]
+  tool_version: String
+  type: String
+}
+
+input SearchUrlInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+  value: String
+}
+
+input SearchUrlUserAccountInput {
+  account_created: String
+  account_expires: String
+  account_first_login: String
+  account_last_login: String
+  account_login: String
+  account_type: String
+  can_escalate_privs: Boolean
+  confidence: Float
+  created: String
+  created_by_ref: String
+  credential: String
+  credential_last_changed: String
+  defanged: Boolean
+  display_name: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  is_disabled: Boolean
+  is_privileged: Boolean
+  is_service_account: Boolean
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+  user_id: String
+}
+
+input SearchVulnerabilityInput {
+  Relationship: [RelationshipCommonInput!]
+  affected_products: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  cve_id: String
+  cvss_v3_score: String
+  cvss_v3_vector: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  last_modified_date: DateTime
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  published_date: DateTime
+  references: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+  vulnerability_status: String
+}
+
+input SearchX509CertificateInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID
+  is_self_signed: Boolean
+  issuer: String
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  serial_number: String
+  signature_algorithm: String
+  spec_version: String
+  subject: String
+  subject_public_key_algorithm: String
+  subject_public_key_exponent: String
+  subject_public_key_modulus: String
+  type: String
+  validity_not_after: DateTime
+  validity_not_before: DateTime
+  version: String
+  x509_v3_extensions: [String!]
+}
+
+type Sighting {
+  confidence: Float
+  count: Int
+  created: String!
+  created_by_ref: String
+  detected: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  first_seen: DateTime!
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime!
+  modified: String!
+  object_marking_refs: [String!]
+  observed_data_refs: [String!]
+  revoked: Boolean
+  sighting_of_ref: String!
+  spec_version: String!
+  summary: String
+  type: String!
+  where_sighted_refs: [String!]
+}
+
+type Software {
+  confidence: Float
+  cpe: String
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  languages: [String!]
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  swid: [String!]
+  type: String!
+  vendor: String
+  version: String
+}
+
+type StixRelationship {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  relationship_type: String!
+  revoked: Boolean
+  source_ref: ID!
+  spec_version: String!
+  start_time: String!
+  stop_time: String!
+  target_ref: ID!
+  type: String!
+}
+
+type ThreatActor {
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  first_seen: DateTime
+  goals: [String!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  personal_motivations: String
+  primary_motivation: Boolean
+  relationship: [RelationshipCommonProperties!]
+  resource_level: String
+  revoked: Boolean
+  roles: [String!]
+  secondary_motivations: [String!]
+  sophistication: String
+  spec_version: String!
+  threat_actor_types: [ThreatActorType!]!
+  type: String!
+}
+
+enum ThreatActorType {
+  ACTIVIST
+  COMPETITOR
+  CRIME_SYNDICATE
+  CRIMINAL
+  HACKER
+  INSIDER_ACCIDENTAL
+  INSIDER_DISGRUNTLED
+  NATION_STATE
+  SENSATIONALIST
+  SPY
+  TERRORIST
+  UNKNOWN
+}
+
+type Tool {
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  kill_chain_phases: [KillChainPhase!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  tool_types: [ToolType!]!
+  tool_version: String
+  type: String!
+}
+
+enum ToolType {
+  CREDENTIAL_EXPLOITATION
+  DENIAL_OF_SERVICE
+  EXPLOITATION
+  INFORMATION_GATHERING
+  NETWORK_CAPTURE
+  REMOTE_ACCESS
+  UNKNOWN
+  VULNERABILITY_SCANNING
+}
+
+type UnixFileExtension {
+  group_id: String
+  mode: Float
+  user_id: String
+}
+
+input UnixFileExtensionInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  group_id: String
+  id: ID!
+  labels: [String!]
+  lang: String
+  mode: Float
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  user_id: String
+}
+
+input UpdateArtifactInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  decryption_key: String
+  defanged: Boolean
+  encryption_algorithm: Float
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID!
+  labels: [String!]
+  lang: String
+  mime_type: String
+  modified: String!
+  object_marking_refs: [String!]
+  payload_bin: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  url: String
+}
+
+input UpdateAttackPatternInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  version: String
+}
+
+input UpdateAutonomousSystemInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String
+  number: Int
+  object_marking_refs: [String!]
+  revoked: Boolean
+  rir: String
+  spec_version: String!
+  type: String!
+}
+
+input UpdateBundleInput {
+  id: ID!
+  objects: [JSON!]!
+  type: String! = "bundle"
+}
+
+input UpdateCampaignInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  objective: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateCourseOfActionInput {
+  Relationship: [RelationshipCommonInput!]
+  action: String
+  action_bin: String
+  action_reference: String
+  action_type: String
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateDirectoryInput {
+  atime: DateTime
+  confidence: Float
+  contains_refs: Boolean
+  created: String!
+  created_by_ref: String
+  ctime: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  mtime: DateTime
+  object_marking_refs: [String!]
+  path: String
+  path_enc: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateDomainNameInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String
+}
+
+input UpdateEmailAddressInput {
+  belongs_to_refs: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  display_name: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String
+}
+
+input UpdateEmailMessageInput {
+  bcc_refs: [String!]
+  body: String
+  body_multipart: [EmailMIMEComponentInput!]
+  cc_refs: [String!]
+  confidence: Float
+  content_type: String
+  created: String!
+  created_by_ref: String
+  date: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  from_ref: String
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  is_multipart: Boolean
+  labels: [String!]
+  lang: String
+  message_id: String
+  modified: String!
+  object_marking_refs: [String!]
+  raw_email_ref: String
+  received_lines: [String!]
+  revoked: Boolean
+  sender_ref: [String!]
+  spec_version: String!
+  subject: String
+  to_refs: [String!]
+  type: String!
+}
+
+input UpdateFileInput {
+  atime: DateTime
+  confidence: Float
+  contains_refs: [String!]
+  content_ref: String
+  created: String!
+  created_by_ref: String
+  ctime: DateTime
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID!
+  labels: [String!]
+  lang: String
+  magic_number_hex: String
+  mime_type: String
+  modified: String!
+  mtime: DateTime
+  name: String
+  name_enc: String
+  ntfs_ext: NTFSFileExtensionInput
+  object_marking_refs: [String!]
+  parent_directory_ref: [String!]
+  pdf_ext: PDFFileExtensionInput
+  raster_image_ext: RasterImageFileExtensionInput
+  revoked: Boolean
+  size: Float
+  spec_version: String!
+  type: String!
+  unix_ext: UnixFileExtensionInput
+  windows_pe_binary_ext: WindowsPEBinaryFileExtensionInput
+}
+
+input UpdateGroupingInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  context: String!
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateIPv4AddressInput {
+  belongs_to_refs: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input UpdateIPv6AddressInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  resolves_to_refs: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String
+}
+
+input UpdateIdentityInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  contact_information: String
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  identity_class: IdentityClass!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  roles: [String!]
+  sectors: [IndustrySector!]
+  spec_version: String!
+  type: String!
+}
+
+input UpdateIncidentInput {
+  Relationship: [RelationshipCommonInput!]
+  affected_assets: [String!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  incident_types: [String!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  severity: String
+  source: String
+  spec_version: String!
+  status: String
+  type: String!
+}
+
+input UpdateIndicatorInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  indicator_types: [IndicatorType!]
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  pattern: String!
+  pattern_type: PatternType!
+  pattern_version: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  valid_from: DateTime!
+  valid_until: DateTime
+}
+
+input UpdateInfrastructureInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  infrastructure_types: [InfrastructureType!]
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateIntrusionSetInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  goals: [String!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  primary_motivation: String
+  resource_level: String
+  revoked: Boolean
+  secondary_motivations: [String!]
+  spec_version: String!
+  type: String!
+}
+
+input UpdateLocationInput {
+  Relationship: [RelationshipCommonInput!]
+  administrative_area: String
+  city: String
+  confidence: Float
+  country: String
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  latitude: String
+  location_type: LocationType!
+  longitude: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  postal_code: String
+  precision: String
+  region: String
+  revoked: Boolean
+  spec_version: String!
+  street_address: String
+  type: String!
+}
+
+input UpdateMACAddressInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String
+}
+
+input UpdateMalwareAnalysisInput {
+  Relationship: [RelationshipCommonInput!]
+  analysis_definition_version: String
+  analysis_ended: DateTime
+  analysis_engine_version: String
+  analysis_sco_refs: [String!]
+  analysis_started: DateTime
+  confidence: Float
+  configuration_version: [String!]!
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  host_vm_ref: [String!]!
+  id: ID!
+  installed_software_ref: [String!]!
+  labels: [String!]
+  lang: String
+  modified: String!
+  modules: [String!]
+  object_marking_refs: [String!]
+  operating_system_ref: [String!]!
+  product: String!
+  result: String!
+  revoked: Boolean
+  sample_ref: [String!]
+  spec_version: String!
+  submitted: DateTime!
+  type: String!
+  version: String
+}
+
+input UpdateMalwareInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  architecture_execution_envs: [String!]
+  capabilities: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  implementation_languages: [String!]
+  is_family: Boolean!
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  malware_types: [MalwareType!]!
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  operating_system_refs: [String!]
+  revoked: Boolean
+  sample_refs: String
+  spec_version: String!
+  type: String!
+}
+
+input UpdateMutexInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateNetworkTrafficInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  dst_byte_count: Float
+  dst_packets: Float
+  dst_payload_ref: String
+  dst_port: Float
+  dst_ref: String
+  encapsulated_by_ref: String
+  encapsulates_refs: [String!]
+  end: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  ipfix: Boolean
+  is_active: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  protocols: [String!]
+  revoked: Boolean
+  spec_version: String!
+  src_byte_count: Float
+  src_packets: Float
+  src_payload_ref: String
+  src_port: Float
+  src_ref: String
+  start: String
+  type: String!
+}
+
+input UpdateNoteInput {
+  Relationship: [RelationshipCommonInput!]
+  abstract: String!
+  authors: [String!]
+  confidence: Float
+  content: String!
+  content_type: String
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateObservedDataInput {
+  Relationship: [RelationshipCommonInput!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_observed: DateTime!
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_observed: DateTime!
+  modified: String!
+  number_observed: Float!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateOpinionInput {
+  Relationship: [RelationshipCommonInput!]
+  authors: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  explanation: String!
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  opinion: String!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateProcessInput {
+  arguments: JSON
+  child_refs: [String!]
+  command_line: String
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  created_time: String
+  creator_user_ref: String
+  cwd: String
+  defanged: Boolean
+  environment_variables: [String!]
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  image_ref: String
+  is_hidden: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  opened_connection_refs: [String!]
+  parent_ref: String
+  pid: Float
+  revoked: Boolean
+  service_dll_refs: JSON
+  spec_version: String!
+  type: String!
+}
+
+input UpdateRelationshipInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  relationship_type: RelationshipType!
+  revoked: Boolean
+  source_ref: String!
+  spec_version: String!
+  start_time: String!
+  stop_time: String!
+  target_ref: String!
+  type: String!
+}
+
+input UpdateReportInput {
+  Relationship: [RelationshipCommonInput!]
+  authors: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  object_refs: [String!]!
+  published: DateTime!
+  report_types: [String!]!
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+input UpdateSightingInput {
+  confidence: Float
+  count: Int
+  created: String!
+  created_by_ref: String
+  detected: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime!
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime!
+  modified: String!
+  object_marking_refs: [String!]
+  observed_data_refs: [String!]
+  revoked: Boolean
+  sighting_of_ref: String!
+  spec_version: String!
+  summary: String
+  type: String!
+  where_sighted_refs: [String!]
+}
+
+input UpdateSoftwareInput {
+  confidence: Float
+  cpe: String
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  languages: [String!]
+  modified: String!
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  swid: [String!]
+  type: String!
+  vendor: String
+  version: String
+}
+
+input UpdateThreatActorInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  goals: [String!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  personal_motivations: String
+  primary_motivation: Boolean
+  resource_level: String
+  revoked: Boolean
+  roles: [String!]
+  secondary_motivations: [String!]
+  sophistication: String
+  spec_version: String!
+  threat_actor_types: [ThreatActorType!]!
+  type: String!
+}
+
+input UpdateToolInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  tool_types: [ToolType!]!
+  tool_version: String
+  type: String!
+}
+
+input UpdateUrlInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+input UpdateUserAccountInput {
+  account_created: String
+  account_expires: String
+  account_first_login: String
+  account_last_login: String
+  account_login: String
+  account_type: String
+  can_escalate_privs: Boolean
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  credential: String
+  credential_last_changed: String
+  defanged: Boolean
+  display_name: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  is_disabled: Boolean
+  is_privileged: Boolean
+  is_service_account: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  user_id: String
+}
+
+input UpdateVulnerabilityInput {
+  Relationship: [RelationshipCommonInput!]
+  affected_products: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  cve_id: String
+  cvss_v3_score: String
+  cvss_v3_vector: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_modified_date: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  published_date: DateTime
+  references: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  vulnerability_status: String
+}
+
+input UpdateWindowsRegistryKeyInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  creator_user_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  key: String
+  labels: [String!]
+  lang: String
+  modified: String!
+  modified_time: String
+  number_of_subkeys: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  values: [WindowsRegistryValueInput!]
+}
+
+input UpdateX509CertificateInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID!
+  is_self_signed: Boolean
+  issuer: String
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  serial_number: String
+  signature_algorithm: String
+  spec_version: String!
+  subject: String
+  subject_public_key_algorithm: String
+  subject_public_key_exponent: String
+  subject_public_key_modulus: String
+  type: String!
+  validity_not_after: DateTime
+  validity_not_before: DateTime
+  version: String
+  x509_v3_extensions: [String!]
+}
+
+type Url {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  value: String!
+}
+
+type UserAccount {
+  account_created: String
+  account_expires: String
+  account_first_login: String
+  account_last_login: String
+  account_login: String
+  account_type: String
+  can_escalate_privs: Boolean
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  credential: String
+  credential_last_changed: String
+  defanged: Boolean
+  display_name: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  is_disabled: Boolean
+  is_privileged: Boolean
+  is_service_account: Boolean
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  user_id: String
+}
+
+type Vulnerability {
+  affected_products: [String!]
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  cve_id: String
+  cvss_v3_score: String
+  cvss_v3_vector: String
+  description: String
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  last_modified_date: DateTime
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  published_date: DateTime
+  references: [String!]
+  relationship: [RelationshipCommonProperties!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  vulnerability_status: String
+}
+
+type WindowsPEBinaryFileExtension {
+  imphash: String
+  optional_header: JSON
+  pe_type: String
+  sections: [JSON!]
+}
+
+input WindowsPEBinaryFileExtensionInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  imphash: String
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  optional_header: JSON
+  pe_type: String
+  revoked: Boolean
+  sections: [WindowsPESectionInput!]
+  spec_version: String!
+  type: String!
+}
+
+input WindowsPESectionInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  entropy: Float
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  hashes: HashesInput
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  size: Float
+  spec_version: String!
+  type: String!
+}
+
+type WindowsRegistryKey {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  creator_user_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  id: ID!
+  key: String
+  labels: [String!]
+  lang: String
+  modified: String!
+  modified_time: String
+  number_of_subkeys: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+  values: [WindowsRegistryValue!]
+}
+
+type WindowsRegistryValue {
+  data: String
+  data_type: String
+  name: String
+}
+
+input WindowsRegistryValueInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  data: String
+  data_type: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [GranularMarkingInput!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type X509Certificate {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSON
+  external_references: [ExternalReference!]
+  granular_markings: [GranularMarking!]
+  hashes: Hashes
+  id: ID!
+  is_self_signed: Boolean
+  issuer: String
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
+  revoked: Boolean
+  serial_number: String
+  signature_algorithm: String
+  spec_version: String!
+  subject: String
+  subject_public_key_algorithm: String
+  subject_public_key_exponent: String
+  subject_public_key_modulus: String
+  type: String!
+  validity_not_after: DateTime
+  validity_not_before: DateTime
+  version: String
+  x509_v3_extensions: [String!]
+}

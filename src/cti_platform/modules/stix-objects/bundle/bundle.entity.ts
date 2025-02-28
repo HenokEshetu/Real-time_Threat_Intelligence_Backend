@@ -1,15 +1,14 @@
-// bundle.entity.ts
-
 import { ObjectType, Field, ID } from '@nestjs/graphql';
+import GraphQLJSON from 'graphql-type-json'; // Import GraphQL JSON Scalar
 
 @ObjectType()
 export class Bundle {
-    @Field()
-    type: string; // "bundle"
+  @Field(() => String)
+  type: string = 'bundle';
 
-    @Field(() => ID)
-    id: string; // Unique identifier for the bundle
+  @Field(() => ID)
+  id: string;
 
-    @Field(() => [Object], { nullable: 'itemsAndList' })
-    objects?: any[]; // List of STIX Objects
+  @Field(() => [GraphQLJSON]) //  Use GraphQLJSON to store arbitrary JSON objects
+  objects: any[];
 }
