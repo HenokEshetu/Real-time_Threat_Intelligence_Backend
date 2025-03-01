@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateSoftwareInput, UpdateSoftwareInput } from './software.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
+import { SearchSoftwareInput } from './software.resolver';
 
 @Injectable()
 export class SoftwareService {
@@ -138,7 +139,7 @@ export class SoftwareService {
 async searchWithFilters(
   from: number = 0,
   size: number = 10,
-  filters: Partial<CreateSoftwareInput> = {}
+  filters: SearchSoftwareInput
 ): Promise<any[]> {
   try {
     const mustClauses: any[] = [];

@@ -47,7 +47,7 @@ export class ObservedDataResolver {
   }
 
   @Mutation(() => Boolean)
-  async deleteObservedData(@Args('id', { type: () => String }) id: string): Promise<boolean> {
+  async removeObservedData(@Args('id', { type: () => String }) id: string): Promise<boolean> {
     return this.observedDataService.remove(id);
   }
 }

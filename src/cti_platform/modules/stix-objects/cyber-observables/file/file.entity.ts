@@ -10,7 +10,7 @@ class NTFSFileExtension {
   @Field(() => [String], { nullable: true })
   alternate_data_streams?: {
     name: string;
-    hashes?: Hashes;
+    hashes?: Hashes[];
     size?: number;
   }[];
 }
@@ -87,7 +87,7 @@ class WindowsPESection {
   entropy?: number;
 
   @Field(() => Hashes, { nullable: true })
-  hashes?: Hashes;
+  hashes?: Hashes[];
 }
 
 
@@ -95,7 +95,7 @@ class WindowsPESection {
 export class File extends CyberObservableCommonProperties {
   @Field(() => Hashes, { nullable: true })
   
-  hashes?: Hashes;
+  hashes?: Hashes[];
 
   @Field(() => Number, { nullable: true })
   

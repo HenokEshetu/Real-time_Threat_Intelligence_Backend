@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { DomainName } from './domain-name.entity';
 import { CreateDomainNameInput, UpdateDomainNameInput } from './domain-name.input';
-
+import { SearchDomainNameInput } from './domain-name.resolver';
 @Injectable()
 export class DomainNameService {
   private readonly index = 'domain-names';
@@ -108,7 +108,7 @@ export class DomainNameService {
 
   // Get domain name documents based on filters and pagination
 async searchWithFilters(
-  filters: Partial<CreateDomainNameInput> = {}, // Filters should be passed
+  filters: SearchDomainNameInput, // Filters should be passed
   page: number = 1,
   pageSize: number = 10
 ): Promise<any> {

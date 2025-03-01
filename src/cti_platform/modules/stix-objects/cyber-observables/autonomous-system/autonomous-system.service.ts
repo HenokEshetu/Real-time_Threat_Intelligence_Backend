@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { CreateAutonomousSystemInput, UpdateAutonomousSystemInput } from './autonomous-system.input';
 import { AutonomousSystem } from './autonomous-system.entity';
-
+import { SearchAutonomousSystemInput } from './autonomous-system.resolver';
 @Injectable()
 export class AutonomousSystemService {
   private readonly index = 'autonomous-systems';
@@ -13,7 +13,7 @@ export class AutonomousSystemService {
     });
   }
   async searchWithFilters(
-    searchParams: Partial<CreateAutonomousSystemInput>,
+    searchParams: SearchAutonomousSystemInput,
     from: number = 0,
     size: number = 10
   ): Promise<any> {

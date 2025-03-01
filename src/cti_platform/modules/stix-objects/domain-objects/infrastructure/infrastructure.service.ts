@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { v4 as uuidv4 } from 'uuid';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateInfrastructureInput, UpdateInfrastructureInput } from './infrastructure.input';
-
+import { SearchInfrastructureInput } from './infrastructure.resolver';
 @Injectable()
 export class InfrastructureService {
   private readonly index = 'infrastructures'; // OpenSearch index name
@@ -97,7 +97,7 @@ export class InfrastructureService {
   }
 
   // Dynamic Search with Filters
-  async searchInfrastructureWithFilters(filters: Partial<CreateInfrastructureInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchInfrastructureWithFilters(filters: SearchInfrastructureInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateGroupingInput, UpdateGroupingInput } from './grouping.input';
-
+import { SearchGroupingInput } from './grouping.resolver';
 @Injectable()
 export class GroupingService {
   private readonly index = 'groupings'; // OpenSearch index name
@@ -99,7 +99,7 @@ export class GroupingService {
   }
 
   // 📌 Search Groupings with Filters (Dynamic Search)
-  async searchWithFilters(filters: Partial<CreateGroupingInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchWithFilters(filters: SearchGroupingInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

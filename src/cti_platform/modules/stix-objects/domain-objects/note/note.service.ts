@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { CreateNoteInput, UpdateNoteInput } from './note.input';
 import { v4 as uuidv4 } from 'uuid';
-
+import { SearchNoteInput } from './note.resolver';
 @Injectable()
 export class NoteService {
   private readonly index = 'notes'; // OpenSearch index name
@@ -97,7 +97,7 @@ export class NoteService {
   }
 
   // Search Notes with Filters
-  async searchNoteWithFilters(filters: Partial<CreateNoteInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchNoteWithFilters(filters: SearchNoteInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

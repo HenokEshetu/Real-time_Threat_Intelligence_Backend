@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { HashesInput, Hashes, Dictionary } from '../../../../core/types/common-data-types';
+import { HashesInput, Dictionary } from '../../../../core/types/common-data-types';
 import GraphQLJSON from 'graphql-type-json';
 import {  CyberObservableCommonInput } from '../../../../core/types/common-data-types';
 @InputType()
@@ -17,7 +17,7 @@ class AlternateDataStreamInput extends CyberObservableCommonInput{
   name: string;
 
   @Field(() =>HashesInput, { nullable: true })
-  hashes?: Hashes;
+  hashes?: HashesInput[];
 
   @Field(() => Number, { nullable: true })
   size?: number;
@@ -95,13 +95,13 @@ class WindowsPESectionInput extends CyberObservableCommonInput{
   entropy?: number;
 
   @Field(() => HashesInput, { nullable: true })
-  hashes?: Hashes;
+  hashes?: HashesInput[];
 }
 
 @InputType()
 export class CreateFileInput extends CyberObservableCommonInput {
   @Field(() => HashesInput, { nullable: true })
-  hashes?: Hashes;
+  hashes?: HashesInput[];
 
   @Field(() => Number, { nullable: true })
   size?: number;

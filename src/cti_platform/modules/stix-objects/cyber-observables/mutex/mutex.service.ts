@@ -3,7 +3,7 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateMutexInput, UpdateMutexInput } from './mutex.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { v4 as uuidv4 } from 'uuid';
-
+import { SearchMutexInput } from './mutex.resolver';
 @Injectable()
 export class MutexService {
   private readonly index = 'mutexes'; // Define OpenSearch index for mutexes
@@ -129,7 +129,7 @@ export class MutexService {
   }
 
 
-  async searchWithFilters(from: number = 0, size: number = 10, filters: Partial<CreateMutexInput> = {}): Promise<any[]> {
+  async searchWithFilters(from: number = 0, size: number = 10, filters: SearchMutexInput): Promise<any[]> {
     try {
       const mustClauses: any[] = [];
   

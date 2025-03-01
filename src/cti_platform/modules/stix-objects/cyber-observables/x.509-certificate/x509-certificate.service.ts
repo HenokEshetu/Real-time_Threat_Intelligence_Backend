@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateX509CertificateInput, UpdateX509CertificateInput } from './x509-certificate.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
-
+import { SearchX509CertificateInput } from './x509-certificate.resolver';
 @Injectable()
 export class X509CertificateService {
   private readonly opensearchClient: Client;
@@ -46,7 +46,7 @@ export class X509CertificateService {
    * Find all certificates with optional filters and pagination
    */
   async searchWithFilters(
-    filters?: Partial<CreateX509CertificateInput | UpdateX509CertificateInput>,
+    filters?: SearchX509CertificateInput,
     from: number = 0,
     size: number = 10
   ): Promise<any[]> {

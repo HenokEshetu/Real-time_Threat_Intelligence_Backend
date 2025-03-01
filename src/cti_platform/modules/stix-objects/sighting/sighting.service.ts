@@ -3,6 +3,7 @@ import { Client } from '@opensearch-project/opensearch';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateSightingInput, UpdateSightingInput } from './sighting.input';
 import { StixValidationError } from '../../../core/exception/custom-exceptions';
+import { SearchSightingInput } from './sighting.resolver';
 
 @Injectable()
 export class SightingService {
@@ -106,7 +107,7 @@ export class SightingService {
   }
 
   //  Advanced search with filters
-  async searchSightingWithFilters(filters: Partial<CreateSightingInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchSightingWithFilters(filters: SearchSightingInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

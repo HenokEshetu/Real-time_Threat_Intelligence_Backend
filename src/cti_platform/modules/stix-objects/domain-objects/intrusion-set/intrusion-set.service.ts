@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateIntrusionSetInput, UpdateIntrusionSetInput } from './intrusion-set.input';
-
+import { SearchIntrusionSetInput } from './intrusion-set.resolver';
 @Injectable()
 export class IntrusionSetService {
   private readonly index = 'intrusion-sets'; // OpenSearch index name
@@ -98,7 +98,7 @@ export class IntrusionSetService {
   }
 
   // Search IntrusionSets with Filters
-  async searchIntrusionSetWithFilters(filters: Partial<CreateIntrusionSetInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchIntrusionSetWithFilters(filters: SearchIntrusionSetInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

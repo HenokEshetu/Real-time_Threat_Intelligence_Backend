@@ -4,7 +4,7 @@ import { StixRelationship } from './relationship.entity';
 import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
 import { StixValidationError } from '../../../core/exception/custom-exceptions';
 import { v4 as uuidv4 } from 'uuid';
-
+import { SearchRelationshipInput } from './relationship.resolver';
 @Injectable()
 export class RelationshipService {
   private client: Client;
@@ -82,7 +82,7 @@ const relationship: StixRelationship = {
   }
   
   
-  async searchWithFilters(filters: Partial<CreateRelationshipInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchWithFilters(filters: SearchRelationshipInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

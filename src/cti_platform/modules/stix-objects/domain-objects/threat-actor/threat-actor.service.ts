@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { CreateThreatActorInput, UpdateThreatActorInput } from './threat-actor.input';
 import { v4 as uuidv4 } from 'uuid';
-
+import { SearchThreatActorInput } from './threat-actor.resolver';
 @Injectable()
 export class ThreatActorService {
   private readonly index = 'threat-actors'; // OpenSearch index name
@@ -98,7 +98,7 @@ export class ThreatActorService {
   }
 
   //  Advanced Search with Dynamic Filters
-  async searchThreatActorWithFilters(filters: Partial<CreateThreatActorInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchThreatActorWithFilters(filters: SearchThreatActorInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

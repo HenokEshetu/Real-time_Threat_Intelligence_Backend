@@ -3,8 +3,8 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateArtifactInput, UpdateArtifactInput } from './artifact.input';
 import { v4 as uuidv4 } from 'uuid';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
-import { InternalServerErrorException } from '@nestjs/common';
-import { Artifact } from './artifact.entity';
+import { InternalServerErrorException } from '@nestjs/common'
+import { SearchArtifactInput } from './artifact.resolver';
 @Injectable()
 export class ArtifactService {
   private readonly index = 'artifacts';
@@ -30,7 +30,7 @@ export class ArtifactService {
   }
 
   async searchWithFilters(
-    searchParams: Partial<CreateArtifactInput>, 
+    searchParams: SearchArtifactInput, 
     from: number = 0, 
     size: number = 10
   ): Promise<any> {

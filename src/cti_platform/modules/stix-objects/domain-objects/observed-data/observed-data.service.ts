@@ -2,7 +2,7 @@ import { Injectable,  InternalServerErrorException } from '@nestjs/common';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateObservedDataInput, UpdateObservedDataInput } from './observed-data.input';
 import { v4 as uuidv4 } from 'uuid';
-
+import { SearchObservedDataInput } from './observed-data.resolver';
 @Injectable()
 export class ObservedDataService {
   private readonly index = 'observed-data';
@@ -31,7 +31,7 @@ export class ObservedDataService {
     return observedData;
   }
 
-  async searchObservedDataWithFilters(filters: Record<string, any>, page = 1, pageSize = 10): Promise<any> {
+  async searchObservedDataWithFilters(filters: SearchObservedDataInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const mustQueries = [];
       const shouldQueries = [];

@@ -23,7 +23,7 @@ export class Artifact extends CyberObservableCommonProperties {
 
   @Field(() => Hashes, { nullable: true })
  
-  hashes?: Hashes;
+  hashes?: Hashes[];
 
   @Field(() => Number, { nullable: true })
  

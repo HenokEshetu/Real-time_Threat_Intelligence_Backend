@@ -45,7 +45,7 @@ export class IdentityResolver {
 
   //  Delete a Course of Action
   @Mutation(() => Boolean)
-  async deleteIdentity(@Args('id') id: string): Promise<boolean> {
+  async removeIdentity(@Args('id') id: string): Promise<boolean> {
     return this.identityService.remove(id);
   }
 

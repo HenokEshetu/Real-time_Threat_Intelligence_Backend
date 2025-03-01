@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { CreateIPv4AddressInput, UpdateIPv4AddressInput } from './ipv4-address.input';
 import { IPv4Address } from './ipv4-address.entity';
+import { SearchIPv4AddressInput } from './ipv4-address.resolver';
 @Injectable()
 export class IPv4AddressService {
   private readonly index = 'ipv4-addresses'; // OpenSearch index name
@@ -160,7 +161,7 @@ export class IPv4AddressService {
     }
   }
   async searchWithFilters(
-    searchParams: Partial< CreateIPv4AddressInput>, // Filters passed by the user
+    searchParams: SearchIPv4AddressInput, // Filters passed by the user
     page: number = 1,
     pageSize: number = 10
   ): Promise<any> {

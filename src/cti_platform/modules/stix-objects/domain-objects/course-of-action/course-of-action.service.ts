@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateCourseOfActionInput, UpdateCourseOfActionInput } from './course-of-action.input';
-
+import { SearchCourseOfActionInput } from './course-of-action.resolver';
 @Injectable()
 export class CourseOfActionService {
   private readonly index = 'course-of-actions'; // OpenSearch index name
@@ -99,7 +99,7 @@ export class CourseOfActionService {
   }
 
   // 🔎 Search with dynamic filters
-  async searchWithFilters(filters: Partial<CreateCourseOfActionInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchWithFilters(filters: SearchCourseOfActionInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

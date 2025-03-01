@@ -2,10 +2,6 @@ import { Resolver, Query, InputType, Mutation, Args } from '@nestjs/graphql';
 import { IntrusionSetService } from './intrusion-set.service';
 import { CreateIntrusionSetInput, UpdateIntrusionSetInput } from './intrusion-set.input';
 import { IntrusionSet } from './intrusion-set.entity';
-
-
-
-
 import { PartialType } from '@nestjs/graphql';
 
 @InputType()
@@ -39,7 +35,7 @@ export class IntrusionSetResolver {
   }
 
   @Mutation(() => Boolean)
-  async deleteIntrusionSet(@Args('id') id: string) {
+  async removeIntrusionSet(@Args('id') id: string) {
     return this.intrusionSetService.remove(id);
   }
 

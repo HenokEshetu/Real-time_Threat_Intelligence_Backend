@@ -12,7 +12,7 @@ export class CreateArtifactInput extends CyberObservableCommonInput {
   url?: string;
 
   @Field(() => HashesInput, { nullable: true })
-  hashes?:Hashes[];
+  hashes?:HashesInput[];
 
   @Field(() => Number, { nullable: true })
   encryption_algorithm?: number;

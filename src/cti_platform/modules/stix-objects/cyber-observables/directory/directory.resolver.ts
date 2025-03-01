@@ -1,4 +1,4 @@
-import { Resolver,InputType,  Int, Query, Mutation, Args } from '@nestjs/graphql';
+import { Resolver,InputType, Query, Mutation, Args } from '@nestjs/graphql';
 import { DirectoryService } from './directory.service';
 import{InternalServerErrorException} from '@nestjs/common'
 import { Directory } from './directory.entity';

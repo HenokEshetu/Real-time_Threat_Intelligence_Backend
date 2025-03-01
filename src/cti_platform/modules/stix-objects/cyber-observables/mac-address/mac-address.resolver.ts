@@ -24,7 +24,7 @@ export class MACAddressResolver {
 async searchMACAddresses(
   @Args('from', { type: () => Number, nullable: true }) from?: number,
   @Args('size', { type: () => Number, nullable: true }) size?: number,
-  @Args('filter', { type: () => SearchMACAddressInput, nullable: true }) filter?: SearchMACAddressInput,
+  @Args('filter', { type: () => SearchMACAddressInput, nullable: true }) filter?: Partial<SearchMACAddressInput>,
 ): Promise<MACAddress[]> {
   return this.macAddressService.searchWithFilters(from ?? 0, size ?? 10, filter ?? {});
 }

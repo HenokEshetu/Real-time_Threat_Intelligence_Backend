@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { CreateLocationInput, UpdateLocationInput } from './location.input';
 import { v4 as uuidv4 } from 'uuid';
-
+import { SearchLocationInput } from './location.resolver';
 @Injectable()
 export class LocationService {
   private readonly index = 'locations'; // OpenSearch index name
@@ -98,7 +98,7 @@ export class LocationService {
   }
 
   // Search locations with filters
-  async searchLocationWithFilters(filters: Partial<CreateLocationInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchLocationWithFilters(filters: SearchLocationInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];
