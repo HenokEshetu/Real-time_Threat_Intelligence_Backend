@@ -3,6 +3,7 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateIPv6AddressInput, UpdateIPv6AddressInput } from './ipv6-address.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { IPv6Address } from './ipv6-address.entity';
+import { SearchIPv6AddressInput } from './ipv6-address.resolver';
 @Injectable()
 export class IPv6AddressService {
   private readonly index = 'ipv6-addresses'; // Set your OpenSearch index name here
@@ -125,7 +126,7 @@ export class IPv6AddressService {
   }
 
   async searchWithFilters(
-    searchParams: Partial<CreateIPv6AddressInput>, // Filters passed by the user
+    searchParams: SearchIPv6AddressInput, // Filters passed by the user
     page: number = 1,
     pageSize: number = 10
   ): Promise<any> {

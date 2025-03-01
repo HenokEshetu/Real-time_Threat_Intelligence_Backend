@@ -40,7 +40,7 @@ export class CampaignResolver {
   
     // Delete Attack Pattern
     @Mutation(() => Boolean)
-    async deleteCampaign(@Args('id') id: string): Promise<boolean> {
+    async removeCampaign(@Args('id') id: string): Promise<boolean> {
       return this.campaignService.remove(id);
     }
   

@@ -39,7 +39,7 @@ export class AttackPatternResolver {
 
   // Delete Attack Pattern
   @Mutation(() => Boolean)
-  async deleteAttackPattern(@Args('id') id: string): Promise<boolean> {
+  async removeAttackPattern(@Args('id') id: string): Promise<boolean> {
     return this.attackPatternService.remove(id);
   }
 

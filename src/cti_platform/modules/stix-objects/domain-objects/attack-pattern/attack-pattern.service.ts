@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { v4 as uuidv4 } from 'uuid';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateAttackPatternInput, UpdateAttackPatternInput } from './attack-pattern.input';
-
+import { SearchAttackPatternInput } from './attack-pattern.resolver';
 @Injectable()
 export class AttackPatternService {
   private readonly index = 'attack-patterns'; // OpenSearch index name
@@ -102,7 +102,7 @@ export class AttackPatternService {
   }
 
 
-  async searchWithFilters(filters: Partial<CreateAttackPatternInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchWithFilters(filters: SearchAttackPatternInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

@@ -46,7 +46,7 @@ export class CourseOfActionResolver {
 
   // 📌 Delete a Course of Action
   @Mutation(() => Boolean)
-  async deleteCourseOfAction(@Args('id') id: string): Promise<boolean> {
+  async removeCourseOfAction(@Args('id') id: string): Promise<boolean> {
     return this.courseOfActionService.remove(id);
   }
 

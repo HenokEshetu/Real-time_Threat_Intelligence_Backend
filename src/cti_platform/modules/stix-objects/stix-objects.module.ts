@@ -79,9 +79,25 @@ import { VulnerabilityService } from './domain-objects/vulnerability/vulnerabili
 import { VulnerabilityResolver } from './domain-objects/vulnerability/vulnerability.resolver';
 import { SightingService } from './sighting/sighting.service';
 import { SightingResolver } from './sighting/sighting.resolver';
-
+import { ConfigModule } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
+import { Client } from '@opensearch-project/opensearch';
+import opensearchConfig from 'src/cti_platform/config/opensearch.config';
 @Module({
-  providers: [
+  imports: [// Global Configuration
+        ConfigModule.forRoot({
+          load: [opensearchConfig],
+        }),],
+  providers:[
+    {
+      provide: 'OPENSEARCH_CLIENT',
+      useFactory: (configService: ConfigService) => {
+        const opensearchHost = configService.get<string>('OPENSEARCH_HOST', 'http://localhost:9200');
+        console.log(`[OpenSearch] Connecting to: ${opensearchHost}`);
+        return new Client({ node: opensearchHost });
+      },
+      inject: [ConfigService],
+    },
     BundleService, BundleResolver,
     ArtifactService, ArtifactResolver,
     AutonomousSystemService, AutonomousSystemResolver,
@@ -122,7 +138,7 @@ import { SightingResolver } from './sighting/sighting.resolver';
     ToolService, ToolResolver,
     VulnerabilityService, VulnerabilityResolver,
     SightingResolver, SightingService,
-  ]
-  
+  ],
+  exports: ['OPENSEARCH_CLIENT'],
 })
 export class StixObjectsModule {}

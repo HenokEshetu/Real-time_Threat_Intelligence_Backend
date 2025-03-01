@@ -7,16 +7,14 @@ input AlternateDataStreamInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   size: Float
   spec_version: String!
@@ -30,16 +28,14 @@ type Artifact {
   decryption_key: String
   defanged: Boolean
   encryption_algorithm: Float
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   hashes: Hashes
   id: ID!
   labels: [String!]
   lang: String
   mime_type: String
   modified: String!
-  object_marking_refs: [String!]
   payload_bin: String
   revoked: Boolean
   spec_version: String!
@@ -53,16 +49,14 @@ type AttackPattern {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   kill_chain_phases: [KillChainPhase!]
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -70,20 +64,23 @@ type AttackPattern {
   version: String
 }
 
+type AuthResponse {
+  message: String
+  success: Boolean!
+}
+
 type AutonomousSystem {
   confidence: Float
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   rir: String
   spec_version: String!
@@ -102,22 +99,25 @@ type Campaign {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   objective: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
   type: String!
+}
+
+input ChangePasswordDto {
+  newPassword: String!
+  oldPassword: String!
 }
 
 type CourseOfAction {
@@ -129,15 +129,13 @@ type CourseOfAction {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -151,16 +149,14 @@ input CreateArtifactInput {
   decryption_key: String
   defanged: Boolean
   encryption_algorithm: Float
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID!
   labels: [String!]
   lang: String
   mime_type: String
   modified: String!
-  object_marking_refs: [String!]
   payload_bin: String
   revoked: Boolean
   spec_version: String!
@@ -175,16 +171,14 @@ input CreateAttackPatternInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -196,16 +190,14 @@ input CreateAutonomousSystemInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String
   number: Int!
-  object_marking_refs: [String!]
   revoked: Boolean
   rir: String
   spec_version: String!
@@ -225,17 +217,15 @@ input CreateCampaignInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   objective: String
   revoked: Boolean
   spec_version: String!
@@ -252,15 +242,13 @@ input CreateCourseOfActionInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -274,15 +262,13 @@ input CreateDirectoryInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   mtime: DateTime
-  object_marking_refs: [String!]
   path: String!
   path_enc: String
   revoked: Boolean
@@ -295,14 +281,12 @@ input CreateDomainNameInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -317,14 +301,12 @@ input CreateEmailAddressInput {
   created_by_ref: String
   defanged: Boolean
   display_name: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -342,17 +324,15 @@ input CreateEmailMessageInput {
   created_by_ref: String
   date: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   from_ref: String
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   is_multipart: Boolean
   labels: [String!]
   lang: String
   message_id: String
   modified: String!
-  object_marking_refs: [String!]
   raw_email_ref: String
   received_lines: [String!]
   revoked: Boolean
@@ -372,9 +352,8 @@ input CreateFileInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID!
   labels: [String!]
@@ -386,7 +365,6 @@ input CreateFileInput {
   name: String
   name_enc: String
   ntfs_ext: NTFSFileExtensionInput
-  object_marking_refs: [String!]
   parent_directory_ref: [String!]
   pdf_ext: PDFFileExtensionInput
   raster_image_ext: RasterImageFileExtensionInput
@@ -405,15 +383,13 @@ input CreateGroupingInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -426,14 +402,12 @@ input CreateIPv4AddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -446,14 +420,12 @@ input CreateIPv6AddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String!
@@ -468,16 +440,14 @@ input CreateIdentityInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   identity_class: IdentityClass!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   roles: [String!]
   sectors: [IndustrySector!]
@@ -493,10 +463,9 @@ input CreateIncidentInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   incident_types: [String!]
   labels: [String!]
@@ -504,7 +473,6 @@ input CreateIncidentInput {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   severity: String
   source: String
@@ -519,9 +487,8 @@ input CreateIndicatorInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   indicator_types: [IndicatorType!]
   kill_chain_phases: [KillChainPhaseInput!]
@@ -529,7 +496,6 @@ input CreateIndicatorInput {
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   pattern: String!
   pattern_type: PatternType!
   pattern_version: String
@@ -547,10 +513,9 @@ input CreateInfrastructureInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   infrastructure_types: [InfrastructureType!]
   kill_chain_phases: [KillChainPhaseInput!]
@@ -559,7 +524,6 @@ input CreateInfrastructureInput {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -572,11 +536,10 @@ input CreateIntrusionSetInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
   goals: [String!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
@@ -584,7 +547,6 @@ input CreateIntrusionSetInput {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   primary_motivation: String
   resource_level: String
   revoked: Boolean
@@ -602,9 +564,8 @@ input CreateLocationInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
@@ -613,7 +574,6 @@ input CreateLocationInput {
   longitude: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   postal_code: String
   precision: String
   region: String
@@ -628,14 +588,12 @@ input CreateMACAddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -653,9 +611,8 @@ input CreateMalwareAnalysisInput {
   configuration_version: [String!]!
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   host_vm_ref: [String!]!
   id: ID!
   installed_software_ref: [String!]!
@@ -663,7 +620,6 @@ input CreateMalwareAnalysisInput {
   lang: String
   modified: String!
   modules: [String!]
-  object_marking_refs: [String!]
   operating_system_ref: [String!]!
   product: String!
   result: String!
@@ -684,10 +640,9 @@ input CreateMalwareInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   implementation_languages: [String!]
   is_family: Boolean!
@@ -698,7 +653,6 @@ input CreateMalwareInput {
   malware_types: [MalwareType!]!
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   operating_system_refs: [String!]
   revoked: Boolean
   sample_refs: String
@@ -711,15 +665,13 @@ input CreateMutexInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -738,16 +690,14 @@ input CreateNetworkTrafficInput {
   encapsulated_by_ref: String
   encapsulates_refs: [String!]
   end: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   ipfix: Boolean
   is_active: Boolean
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   protocols: [String!]
   revoked: Boolean
   spec_version: String!
@@ -769,14 +719,12 @@ input CreateNoteInput {
   content_type: String
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -788,17 +736,15 @@ input CreateObservedDataInput {
   confidence: Float
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_observed: DateTime!
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_observed: DateTime!
   modified: String!
   number_observed: Float!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -812,14 +758,12 @@ input CreateOpinionInput {
   created: String!
   created_by_ref: String
   explanation: String!
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   opinion: String!
   revoked: Boolean
@@ -839,16 +783,14 @@ input CreateProcessInput {
   cwd: String
   defanged: Boolean
   environment_variables: [String!]
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   image_ref: String
   is_hidden: Boolean
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   opened_connection_refs: [String!]
   parent_ref: String
   pid: Float
@@ -863,21 +805,19 @@ input CreateRelationshipInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
-  relationship_type: RelationshipType!
+  relationship_type: String!
   revoked: Boolean
-  source_ref: String!
+  source_ref: ID!
   spec_version: String!
-  start_time: String!
-  stop_time: String!
-  target_ref: String!
+  start_time: String
+  stop_time: String
+  target_ref: ID!
   type: String!
 }
 
@@ -888,15 +828,13 @@ input CreateReportInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   published: DateTime!
   report_types: [String!]!
@@ -911,16 +849,14 @@ input CreateSightingInput {
   created: String!
   created_by_ref: String
   detected: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime!
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime!
   modified: String!
-  object_marking_refs: [String!]
   observed_data_refs: [String!]
   revoked: Boolean
   sighting_of_ref: String!
@@ -936,16 +872,14 @@ input CreateSoftwareInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   languages: [String!]
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   swid: [String!]
@@ -961,18 +895,16 @@ input CreateThreatActorInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
   goals: [String!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   personal_motivations: String
   primary_motivation: Boolean
   resource_level: String
@@ -992,16 +924,14 @@ input CreateToolInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   tool_types: [ToolType!]!
@@ -1014,14 +944,12 @@ input CreateUrlInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1043,9 +971,8 @@ input CreateUserAccountInput {
   credential_last_changed: String
   defanged: Boolean
   display_name: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   is_disabled: Boolean
   is_privileged: Boolean
@@ -1053,11 +980,18 @@ input CreateUserAccountInput {
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
   user_id: String
+}
+
+input CreateUserDto {
+  email: String!
+  firstName: String!
+  lastName: String!
+  password: String!
+  username: String!
 }
 
 input CreateVulnerabilityInput {
@@ -1070,16 +1004,14 @@ input CreateVulnerabilityInput {
   cvss_v3_score: String
   cvss_v3_vector: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_modified_date: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   published_date: DateTime
   references: [String!]
   revoked: Boolean
@@ -1094,9 +1026,8 @@ input CreateWindowsRegistryKeyInput {
   created_by_ref: String
   creator_user_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   key: String
   labels: [String!]
@@ -1104,7 +1035,6 @@ input CreateWindowsRegistryKeyInput {
   modified: String!
   modified_time: String
   number_of_subkeys: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1116,9 +1046,8 @@ input CreateX509CertificateInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID!
   is_self_signed: Boolean
@@ -1126,7 +1055,6 @@ input CreateX509CertificateInput {
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   serial_number: String
   signature_algorithm: String
@@ -1155,15 +1083,13 @@ type Directory {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   mtime: DateTime
-  object_marking_refs: [String!]
   path: String!
   path_enc: String
   revoked: Boolean
@@ -1176,14 +1102,12 @@ type DomainName {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -1198,14 +1122,12 @@ type EmailAddress {
   created_by_ref: String
   defanged: Boolean
   display_name: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1221,14 +1143,12 @@ input EmailMIMEComponentInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1246,17 +1166,15 @@ type EmailMessage {
   created_by_ref: String
   date: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   from_ref: String
-  granular_markings: [GranularMarking!]
   id: ID!
   is_multipart: String
   labels: [String!]
   lang: String
   message_id: String
   modified: String!
-  object_marking_refs: [String!]
   raw_email_ref: String
   received_lines: [String!]
   revoked: Boolean
@@ -1270,7 +1188,6 @@ type EmailMessage {
 type ExternalReference {
   description: String
   external_id: String
-  hashes: Hashes
   id: ID!
   source_name: String!
   url: String
@@ -1294,9 +1211,8 @@ type File {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   hashes: Hashes
   id: ID!
   labels: [String!]
@@ -1308,7 +1224,6 @@ type File {
   name: String
   name_enc: String
   ntfs_ext: NTFSFileExtension
-  object_marking_refs: [String!]
   parent_directory_ref: [String!]
   pdf_ext: PDFFileExtension
   raster_image_ext: RasterImageFileExtension
@@ -1320,35 +1235,19 @@ type File {
   windows_pe_binary_ext: WindowsPEBinaryFileExtension
 }
 
-type GranularMarking {
-  id: ID!
-  lang: String
-  marking_ref: String
-  selectors: [String!]!
-}
-
-input GranularMarkingInput {
-  id: ID!
-  lang: String
-  marking_ref: String
-  selectors: [String!]!
-}
-
 type Grouping {
   confidence: Float
   context: String!
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
@@ -1376,14 +1275,12 @@ type IPv4Address {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String!
@@ -1396,14 +1293,12 @@ type IPv6Address {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String!
@@ -1417,16 +1312,14 @@ type Identity {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   identity_class: IdentityClass!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   roles: [String!]
@@ -1451,10 +1344,9 @@ type Incident {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
-  granular_markings: [GranularMarking!]
   id: ID!
   incident_types: [String!]
   labels: [String!]
@@ -1462,7 +1354,6 @@ type Incident {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   severity: String
@@ -1478,9 +1369,8 @@ type Indicator {
   created_by_ref: String
   default: PatternType!
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   indicator_types: [IndicatorType!]
   kill_chain_phases: [KillChainPhase!]
@@ -1488,7 +1378,6 @@ type Indicator {
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   pattern: String!
   pattern_version: String
   relationship: [RelationshipCommonProperties!]
@@ -1544,10 +1433,9 @@ type Infrastructure {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
-  granular_markings: [GranularMarking!]
   id: ID!
   infrastructure_types: [InfrastructureType!]
   kill_chain_phases: [KillChainPhase!]
@@ -1556,7 +1444,6 @@ type Infrastructure {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -1583,11 +1470,10 @@ type IntrusionSet {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
   goals: [String!]
-  granular_markings: [GranularMarking!]
   id: ID!
   kill_chain_phases: [KillChainPhase!]
   labels: [String!]
@@ -1595,7 +1481,6 @@ type IntrusionSet {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   primary_motivation: String
   relationship: [RelationshipCommonProperties!]
   resource_level: String
@@ -1609,6 +1494,11 @@ type IntrusionSet {
 The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
 """
 scalar JSON
+
+"""
+The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
+"""
+scalar JSONObject @specifiedBy(url: "http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf")
 
 type KillChainPhase {
   id: ID!
@@ -1631,9 +1521,8 @@ type Location {
   created_by_ref: String
   default: LocationType!
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
@@ -1641,7 +1530,6 @@ type Location {
   longitude: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   postal_code: String
   precision: String
   region: String
@@ -1663,19 +1551,27 @@ enum LocationType {
   UNKNOWN
 }
 
+input LoginDto {
+  email: String!
+  password: String!
+}
+
+type LoginResponse {
+  access_token: String!
+  user: User!
+}
+
 type MACAddress {
   confidence: Float
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1690,10 +1586,9 @@ type Malware {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
-  granular_markings: [GranularMarking!]
   id: ID!
   implementation_languages: [String!]
   is_family: Boolean!
@@ -1704,7 +1599,6 @@ type Malware {
   malware_types: [MalwareType!]!
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   operating_system_refs: [String!]
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
@@ -1723,9 +1617,8 @@ type MalwareAnalysis {
   configuration_version: [String!]!
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   host_vm_ref: [String!]!
   id: ID!
   installed_software_ref: [String!]!
@@ -1733,7 +1626,6 @@ type MalwareAnalysis {
   lang: String
   modified: String!
   modules: [String!]
-  object_marking_refs: [String!]
   operating_system_ref: [String!]!
   product: String!
   relationship: [RelationshipCommonProperties!]
@@ -1770,6 +1662,7 @@ enum MalwareType {
 }
 
 type Mutation {
+  changePassword(input: ChangePasswordDto!): AuthResponse!
   createArtifact(createArtifactInput: CreateArtifactInput!): Artifact!
   createAttackPattern(input: CreateAttackPatternInput!): AttackPattern!
   createAutonomousSystem(createAutonomousSystemInput: CreateAutonomousSystemInput!): AutonomousSystem!
@@ -1806,39 +1699,42 @@ type Mutation {
   createThreatActor(input: CreateThreatActorInput!): ThreatActor!
   createTool(createToolInput: CreateToolInput!): Tool!
   createUrl(createUrlInput: CreateUrlInput!): Url!
+  createUser(createUserInput: CreateUserDto!): User!
   createUserAccount(createUserAccountInput: CreateUserAccountInput!): UserAccount!
   createVulnerability(createVulnerabilityInput: CreateVulnerabilityInput!): Vulnerability!
   createWindowsRegistryKey(createWindowsRegistryKeyInput: CreateWindowsRegistryKeyInput!): WindowsRegistryKey!
   createX509Certificate(createX509CertificateInput: CreateX509CertificateInput!): X509Certificate!
-  deleteAttackPattern(id: String!): Boolean!
-  deleteCampaign(id: String!): Boolean!
-  deleteCourseOfAction(id: String!): Boolean!
-  deleteGrouping(id: String!): Boolean!
-  deleteIdentity(id: String!): Boolean!
-  deleteIncident(id: String!): Boolean!
-  deleteIndicator(id: String!): Boolean!
-  deleteIntrusionSet(id: String!): Boolean!
-  deleteNote(id: String!): Boolean!
-  deleteObservedData(id: String!): Boolean!
-  deleteOpinion(id: String!): Boolean!
   deleteSighting(id: String!): Boolean!
+  forgotPassword(input: forgotPasswordDto!): AuthResponse!
+  login(input: LoginDto!): LoginResponse!
   removeArtifact(id: String!): Boolean!
+  removeAttackPattern(id: String!): Boolean!
   removeAutonomousSystem(id: String!): Boolean!
   removeBundle(id: String!): Boolean!
+  removeCampaign(id: String!): Boolean!
+  removeCourseOfAction(id: String!): Boolean!
   removeDirectory(id: String!): Boolean!
   removeDomainName(id: String!): Boolean!
   removeEmailAddress(id: String!): Boolean!
   removeEmailMessage(id: String!): Boolean!
   removeFile(id: String!): Boolean!
+  removeGrouping(id: String!): Boolean!
   removeIPv4Address(id: String!): Boolean!
   removeIPv6Address(id: String!): Boolean!
+  removeIdentity(id: String!): Boolean!
+  removeIncident(id: String!): Boolean!
+  removeIndicator(id: String!): Boolean!
   removeInfrastructure(id: String!): Boolean!
+  removeIntrusionSet(id: String!): Boolean!
   removeLocation(id: String!): Boolean!
   removeMACAddress(id: String!): Boolean!
   removeMalware(id: String!): Boolean!
   removeMalwareAnalysis(id: String!): Boolean!
   removeMutex(id: String!): Boolean!
   removeNetworkTraffic(id: String!): Boolean!
+  removeNote(id: String!): Boolean!
+  removeObservedData(id: String!): Boolean!
+  removeOpinion(id: String!): Boolean!
   removeProcess(id: String!): Boolean!
   removeRelationship(id: String!): Boolean!
   removeReport(id: String!): Boolean!
@@ -1846,10 +1742,13 @@ type Mutation {
   removeThreatActor(id: String!): Boolean!
   removeTool(id: String!): Boolean!
   removeUrl(id: String!): Boolean!
+  removeUser(id: ID!): Boolean!
   removeUserAccount(id: String!): Boolean!
   removeVulnerability(id: String!): Boolean!
   removeWindowsRegistryKey(id: String!): Boolean!
   removeX509Certificate(id: String!): Boolean!
+  resetPassword(input: ResetPasswordDto!): AuthResponse!
+  signOut(input: SignOutDto!): AuthResponse!
   updateArtifact(id: String!, updateArtifactInput: UpdateArtifactInput!): Artifact!
   updateAttackPattern(id: String!, input: UpdateAttackPatternInput!): AttackPattern!
   updateAutonomousSystem(id: String!, updateAutonomousSystemInput: UpdateAutonomousSystemInput!): AutonomousSystem!
@@ -1886,6 +1785,7 @@ type Mutation {
   updateThreatActor(id: String!, input: UpdateThreatActorInput!): ThreatActor!
   updateTool(id: String!, updateToolInput: UpdateToolInput!): Tool!
   updateUrl(id: String!, updateUrlInput: UpdateUrlInput!): Url!
+  updateUser(id: ID!, updateUserInput: UpdateUserDto!): User!
   updateUserAccount(id: String!, updateUserAccountInput: UpdateUserAccountInput!): UserAccount!
   updateVulnerability(id: String!, updateVulnerabilityInput: UpdateVulnerabilityInput!): Vulnerability!
   updateWindowsRegistryKey(id: String!, updateWindowsRegistryKeyInput: UpdateWindowsRegistryKeyInput!): WindowsRegistryKey!
@@ -1897,15 +1797,13 @@ type Mutex {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1922,14 +1820,12 @@ input NTFSFileExtensionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   sid: String
   spec_version: String!
@@ -1949,16 +1845,14 @@ type NetworkTraffic {
   encapsulated_by_ref: String
   encapsulates_refs: String
   end: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   ipfix: Boolean
   is_active: Boolean
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   protocols: [String!]
   revoked: Boolean
   spec_version: String!
@@ -1979,14 +1873,12 @@ type Note {
   content_type: String
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
@@ -1998,17 +1890,15 @@ type ObservedData {
   confidence: Float
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   first_observed: DateTime!
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   last_observed: DateTime!
   modified: String!
   number_observed: Float!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
@@ -2022,14 +1912,12 @@ type Opinion {
   created: String!
   created_by_ref: String
   explanation: String!
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   opinion: String!
   relationship: [RelationshipCommonProperties!]
@@ -2052,15 +1940,13 @@ input PDFFileExtensionInput {
   created_by_ref: String
   defanged: Boolean
   document_info_dict: JSON
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   is_optimized: Boolean
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   pdfid0: String
   pdfid1: String
   revoked: Boolean
@@ -2078,6 +1964,13 @@ enum PatternType {
   YARA
 }
 
+type Permission {
+  description: String!
+  id: ID!
+  name: String!
+  roles: [Role!]!
+}
+
 type Process {
   arguments: JSON
   child_refs: [String!]
@@ -2090,16 +1983,14 @@ type Process {
   cwd: String
   defanged: Boolean
   environment_variables: [String!]
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   image_ref: [String!]
   is_hidden: Boolean
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   opened_connection_refs: Boolean
   parent_ref: [String!]
   pid: Float
@@ -2204,7 +2095,9 @@ type Query {
   serchBundle(page: Int! = 1, pageSize: Int! = 10, searchParams: SearchBundleInput): [Bundle!]!
   software(id: String!): Software!
   url(id: String!): Url!
+  user(id: ID!): User!
   userAccount(id: String!): UserAccount!
+  users: [User!]!
   windowsRegistryKey(id: String!): WindowsRegistryKey!
   x509Certificate(id: String!): X509Certificate!
   x509Certificates: [X509Certificate!]!
@@ -2224,16 +2117,14 @@ input RasterImageFileExtensionInput {
   created_by_ref: String
   defanged: Boolean
   exif_tags: JSON
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   image_height: Float
   image_width: Float
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -2244,21 +2135,19 @@ input RelationshipCommonInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
-  relationship_type: RelationshipType!
+  relationship_type: String!
   revoked: Boolean
-  source_ref: String!
+  source_ref: ID!
   spec_version: String!
-  start_time: String!
-  stop_time: String!
-  target_ref: String!
+  start_time: String
+  stop_time: String
+  target_ref: ID!
   type: String!
 }
 
@@ -2267,57 +2156,20 @@ type RelationshipCommonProperties {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   relationship_type: String!
   revoked: Boolean
   source_ref: ID!
   spec_version: String!
-  start_time: String!
-  stop_time: String!
+  start_time: String
+  stop_time: String
   target_ref: ID!
   type: String!
-}
-
-"""STIX Core Relationship Types"""
-enum RelationshipType {
-  ANALYSIS_OF
-  ATTRIBUTED_TO
-  BASED_ON
-  BELONGS_TO
-  CHARACTERIZES
-  COMMUNICATES_WITH
-  COMPROMISES
-  CONSISTS_OF
-  CONTROLS
-  DELIVERS
-  DERIVED_FROM
-  DOWNLOADS
-  DROPS
-  DUPLICATE_OF
-  DYNAMIC_ANALYSIS_OF
-  EXFILTRATE_TO
-  EXPLOITS
-  HAS
-  HOSTS
-  IMPERSONATES
-  INDICATES
-  INVESTIGATES
-  LOCATED_AT
-  MITIGATES
-  ORIGINATES_FROM
-  OWNS
-  RELATED_TO
-  STATIC_ANALYSIS_OF
-  TARGETS
-  USES
-  VARIANT_OF
 }
 
 type Report {
@@ -2326,15 +2178,13 @@ type Report {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   published: DateTime!
   relationship: [RelationshipCommonProperties!]
@@ -2344,6 +2194,20 @@ type Report {
   type: String!
 }
 
+input ResetPasswordDto {
+  email: String!
+  newPassword: String!
+  token: String!
+}
+
+type Role {
+  description: String!
+  id: ID!
+  name: String!
+  permissions: [Permission!]!
+  users: [User!]!
+}
+
 input SearchArtifactInput {
   confidence: Float
   created: String
@@ -2351,16 +2215,14 @@ input SearchArtifactInput {
   decryption_key: String
   defanged: Boolean
   encryption_algorithm: Float
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID
   labels: [String!]
   lang: String
   mime_type: String
   modified: String
-  object_marking_refs: [String!]
   payload_bin: String
   revoked: Boolean
   spec_version: String
@@ -2375,16 +2237,14 @@ input SearchAttackPatternInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
   lang: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2396,16 +2256,14 @@ input SearchAutonomousSystemInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
   name: String
   number: Int
-  object_marking_refs: [String!]
   revoked: Boolean
   rir: String
   spec_version: String
@@ -2425,17 +2283,15 @@ input SearchCampaignInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String
   name: String
-  object_marking_refs: [String!]
   objective: String
   revoked: Boolean
   spec_version: String
@@ -2452,15 +2308,13 @@ input SearchCourseOfActionInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2474,15 +2328,13 @@ input SearchDirectoryInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
   mtime: DateTime
-  object_marking_refs: [String!]
   path: String
   path_enc: String
   revoked: Boolean
@@ -2495,14 +2347,12 @@ input SearchDomainNameInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -2517,14 +2367,12 @@ input SearchEmailAddressInput {
   created_by_ref: String
   defanged: Boolean
   display_name: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2542,17 +2390,15 @@ input SearchEmailMessageInput {
   created_by_ref: String
   date: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   from_ref: String
-  granular_markings: [GranularMarkingInput!]
   id: ID
   is_multipart: Boolean
   labels: [String!]
   lang: String
   message_id: String
   modified: String
-  object_marking_refs: [String!]
   raw_email_ref: String
   received_lines: [String!]
   revoked: Boolean
@@ -2572,9 +2418,8 @@ input SearchFileInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID
   labels: [String!]
@@ -2586,7 +2431,6 @@ input SearchFileInput {
   name: String
   name_enc: String
   ntfs_ext: NTFSFileExtensionInput
-  object_marking_refs: [String!]
   parent_directory_ref: [String!]
   pdf_ext: PDFFileExtensionInput
   raster_image_ext: RasterImageFileExtensionInput
@@ -2605,15 +2449,13 @@ input SearchGroupingInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   object_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -2626,14 +2468,12 @@ input SearchIPv4AddressInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -2646,14 +2486,12 @@ input SearchIPv6AddressInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String
@@ -2668,16 +2506,14 @@ input SearchIdentityInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   identity_class: IdentityClass
   labels: [String!]
   lang: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   roles: [String!]
   sectors: [IndustrySector!]
@@ -2693,10 +2529,9 @@ input SearchIncidentInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID
   incident_types: [String!]
   labels: [String!]
@@ -2704,7 +2539,6 @@ input SearchIncidentInput {
   last_seen: DateTime
   modified: String
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   severity: String
   source: String
@@ -2719,9 +2553,8 @@ input SearchIndicatorInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   indicator_types: [IndicatorType!]
   kill_chain_phases: [KillChainPhaseInput!]
@@ -2729,7 +2562,6 @@ input SearchIndicatorInput {
   lang: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   pattern: String
   pattern_type: PatternType
   pattern_version: String
@@ -2747,11 +2579,10 @@ input SearchIntrusionSetInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
   goals: [String!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
@@ -2759,7 +2590,6 @@ input SearchIntrusionSetInput {
   last_seen: DateTime
   modified: String
   name: String
-  object_marking_refs: [String!]
   primary_motivation: String
   resource_level: String
   revoked: Boolean
@@ -2777,9 +2607,8 @@ input SearchLocationInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
@@ -2788,7 +2617,6 @@ input SearchLocationInput {
   longitude: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   postal_code: String
   precision: String
   region: String
@@ -2803,14 +2631,12 @@ input SearchMACAddressInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2828,9 +2654,8 @@ input SearchMalwareAnalysisInput {
   configuration_version: [String!]
   created: String
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   host_vm_ref: [String!]
   id: ID
   installed_software_ref: [String!]
@@ -2838,7 +2663,6 @@ input SearchMalwareAnalysisInput {
   lang: String
   modified: String
   modules: [String!]
-  object_marking_refs: [String!]
   operating_system_ref: [String!]
   product: String
   result: String
@@ -2859,10 +2683,9 @@ input SearchMalwareInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID
   implementation_languages: [String!]
   is_family: Boolean
@@ -2873,7 +2696,6 @@ input SearchMalwareInput {
   malware_types: [MalwareType!]
   modified: String
   name: String
-  object_marking_refs: [String!]
   operating_system_refs: [String!]
   revoked: Boolean
   sample_refs: String
@@ -2886,15 +2708,13 @@ input SearchMutexInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2913,16 +2733,14 @@ input SearchNetworkTrafficInput {
   encapsulated_by_ref: String
   encapsulates_refs: [String!]
   end: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   ipfix: Boolean
   is_active: Boolean
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   protocols: [String!]
   revoked: Boolean
   spec_version: String
@@ -2940,17 +2758,15 @@ input SearchObservedDataInput {
   confidence: Float
   created: String
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_observed: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   last_observed: DateTime
   modified: String
   number_observed: Float
-  object_marking_refs: [String!]
   object_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -2964,14 +2780,12 @@ input SearchOpinionInput {
   created: String
   created_by_ref: String
   explanation: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   object_refs: [String!]
   opinion: String
   revoked: Boolean
@@ -2984,21 +2798,19 @@ input SearchRelationshipInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
-  relationship_type: RelationshipType
+  relationship_type: String
   revoked: Boolean
-  source_ref: String
+  source_ref: ID
   spec_version: String
   start_time: String
   stop_time: String
-  target_ref: String
+  target_ref: ID
   type: String
 }
 
@@ -3009,15 +2821,13 @@ input SearchReportInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   object_refs: [String!]
   published: DateTime
   report_types: [String!]
@@ -3032,16 +2842,14 @@ input SearchSightingInput {
   created: String
   created_by_ref: String
   detected: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String
-  object_marking_refs: [String!]
   observed_data_refs: [String!]
   revoked: Boolean
   sighting_of_ref: String
@@ -3058,18 +2866,16 @@ input SearchThreatActorInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
   goals: [String!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String
   name: String
-  object_marking_refs: [String!]
   personal_motivations: String
   primary_motivation: Boolean
   resource_level: String
@@ -3089,16 +2895,14 @@ input SearchToolInput {
   created: String
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
   lang: String
   modified: String
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   tool_types: [ToolType!]
@@ -3111,14 +2915,12 @@ input SearchUrlInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -3140,9 +2942,8 @@ input SearchUrlUserAccountInput {
   credential_last_changed: String
   defanged: Boolean
   display_name: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   is_disabled: Boolean
   is_privileged: Boolean
@@ -3150,7 +2951,6 @@ input SearchUrlUserAccountInput {
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -3167,16 +2967,14 @@ input SearchVulnerabilityInput {
   cvss_v3_score: String
   cvss_v3_vector: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID
   labels: [String!]
   lang: String
   last_modified_date: DateTime
   modified: String
   name: String
-  object_marking_refs: [String!]
   published_date: DateTime
   references: [String!]
   revoked: Boolean
@@ -3190,9 +2988,8 @@ input SearchX509CertificateInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID
   is_self_signed: Boolean
@@ -3200,7 +2997,6 @@ input SearchX509CertificateInput {
   labels: [String!]
   lang: String
   modified: String
-  object_marking_refs: [String!]
   revoked: Boolean
   serial_number: String
   signature_algorithm: String
@@ -3222,16 +3018,14 @@ type Sighting {
   created: String!
   created_by_ref: String
   detected: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime!
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime!
   modified: String!
-  object_marking_refs: [String!]
   observed_data_refs: [String!]
   revoked: Boolean
   sighting_of_ref: String!
@@ -3241,22 +3035,24 @@ type Sighting {
   where_sighted_refs: [String!]
 }
 
+input SignOutDto {
+  token: String!
+}
+
 type Software {
   confidence: Float
   cpe: String
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   languages: [String!]
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   swid: [String!]
@@ -3270,20 +3066,18 @@ type StixRelationship {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   relationship_type: String!
   revoked: Boolean
   source_ref: ID!
   spec_version: String!
-  start_time: String!
-  stop_time: String!
+  start_time: String
+  stop_time: String
   target_ref: ID!
   type: String!
 }
@@ -3294,18 +3088,16 @@ type ThreatActor {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
   goals: [String!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   personal_motivations: String
   primary_motivation: Boolean
   relationship: [RelationshipCommonProperties!]
@@ -3340,16 +3132,14 @@ type Tool {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   kill_chain_phases: [KillChainPhase!]
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -3380,16 +3170,14 @@ input UnixFileExtensionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   group_id: String
   id: ID!
   labels: [String!]
   lang: String
   mode: Float
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3403,16 +3191,14 @@ input UpdateArtifactInput {
   decryption_key: String
   defanged: Boolean
   encryption_algorithm: Float
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID!
   labels: [String!]
   lang: String
   mime_type: String
   modified: String!
-  object_marking_refs: [String!]
   payload_bin: String
   revoked: Boolean
   spec_version: String!
@@ -3427,16 +3213,14 @@ input UpdateAttackPatternInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3448,16 +3232,14 @@ input UpdateAutonomousSystemInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String
   number: Int
-  object_marking_refs: [String!]
   revoked: Boolean
   rir: String
   spec_version: String!
@@ -3477,17 +3259,15 @@ input UpdateCampaignInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   objective: String
   revoked: Boolean
   spec_version: String!
@@ -3504,15 +3284,13 @@ input UpdateCourseOfActionInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3526,15 +3304,13 @@ input UpdateDirectoryInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   mtime: DateTime
-  object_marking_refs: [String!]
   path: String
   path_enc: String
   revoked: Boolean
@@ -3547,14 +3323,12 @@ input UpdateDomainNameInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -3569,14 +3343,12 @@ input UpdateEmailAddressInput {
   created_by_ref: String
   defanged: Boolean
   display_name: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3594,17 +3366,15 @@ input UpdateEmailMessageInput {
   created_by_ref: String
   date: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   from_ref: String
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   is_multipart: Boolean
   labels: [String!]
   lang: String
   message_id: String
   modified: String!
-  object_marking_refs: [String!]
   raw_email_ref: String
   received_lines: [String!]
   revoked: Boolean
@@ -3624,9 +3394,8 @@ input UpdateFileInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID!
   labels: [String!]
@@ -3638,7 +3407,6 @@ input UpdateFileInput {
   name: String
   name_enc: String
   ntfs_ext: NTFSFileExtensionInput
-  object_marking_refs: [String!]
   parent_directory_ref: [String!]
   pdf_ext: PDFFileExtensionInput
   raster_image_ext: RasterImageFileExtensionInput
@@ -3657,15 +3425,13 @@ input UpdateGroupingInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -3678,14 +3444,12 @@ input UpdateIPv4AddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -3698,14 +3462,12 @@ input UpdateIPv6AddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String!
@@ -3720,16 +3482,14 @@ input UpdateIdentityInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   identity_class: IdentityClass!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   roles: [String!]
   sectors: [IndustrySector!]
@@ -3745,10 +3505,9 @@ input UpdateIncidentInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   incident_types: [String!]
   labels: [String!]
@@ -3756,7 +3515,6 @@ input UpdateIncidentInput {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   severity: String
   source: String
@@ -3771,9 +3529,8 @@ input UpdateIndicatorInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   indicator_types: [IndicatorType!]
   kill_chain_phases: [KillChainPhaseInput!]
@@ -3781,7 +3538,6 @@ input UpdateIndicatorInput {
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   pattern: String!
   pattern_type: PatternType!
   pattern_version: String
@@ -3799,10 +3555,9 @@ input UpdateInfrastructureInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   infrastructure_types: [InfrastructureType!]
   kill_chain_phases: [KillChainPhaseInput!]
@@ -3811,7 +3566,6 @@ input UpdateInfrastructureInput {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3824,11 +3578,10 @@ input UpdateIntrusionSetInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
   goals: [String!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
@@ -3836,7 +3589,6 @@ input UpdateIntrusionSetInput {
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   primary_motivation: String
   resource_level: String
   revoked: Boolean
@@ -3854,9 +3606,8 @@ input UpdateLocationInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
@@ -3865,7 +3616,6 @@ input UpdateLocationInput {
   longitude: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   postal_code: String
   precision: String
   region: String
@@ -3880,14 +3630,12 @@ input UpdateMACAddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3905,9 +3653,8 @@ input UpdateMalwareAnalysisInput {
   configuration_version: [String!]!
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   host_vm_ref: [String!]!
   id: ID!
   installed_software_ref: [String!]!
@@ -3915,7 +3662,6 @@ input UpdateMalwareAnalysisInput {
   lang: String
   modified: String!
   modules: [String!]
-  object_marking_refs: [String!]
   operating_system_ref: [String!]!
   product: String!
   result: String!
@@ -3936,10 +3682,9 @@ input UpdateMalwareInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   implementation_languages: [String!]
   is_family: Boolean!
@@ -3950,7 +3695,6 @@ input UpdateMalwareInput {
   malware_types: [MalwareType!]!
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   operating_system_refs: [String!]
   revoked: Boolean
   sample_refs: String
@@ -3963,15 +3707,13 @@ input UpdateMutexInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3990,16 +3732,14 @@ input UpdateNetworkTrafficInput {
   encapsulated_by_ref: String
   encapsulates_refs: [String!]
   end: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   ipfix: Boolean
   is_active: Boolean
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   protocols: [String!]
   revoked: Boolean
   spec_version: String!
@@ -4021,14 +3761,12 @@ input UpdateNoteInput {
   content_type: String
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -4040,17 +3778,15 @@ input UpdateObservedDataInput {
   confidence: Float
   created: String!
   created_by_ref: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_observed: DateTime!
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_observed: DateTime!
   modified: String!
   number_observed: Float!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -4064,14 +3800,12 @@ input UpdateOpinionInput {
   created: String!
   created_by_ref: String
   explanation: String!
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   opinion: String!
   revoked: Boolean
@@ -4091,16 +3825,14 @@ input UpdateProcessInput {
   cwd: String
   defanged: Boolean
   environment_variables: [String!]
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   image_ref: String
   is_hidden: Boolean
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   opened_connection_refs: [String!]
   parent_ref: String
   pid: Float
@@ -4115,21 +3847,19 @@ input UpdateRelationshipInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
-  relationship_type: RelationshipType!
+  relationship_type: String!
   revoked: Boolean
-  source_ref: String!
+  source_ref: ID!
   spec_version: String!
-  start_time: String!
-  stop_time: String!
-  target_ref: String!
+  start_time: String
+  stop_time: String
+  target_ref: ID!
   type: String!
 }
 
@@ -4140,15 +3870,13 @@ input UpdateReportInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   object_refs: [String!]!
   published: DateTime!
   report_types: [String!]!
@@ -4163,16 +3891,14 @@ input UpdateSightingInput {
   created: String!
   created_by_ref: String
   detected: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime!
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime!
   modified: String!
-  object_marking_refs: [String!]
   observed_data_refs: [String!]
   revoked: Boolean
   sighting_of_ref: String!
@@ -4188,16 +3914,14 @@ input UpdateSoftwareInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   languages: [String!]
   modified: String!
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   swid: [String!]
@@ -4213,18 +3937,16 @@ input UpdateThreatActorInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
   goals: [String!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_seen: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   personal_motivations: String
   primary_motivation: Boolean
   resource_level: String
@@ -4244,16 +3966,14 @@ input UpdateToolInput {
   created: String!
   created_by_ref: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   tool_types: [ToolType!]!
@@ -4266,14 +3986,12 @@ input UpdateUrlInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4295,9 +4013,8 @@ input UpdateUserAccountInput {
   credential_last_changed: String
   defanged: Boolean
   display_name: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   is_disabled: Boolean
   is_privileged: Boolean
@@ -4305,11 +4022,15 @@ input UpdateUserAccountInput {
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
   user_id: String
+}
+
+input UpdateUserDto {
+  email: String
+  username: String
 }
 
 input UpdateVulnerabilityInput {
@@ -4322,16 +4043,14 @@ input UpdateVulnerabilityInput {
   cvss_v3_score: String
   cvss_v3_vector: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   last_modified_date: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   published_date: DateTime
   references: [String!]
   revoked: Boolean
@@ -4346,9 +4065,8 @@ input UpdateWindowsRegistryKeyInput {
   created_by_ref: String
   creator_user_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   key: String
   labels: [String!]
@@ -4356,7 +4074,6 @@ input UpdateWindowsRegistryKeyInput {
   modified: String!
   modified_time: String
   number_of_subkeys: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4368,9 +4085,8 @@ input UpdateX509CertificateInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID!
   is_self_signed: Boolean
@@ -4378,7 +4094,6 @@ input UpdateX509CertificateInput {
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   serial_number: String
   signature_algorithm: String
@@ -4399,18 +4114,27 @@ type Url {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
   value: String!
+}
+
+type User {
+  createdAt: DateTime!
+  email: String!
+  firstName: String!
+  id: ID!
+  isEmailVerified: Boolean!
+  lastName: String!
+  roles: [Role!]!
+  updatedAt: DateTime!
 }
 
 type UserAccount {
@@ -4428,9 +4152,8 @@ type UserAccount {
   credential_last_changed: String
   defanged: Boolean
   display_name: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   is_disabled: Boolean
   is_privileged: Boolean
@@ -4438,7 +4161,6 @@ type UserAccount {
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4454,16 +4176,14 @@ type Vulnerability {
   cvss_v3_score: String
   cvss_v3_vector: String
   description: String
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   labels: [String!]
   lang: String
   last_modified_date: DateTime
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   published_date: DateTime
   references: [String!]
   relationship: [RelationshipCommonProperties!]
@@ -4485,15 +4205,13 @@ input WindowsPEBinaryFileExtensionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   imphash: String
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   optional_header: JSON
   pe_type: String
   revoked: Boolean
@@ -4508,16 +4226,14 @@ input WindowsPESectionInput {
   created_by_ref: String
   defanged: Boolean
   entropy: Float
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   hashes: HashesInput
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   size: Float
   spec_version: String!
@@ -4530,9 +4246,8 @@ type WindowsRegistryKey {
   created_by_ref: String
   creator_user_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   id: ID!
   key: String
   labels: [String!]
@@ -4540,7 +4255,6 @@ type WindowsRegistryKey {
   modified: String!
   modified_time: String
   number_of_subkeys: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4560,15 +4274,13 @@ input WindowsRegistryValueInput {
   data: String
   data_type: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReferenceInput!]
-  granular_markings: [GranularMarkingInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
   name: String
-  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4579,9 +4291,8 @@ type X509Certificate {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  extensions: JSON
+  extensions: JSONObject
   external_references: [ExternalReference!]
-  granular_markings: [GranularMarking!]
   hashes: Hashes
   id: ID!
   is_self_signed: Boolean
@@ -4589,7 +4300,6 @@ type X509Certificate {
   labels: [String!]
   lang: String
   modified: String!
-  object_marking_refs: [String!]
   revoked: Boolean
   serial_number: String
   signature_algorithm: String
@@ -4603,4 +4313,8 @@ type X509Certificate {
   validity_not_before: DateTime
   version: String
   x509_v3_extensions: [String!]
+}
+
+input forgotPasswordDto {
+  email: String!
 }

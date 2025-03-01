@@ -15,7 +15,7 @@ export class X509Certificate extends CyberObservableCommonProperties {
 
   @Field(() => Hashes, { nullable: true })
  
-  hashes?: Hashes;
+  hashes?: Hashes[];
 
   @Field(() => String, { nullable: true })
  

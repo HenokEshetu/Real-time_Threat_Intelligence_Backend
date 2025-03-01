@@ -2,7 +2,7 @@ import { Injectable, NotFoundException, InternalServerErrorException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { EmailMessage } from './email-message.entity';
 import { CreateEmailMessageInput, UpdateEmailMessageInput } from './email-message.input';
-
+import { SearchEmailMessageInput } from './email-message.resolver';
 @Injectable()
 export class EmailMessageService {
   private readonly index = 'email-messages'; // OpenSearch index name
@@ -82,7 +82,7 @@ export class EmailMessageService {
   
 
   async searchWithFilters(
-    searchParams: Partial<CreateEmailMessageInput>, // Filters passed by the user
+    searchParams: SearchEmailMessageInput, // Filters passed by the user
     from: number = 0,
     size: number = 10
   ): Promise<EmailMessage[]> {

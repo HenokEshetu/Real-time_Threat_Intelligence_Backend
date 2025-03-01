@@ -4,7 +4,7 @@ import { CreateProcessInput, UpdateProcessInput } from './process.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { v4 as uuidv4 } from 'uuid';
 
-
+import { SearchProcessInput } from './process.resolver';
 @Injectable()
 export class ProcessService {
   private readonly index = 'process'; // OpenSearch index name
@@ -160,7 +160,7 @@ export class ProcessService {
 async searchWithFilters(
   from: number = 0,
   size: number = 10,
-  filters: Partial<CreateProcessInput> = {}
+  filters: SearchProcessInput
 ): Promise<any[]> {
   try {
     const mustClauses: any[] = [];

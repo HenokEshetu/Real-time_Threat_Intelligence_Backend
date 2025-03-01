@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { v4 as uuidv4 } from 'uuid';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateIndicatorInput, UpdateIndicatorInput } from './indicator.input';
-
+import { SearchIndicatorInput } from './indicator.resolver';
 @Injectable()
 export class IndicatorService {
   private readonly index = 'indicators';
@@ -93,7 +93,7 @@ export class IndicatorService {
     }
   }
 
-  async searchIndicatorWithFilters(filters: Partial<CreateIndicatorInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchIndicatorWithFilters(filters: SearchIndicatorInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

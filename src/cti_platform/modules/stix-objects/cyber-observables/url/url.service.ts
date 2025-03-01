@@ -3,6 +3,7 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateUrlInput, UpdateUrlInput } from './url.input';
 import { Url } from './url.entity';
 import { v4 as uuidv4 } from 'uuid';
+import { SearchUrlInput } from './url.resolver';
 
 @Injectable()
 export class UrlService {
@@ -92,7 +93,7 @@ export class UrlService {
    * Perform dynamic search with filters
    */
   async searchWithFilters(
-    searchParams: Partial<CreateUrlInput>,
+    searchParams: SearchUrlInput,
     page: number = 1,
     pageSize: number = 10
   ): Promise<any> {

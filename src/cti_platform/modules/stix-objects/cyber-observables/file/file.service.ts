@@ -3,6 +3,7 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateFileInput, UpdateFileInput } from './file.input';
 import { File } from './file.entity';
 
+import { SearchFileInput } from './file.resolver';
 @Injectable()
 export class FileService {
   private readonly index = 'files'; // OpenSearch index name
@@ -81,7 +82,7 @@ export class FileService {
 
 
   async searchWithFilters(
-    searchParams: Partial<CreateFileInput>, // Filters passed by the user
+    searchParams: SearchFileInput , // Filters passed by the user
     from: number = 0,
     size: number = 10
   ): Promise<File[]> {

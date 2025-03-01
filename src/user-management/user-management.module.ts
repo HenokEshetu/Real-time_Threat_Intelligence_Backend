@@ -34,10 +34,6 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { LocalStrategy } from './strategies/local.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 
-import {GraphQLModule} from '@nestjs/graphql';
-import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
-import { join } from 'path';
-
 import databaseConfig from '../config/database.config';
 import authConfig from '../config/auth.config';
 @Module({
@@ -57,16 +53,6 @@ import authConfig from '../config/auth.config';
       }),
     }),
 
-    // GraphQL Configuration
-    GraphQLModule.forRoot<ApolloDriverConfig>({
-      driver: ApolloDriver,
-      autoSchemaFile: join(process.cwd(), 'src/userSchema.gql'),
-      sortSchema: true,
-      playground: true,
-      context: ({ req }) => ({ req }),
-    }),
-
-    
     TypeOrmModule.forFeature([User, Role, Permission, PasswordReset]),
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({

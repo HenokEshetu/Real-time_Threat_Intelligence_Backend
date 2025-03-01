@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateReportInput, UpdateReportInput } from './report.input';
-
+import { SearchReportInput } from './report.resolver';
 @Injectable()
 export class ReportService {
   private readonly index = 'reports'; // OpenSearch index name
@@ -98,7 +98,7 @@ export class ReportService {
   }
 
   // Search reports with dynamic filters
-  async searchReportWithFilters(filters: Partial<CreateReportInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchReportWithFilters(filters: SearchReportInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

@@ -35,7 +35,7 @@ export class IndicatorResolver {
   }
 
   @Mutation(() => Boolean)
-  async deleteIndicator(@Args('id') id: string): Promise<boolean> {
+  async removeIndicator(@Args('id') id: string): Promise<boolean> {
     return this.indicatorService.remove(id);
   }
 

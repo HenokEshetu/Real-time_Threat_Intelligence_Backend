@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateUserAccountInput, UpdateUserAccountInput } from './user-account.input';
 import { UserAccount } from './user-account.entity';
-
+import { SearchUrlUserAccountInput } from './user-account.resolver';
 @Injectable()
 export class UserAccountService {
   private readonly index = 'user-accounts'; // OpenSearch index name
@@ -90,7 +90,7 @@ export class UserAccountService {
    * Search User Accounts with dynamic filters
    */
   async searchWithFilters(
-    searchParams: Partial<CreateUserAccountInput>,
+    searchParams: SearchUrlUserAccountInput,
     page: number = 1,
     pageSize: number = 10
   ): Promise<any> {

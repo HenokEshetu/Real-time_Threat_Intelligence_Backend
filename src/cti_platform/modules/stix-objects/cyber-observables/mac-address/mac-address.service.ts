@@ -3,7 +3,7 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateMACAddressInput, UpdateMACAddressInput } from './mac-address.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { v4 as uuidv4 } from 'uuid';
-import { MACAddress } from './mac-address.entity';
+import { SearchMACAddressInput } from './mac-address.resolver';
 @Injectable()
 export class MACAddressService {
   private readonly index = 'mac-addresses'; // Define the OpenSearch index name
@@ -109,7 +109,7 @@ export class MACAddressService {
     async searchWithFilters(
       from: number = 0,
       size: number = 10,
-      filter: Partial<CreateMACAddressInput> = {},
+      filter: SearchMACAddressInput
     ): Promise<any[]> {
       try {
         const mustQueries = [];

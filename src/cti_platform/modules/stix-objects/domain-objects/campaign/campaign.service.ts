@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { CreateCampaignInput, UpdateCampaignInput } from './campaign.input';
 import { v4 as uuidv4 } from 'uuid';
-
+import { SearchCampaignInput } from './campaign.resolver';
 @Injectable()
 export class CampaignService {
   private readonly index = 'campaigns'; // OpenSearch index name
@@ -100,7 +100,7 @@ export class CampaignService {
   }
 
   // Search Campaigns with Filters & Pagination
-  async searchWithFilters(filters: Partial<CreateCampaignInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchWithFilters(filters: SearchCampaignInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

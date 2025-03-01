@@ -2,7 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { CreateToolInput, UpdateToolInput } from './tool.input';
 import { v4 as uuidv4 } from 'uuid';
-
+import { SearchToolInput } from './tool.resolver';
 @Injectable()
 export class ToolService {
   private readonly index = 'tools'; // OpenSearch index name
@@ -97,7 +97,7 @@ export class ToolService {
   }
 
   // Advanced Search with Filters
-  async searchToolWithFilters(filters: Partial<CreateToolInput>, page = 1, pageSize = 10): Promise<any> {
+  async searchToolWithFilters(filters: SearchToolInput, page = 1, pageSize = 10): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
       const mustQueries = [];

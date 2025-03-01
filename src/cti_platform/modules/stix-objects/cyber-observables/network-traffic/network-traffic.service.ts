@@ -3,8 +3,7 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateNetworkTrafficInput, UpdateNetworkTrafficInput } from './network-traffic.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { v4 as uuidv4 } from 'uuid';
-import { NetworkTraffic } from './network-traffic.entity';
-
+import { SearchNetworkTrafficInput } from './network-traffic.resolver';
 @Injectable()
 export class NetworkTrafficService {
   private readonly index = 'network-traffic'; // OpenSearch index name
@@ -161,7 +160,7 @@ export class NetworkTrafficService {
 async searchWithFilters(
   from: number = 0,
   size: number = 10,
-  filters: Partial<CreateNetworkTrafficInput> = {}
+  filters: SearchNetworkTrafficInput
 ): Promise<any[]> {
   try {
     const mustClauses: any[] = [];

@@ -2,8 +2,6 @@ import { Resolver, Query, InputType, Mutation, Args } from '@nestjs/graphql';
 import { LocationService } from './location.service';
 import { Location } from './location.entity';
 import { CreateLocationInput, UpdateLocationInput } from './location.input';
-
-
 import { PartialType } from '@nestjs/graphql';
 
 @InputType()

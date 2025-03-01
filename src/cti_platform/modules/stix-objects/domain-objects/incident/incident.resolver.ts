@@ -38,7 +38,7 @@ export class IncidentResolver {
 
   // Delete an incident
   @Mutation(() => Boolean)
-  async deleteIncident(@Args('id') id: string): Promise<boolean> {
+  async removeIncident(@Args('id') id: string): Promise<boolean> {
     return this.incidentService.remove(id);
   }
 

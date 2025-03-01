@@ -2,6 +2,7 @@ import { Injectable, InternalServerErrorException, NotFoundException } from '@ne
 import { Client } from '@opensearch-project/opensearch';
 import { Directory } from './directory.entity';
 import { CreateDirectoryInput, UpdateDirectoryInput } from './directory.input';
+import { SearchDirectoryInput } from './directory.resolver';
 
 @Injectable()
 export class DirectoryService {
@@ -106,7 +107,7 @@ export class DirectoryService {
   }
 
   async searchWithFilters(
-    searchParams: Partial<CreateDirectoryInput>, // Filters passed by the user
+    searchParams: SearchDirectoryInput, // Filters passed by the user
     page: number = 1,
     pageSize: number = 10
   ): Promise<any> {

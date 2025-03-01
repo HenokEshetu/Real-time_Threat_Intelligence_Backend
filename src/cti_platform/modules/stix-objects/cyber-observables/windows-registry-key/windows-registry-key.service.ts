@@ -4,6 +4,8 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateWindowsRegistryKeyInput, UpdateWindowsRegistryKeyInput } from './windows-registry-key.input';
 import { WindowsRegistryKey } from './windows-registry-key.entity';
 
+import { SearchWindowsRegistryKeyInput } from './windows-registry-key.resolver';
+
 @Injectable()
 export class WindowsRegistryKeyService {
   private readonly index = 'windows-registry-keys'; // OpenSearch index name
@@ -89,7 +91,7 @@ export class WindowsRegistryKeyService {
    * Search Windows Registry Keys with dynamic filters
    */
   async searchWithFilters(
-    searchParams: Partial<CreateWindowsRegistryKeyInput>,
+    searchParams: SearchWindowsRegistryKeyInput,
     page: number = 1,
     pageSize: number = 10
   ): Promise<any> {

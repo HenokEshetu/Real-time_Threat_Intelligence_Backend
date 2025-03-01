@@ -2,8 +2,6 @@ import { Resolver, Query, InputType, Mutation, Args } from '@nestjs/graphql';
 import { OpinionService } from './opinion.service';
 import { Opinion } from './opinion.entity';
 import { CreateOpinionInput, UpdateOpinionInput } from './opinion.input';
-
-
 import { PartialType } from '@nestjs/graphql';
 
 @InputType()
@@ -44,7 +42,7 @@ export class OpinionResolver {
   }
 
   @Mutation(() => Boolean)
-  async deleteOpinion(@Args('id', { type: () => String }) id: string): Promise<boolean> {
+  async removeOpinion(@Args('id', { type: () => String }) id: string): Promise<boolean> {
     return this.opinionService.remove(id);
   }
 }

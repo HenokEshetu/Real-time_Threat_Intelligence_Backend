@@ -3,7 +3,7 @@ import { Client } from '@opensearch-project/opensearch';
 import { CreateOpinionInput, UpdateOpinionInput } from './opinion.input';
 import { v4 as uuidv4 } from 'uuid';
 import { Opinion } from './opinion.entity';
-
+import { SearchOpinionInput } from './opinion.resolver';
 @Injectable()
 export class OpinionService {
   private index = 'opinions';
@@ -32,7 +32,7 @@ export class OpinionService {
   }
 
   async searchOpinionWithDynamicFilters(
-    filters?: Record<string, any>,
+    filters?: SearchOpinionInput,
     page = 1,
     pageSize = 10,
     sortField?: string,

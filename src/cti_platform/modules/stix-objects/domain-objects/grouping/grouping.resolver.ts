@@ -43,7 +43,7 @@ export class GroupingResolver {
 
   //  Delete a Course of Action
   @Mutation(() => Boolean)
-  async deleteGrouping(@Args('id') id: string): Promise<boolean> {
+  async removeGrouping(@Args('id') id: string): Promise<boolean> {
     return this.GroupingService.remove(id);
   }
 

@@ -34,7 +34,7 @@ export class NoteResolver {
   }
 
   @Mutation(() => Boolean)
-  async deleteNote(@Args('id') id: string): Promise<boolean> {
+  async removeNote(@Args('id') id: string): Promise<boolean> {
     return this.noteService.remove(id);
   }
 
