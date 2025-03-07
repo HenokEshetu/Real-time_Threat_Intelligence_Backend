@@ -7,6 +7,6 @@ tab_width = 4
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-[*.{ts,js}]
+[*.{ts,js,py}]
 indent_size = 2
 tab_width = 2

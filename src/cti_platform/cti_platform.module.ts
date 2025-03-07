@@ -8,6 +8,7 @@ import { ExportStixReportModule } from './modules/export-stix-report/export-stix
 import { IngestionFromApiFeedsModule } from './modules/ingestion-from-api-feeds/ingestion-from-api-feeds.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { StixObjectsModule } from './modules/stix-objects/stix-objects.module';
+import { AppRedisModule } from './modules/redis/redis.module';
 
 @Module({
   imports: [
@@ -19,10 +20,11 @@ import { StixObjectsModule } from './modules/stix-objects/stix-objects.module';
     IngestionFromApiFeedsModule,
     IntegrationModule,
     StixObjectsModule,
+    AppRedisModule,
   ],
   providers: [
-    
+
   ],
-  
+
 })
 export class CtiPlatformModule {}
