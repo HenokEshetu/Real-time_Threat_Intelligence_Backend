@@ -8,9 +8,21 @@ import { ExportStixReportModule } from './modules/export-stix-report/export-stix
 import { IngestionFromApiFeedsModule } from './modules/ingestion-from-api-feeds/ingestion-from-api-feeds.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { StixObjectsModule } from './modules/stix-objects/stix-objects.module';
+import { ConfigModule } from '@nestjs/config';
+import natsConfig, { natsConfigSchema } from './config/nats.config';
+import { NatsModule } from './modules/microservices/nats/nats.module';
+import { RedisModule } from './modules/microservices/redis/redis.module';
+import redisConfig, { redisConfigSchema } from './config/redis.config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [redisConfig, natsConfig],
+      validationSchema: [redisConfigSchema, natsConfigSchema],
+    }),
+    RedisModule,
+    NatsModule,
     AddStixReportManuallyModule,
     AlertGenerationModule,
     AnalysisAndThreatCorrelationModule,
@@ -21,8 +33,8 @@ import { StixObjectsModule } from './modules/stix-objects/stix-objects.module';
     StixObjectsModule,
   ],
   providers: [
-    
+
   ],
-  
+
 })
 export class CtiPlatformModule {}
