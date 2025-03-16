@@ -1,48 +1,65 @@
-import { Resolver, Query, InputType, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
 import { OpinionService } from './opinion.service';
 import { Opinion } from './opinion.entity';
 import { CreateOpinionInput, UpdateOpinionInput } from './opinion.input';
 import { PartialType } from '@nestjs/graphql';
+import { ObjectType, Field } from '@nestjs/graphql';
 
 @InputType()
 export class SearchOpinionInput extends PartialType(CreateOpinionInput){}
 
-
+@ObjectType()
+export class  OpinionSearchResult {
+  @Field(() => Int)
+  page: number;
+  @Field(() => Int)
+  pageSize: number;
+  @Field(() => Int)
+  total: number;
+  @Field(() => Int)
+  totalPages: number;
+  @Field(() => [Opinion])
+  results: Opinion[];
+}
 
 @Resolver(() => Opinion)
 export class OpinionResolver {
   constructor(private readonly opinionService: OpinionService) {}
 
   @Mutation(() => Opinion)
-  async createOpinion(@Args('input') input: CreateOpinionInput): Promise<Opinion> {
-    return this.opinionService.create(input);
+  async createOpinion(
+    @Args('input') createOpinionInput: CreateOpinionInput,
+  ): Promise<Opinion> {
+    return this.opinionService.create(createOpinionInput);
   }
 
-  @Query(() => [Opinion])
-  async searchOpinionWithDynamicFilters(
-    @Args('filters', { type: () => SearchOpinionInput, nullable: true }) filters?: Partial<SearchOpinionInput>,
-    @Args('page', { type: () => Number, nullable: true, defaultValue: 1 }) page?: number,
-    @Args('pageSize', { type: () => Number, nullable: true, defaultValue: 10 }) pageSize?: number,
-  ): Promise<Opinion[]> {
-    const results = await this.opinionService.searchOpinionWithDynamicFilters(filters, page, pageSize);
-    return results.map((result) => new Opinion()); // Ensure the result is properly mapped
+  @Query(() => OpinionSearchResult)
+  async searchOpinions(
+    @Args('filters', { type: () => SearchOpinionInput, nullable: true }) filters: SearchOpinionInput = {},
+    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
+    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
+    @Args('sortField', { type: () => String, nullable: true }) sortField?: keyof Opinion,
+    @Args('sortOrder', { type: () => String, defaultValue: 'desc' }) sortOrder: 'asc' | 'desc' = 'desc',
+    @Args('fullTextSearch', { type: () => String, nullable: true }) fullTextSearch?: string,
+  ): Promise<OpinionSearchResult> {
+    return this.opinionService.searchWithFilters(filters, page, pageSize, sortField, sortOrder, fullTextSearch);
   }
 
   @Query(() => Opinion, { nullable: true })
-  async getOpinion(@Args('id', { type: () => String }) id: string): Promise<Opinion | null> {
+  async opinion(@Args('id') id: string): Promise<Opinion> {
     return this.opinionService.findOne(id);
   }
 
   @Mutation(() => Opinion)
   async updateOpinion(
-    @Args('id', { type: () => String }) id: string,
-    @Args('input') input: UpdateOpinionInput,
+    @Args('id') id: string,
+    @Args('input') updateOpinionInput: UpdateOpinionInput,
   ): Promise<Opinion> {
-    return this.opinionService.update(id, input);
+    return this.opinionService.update(id, updateOpinionInput);
   }
 
   @Mutation(() => Boolean)
-  async removeOpinion(@Args('id', { type: () => String }) id: string): Promise<boolean> {
+  async deleteOpinion(@Args('id') id: string): Promise<boolean> {
     return this.opinionService.remove(id);
   }
 }

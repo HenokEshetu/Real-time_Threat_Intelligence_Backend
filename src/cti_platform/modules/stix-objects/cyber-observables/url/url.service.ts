@@ -1,20 +1,31 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { Client } from '@opensearch-project/opensearch';
+import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateUrlInput, UpdateUrlInput } from './url.input';
 import { Url } from './url.entity';
 import { v4 as uuidv4 } from 'uuid';
 import { SearchUrlInput } from './url.resolver';
 
 @Injectable()
-export class UrlService {
+export class UrlService implements OnModuleInit {
   private readonly index = 'urls';
+  private readonly openSearchClient: Client;
 
-  private openSearchClient: Client;
   constructor() {
-    this.openSearchClient = new Client({
-      node: 'http://localhost:9200',
-    });
+    const clientOptions: ClientOptions = {
+      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
+      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+        ? {
+            username: process.env.OPENSEARCH_USERNAME,
+            password: process.env.OPENSEARCH_PASSWORD,
+          }
+        : undefined,
+    };
+    this.openSearchClient = new Client(clientOptions);
   }
+
+  async onModuleInit() {
+    await this.ensureIndex();}
 
   async create(createUrlInput: CreateUrlInput): Promise<Url> {
     const id = `url--${uuidv4()}`;
@@ -22,59 +33,84 @@ export class UrlService {
 
     const doc: Url = {
       id,
-      type: 'url',
+      type: 'url' as const,
       spec_version: '2.1',
-      created: new Date().toISOString(),
-
-      modified: new Date().toISOString(),
-
+      created: now,
+      modified: now,
       value: createUrlInput.value,
     };
 
-    const response = await this.openSearchClient.index({
-      index: this.index,
-      id,
-      body: doc,
-    });
+    try {
+      const response = await this.openSearchClient.index({
+        index: this.index,
+        id,
+        body: doc,
+        refresh: 'wait_for',
+      });
 
-    if (response.body.result !== 'created') {
-      throw new InternalServerErrorException('Failed to create URL');
+      if (response.body.result !== 'created') {
+        throw new Error('Failed to index URL document');
+      }
+      return doc;
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Failed to create URL',
+        details: error.meta?.body?.error || error.message,
+      });
     }
-
-    return doc;
   }
 
   async findOne(id: string): Promise<Url> {
     try {
       const response = await this.openSearchClient.get({ index: this.index, id });
-      return response.body._source as Url;
+      const source = response.body._source;
+      return {
+        id: response.body._id,
+        type: 'url' as const,
+        spec_version: source.spec_version || '2.1',
+        created: source.created || new Date().toISOString(),
+        modified: source.modified || new Date().toISOString(),
+        value: source.value,
+        ...source,
+      };
     } catch (error) {
-      if (error.meta?.body?.found === false) {
+      if (error.meta?.statusCode === 404) {
         throw new NotFoundException(`URL with ID ${id} not found`);
       }
-      throw new InternalServerErrorException('Error fetching URL from OpenSearch');
+      throw new InternalServerErrorException({
+        message: 'Failed to fetch URL',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
   async update(id: string, updateUrlInput: UpdateUrlInput): Promise<Url> {
-    const url = await this.findOne(id);
-    if (!url) throw new NotFoundException(`URL with ID ${id} not found`);
+    try {
+      const existing = await this.findOne(id);
+      const updatedDoc: Partial<Url> = {
+        ...updateUrlInput,
+        modified: new Date().toISOString(),
+      };
 
-    const modified = new Date().toISOString()
+      const response = await this.openSearchClient.update({
+        index: this.index,
+        id,
+        body: { doc: updatedDoc },
+        retry_on_conflict: 3,
+      });
 
-    const updatedDoc = { ...url, ...updateUrlInput, modified };
+      if (response.body.result !== 'updated') {
+        throw new Error('Failed to update URL document');
+      }
 
-    const response = await this.openSearchClient.update({
-      index: this.index,
-      id,
-      body: { doc: updatedDoc },
-    });
-
-    if (response.body.result !== 'updated') {
-      throw new InternalServerErrorException('Failed to update URL');
+      return { ...existing, ...updatedDoc };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException({
+        message: 'Failed to update URL',
+        details: error.meta?.body?.error || error.message,
+      });
     }
-
-    return updatedDoc;
   }
 
   async remove(id: string): Promise<boolean> {
@@ -82,70 +118,121 @@ export class UrlService {
       const response = await this.openSearchClient.delete({ index: this.index, id });
       return response.body.result === 'deleted';
     } catch (error) {
-      if (error.meta?.body?.found === false) {
-        throw new NotFoundException(`URL with ID ${id} not found`);
+      if (error.meta?.statusCode === 404) {
+        return false;
       }
-      throw new InternalServerErrorException('Error deleting URL from OpenSearch');
+      throw new InternalServerErrorException({
+        message: 'Failed to delete URL',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  /**
-   * Perform dynamic search with filters
-   */
   async searchWithFilters(
-    searchParams: SearchUrlInput,
+    searchParams: SearchUrlInput = {},
     page: number = 1,
     pageSize: number = 10
-  ): Promise<any> {
+  ): Promise<{
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    results: Url[];
+  }> {
     try {
       const from = (page - 1) * pageSize;
-      const mustQueries = [];
+      const queryBuilder: { query: any; sort?: any[] } = {
+        query: { bool: { must: [], filter: [] } },
+        sort: [{ modified: { order: 'desc' as const } }],
+      };
 
-      // Construct dynamic search query based on provided filters
       for (const [key, value] of Object.entries(searchParams)) {
-        if (value !== undefined) {
-          if (value instanceof Date) {
-            mustQueries.push({ range: { [key]: { gte: value.toISOString() } } });
-          } else {
-            mustQueries.push({ match: { [key]: value } });
-          }
+        if (value === undefined || value === null) continue;
+
+        switch (key) {
+          case 'value':
+            queryBuilder.query.bool.must.push({
+              match: { [key]: { query: value, lenient: true } },
+            });
+            break;
+          case 'created':
+          case 'modified':
+            if (value instanceof Date) {
+              queryBuilder.query.bool.filter.push({
+                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              });
+            }
+            break;
+          default:
+            queryBuilder.query.bool.must.push({
+              term: { [key]: value },
+            });
         }
       }
 
-      // Use match_all if no filters are provided
-      const query = mustQueries.length > 0 ? { bool: { must: mustQueries } } : { match_all: {} };
+      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
+        queryBuilder.query = { match_all: {} };
+      }
 
-      // Execute search query in OpenSearch
-      const { body } = await this.openSearchClient.search({
+      const response = await this.openSearchClient.search({
         index: this.index,
         from,
         size: pageSize,
-        body: { query },
+        body: queryBuilder,
       });
 
-      // Extract total number of hits
-      const total = body.hits.total instanceof Object ? body.hits.total.value : body.hits.total;
+      const total = typeof response.body.hits.total === 'object'
+        ? response.body.hits.total.value
+        : response.body.hits.total;
 
-      // Map results to the required structure
-      const results = body.hits.hits.map((hit) => ({
-        id: hit._id,
-        type: 'url',
-        spec_version: '2.1',
-        created: hit._source.created || new Date().toISOString(),
-        modified: hit._source.modified || new Date().toISOString(),
-        ...hit._source,
-      }));
-
-      // Return results with pagination metadata
       return {
         page,
         pageSize,
         total,
         totalPages: Math.ceil(total / pageSize),
-        results,
+        results: response.body.hits.hits.map((hit) => ({
+          id: hit._id,
+          type: 'url' as const,
+          spec_version: hit._source.spec_version || '2.1',
+          created: hit._source.created || new Date().toISOString(),
+          modified: hit._source.modified || new Date().toISOString(),
+          value: hit._source.value,
+          ...hit._source,
+        })),
       };
     } catch (error) {
-      throw new InternalServerErrorException('Error searching URLs in OpenSearch');
+      throw new InternalServerErrorException({
+        message: 'Failed to search URLs',
+        details: error.meta?.body?.error || error.message,
+      });
+    }
+  }
+
+  async ensureIndex(): Promise<void> {
+    try {
+      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      if (!exists.body) {
+        await this.openSearchClient.indices.create({
+          index: this.index,
+          body: {
+            mappings: {
+              properties: {
+                id: { type: 'keyword' },
+                type: { type: 'keyword' },
+                spec_version: { type: 'keyword' },
+                created: { type: 'date' },
+                modified: { type: 'date' },
+                value: { type: 'keyword' },
+              },
+            },
+          },
+        });
+      }
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Failed to initialize URLs index',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 }
