@@ -1,13 +1,25 @@
-import { Resolver, Query,InputType, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
 import { NetworkTrafficService } from './network-traffic.service';
 import { NetworkTraffic } from './network-traffic.entity';
 import { CreateNetworkTrafficInput, UpdateNetworkTrafficInput } from './network-traffic.input';
-
+import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
 @InputType()
 export class SearchNetworkTrafficInput extends PartialType(CreateNetworkTrafficInput) {}
 
-
+@ObjectType()
+export class NetworkTrafficSearchResult {
+  @Field(() => Int)
+  page: number;
+  @Field(() => Int)
+  pageSize: number;
+  @Field(() => Int)
+  total: number;
+  @Field(() => Int)
+  totalPages: number;
+  @Field(() => [NetworkTraffic])
+  results: NetworkTraffic[];
+}
 
 @Resolver(() => NetworkTraffic)
 export class NetworkTrafficResolver {
@@ -15,23 +27,21 @@ export class NetworkTrafficResolver {
 
   @Mutation(() => NetworkTraffic)
   async createNetworkTraffic(
-    @Args('createNetworkTrafficInput') createNetworkTrafficInput: CreateNetworkTrafficInput,
+    @Args('input') createNetworkTrafficInput: CreateNetworkTrafficInput,
   ): Promise<NetworkTraffic> {
     return this.networkTrafficService.create(createNetworkTrafficInput);
   }
 
-  // Search network traffic dynamically using filters
-  @Query(() => [NetworkTraffic], { name: 'network_traffic' })
+  @Query(() => NetworkTrafficSearchResult)
   async searchNetworkTraffic(
-    @Args('from', { type: () => Number, nullable: true }) from?: number,
-    @Args('size', { type: () => Number, nullable: true }) size?: number,
-    @Args('filter', { type: () => SearchNetworkTrafficInput, nullable: true }) filter?: SearchNetworkTrafficInput,
-  ): Promise<NetworkTraffic[]> {
-    return this.networkTrafficService.searchWithFilters(from ?? 0, size ?? 10, filter ?? {});
+    @Args('from', { type: () => Int, defaultValue: 0 }) from: number,
+    @Args('size', { type: () => Int, defaultValue: 10 }) size: number,
+    @Args('filters', { type: () => SearchNetworkTrafficInput, nullable: true }) filters: SearchNetworkTrafficInput = {},
+  ): Promise<NetworkTrafficSearchResult> {
+    return this.networkTrafficService.searchWithFilters(from, size, filters);
   }
-  
 
-  @Query(() => NetworkTraffic)
+  @Query(() => NetworkTraffic, { nullable: true })
   async networkTraffic(@Args('id') id: string): Promise<NetworkTraffic> {
     return this.networkTrafficService.findOne(id);
   }
@@ -39,13 +49,13 @@ export class NetworkTrafficResolver {
   @Mutation(() => NetworkTraffic)
   async updateNetworkTraffic(
     @Args('id') id: string,
-    @Args('updateNetworkTrafficInput') updateNetworkTrafficInput: UpdateNetworkTrafficInput,
+    @Args('input') updateNetworkTrafficInput: UpdateNetworkTrafficInput,
   ): Promise<NetworkTraffic> {
     return this.networkTrafficService.update(id, updateNetworkTrafficInput);
   }
 
   @Mutation(() => Boolean)
-  async removeNetworkTraffic(@Args('id') id: string): Promise<boolean> {
+  async deleteNetworkTraffic(@Args('id') id: string): Promise<boolean> {
     return this.networkTrafficService.remove(id);
   }
 }

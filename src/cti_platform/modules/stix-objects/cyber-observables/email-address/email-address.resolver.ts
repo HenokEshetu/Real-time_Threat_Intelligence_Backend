@@ -1,25 +1,50 @@
-import { Resolver, InputType, Query, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, InputType, Query, Mutation, Args, Int } from '@nestjs/graphql';
 import { EmailAddressService } from './email-address.service';
 import { EmailAddress } from './email-address.entity';
 import { CreateEmailAddressInput, UpdateEmailAddressInput } from './email-address.input';
-
+import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
 @InputType()
 export class SearchEmailAddressInput extends PartialType(CreateEmailAddressInput) {}
 
 
+
+
+@ObjectType()
+export class EmailAddressSearchResult {
+  @Field(() => Int)
+  page: number;
+  @Field(() => Int)
+  pageSize: number;
+  @Field(() => Int)
+  total: number;
+  @Field(() => Int)
+  totalPages: number;
+  @Field(() => [EmailAddress])
+  results: EmailAddress[];
+}
+
 @Resolver(() => EmailAddress)
 export class EmailAddressResolver {
   constructor(private readonly emailAddressService: EmailAddressService) {}
-@Query(() => [EmailAddress])
-async searchEmailAddress(
-  @Args('filters', { type: () => SearchEmailAddressInput, nullable: true }) filters: Partial<SearchEmailAddressInput> = {}, // Accept dynamic filters
-  @Args('page', { type: () => Number, defaultValue: 1 }) page: number = 1, // Pagination
-  @Args('pageSize', { type: () => Number, defaultValue: 10 }) pageSize: number = 10 // Pagination size
-): Promise<EmailAddress[]> {
-  return this.emailAddressService.searchWithFilters(filters, page, pageSize); // Pass filters, page, and pageSize
-}
-  @Query(() => EmailAddress)
+
+  @Mutation(() => EmailAddress)
+  async createEmailAddress(
+    @Args('input') createEmailAddressInput: CreateEmailAddressInput,
+  ): Promise<EmailAddress> {
+    return this.emailAddressService.create(createEmailAddressInput);
+  }
+
+  @Query(() => EmailAddressSearchResult)
+  async searchEmailAddresses(
+    @Args('filters', { type: () => SearchEmailAddressInput, nullable: true }) filters: SearchEmailAddressInput = {},
+    @Args('from', { type: () => Int, defaultValue: 0 }) from: number,
+    @Args('size', { type: () => Int, defaultValue: 10 }) size: number,
+  ): Promise<EmailAddressSearchResult> {
+    return this.emailAddressService.searchWithFilters(filters, from, size);
+  }
+
+  @Query(() => EmailAddress, { nullable: true })
   async emailAddress(@Args('id') id: string): Promise<EmailAddress> {
     return this.emailAddressService.findOne(id);
   }
@@ -35,22 +60,15 @@ async searchEmailAddress(
   }
 
   @Mutation(() => EmailAddress)
-  async createEmailAddress(
-    @Args('createEmailAddressInput') createEmailAddressInput: CreateEmailAddressInput,
-  ): Promise<EmailAddress> {
-    return this.emailAddressService.create(createEmailAddressInput);
-  }
-
-  @Mutation(() => EmailAddress)
   async updateEmailAddress(
     @Args('id') id: string,
-    @Args('updateEmailAddressInput') updateEmailAddressInput: UpdateEmailAddressInput,
+    @Args('input') updateEmailAddressInput: UpdateEmailAddressInput,
   ): Promise<EmailAddress> {
     return this.emailAddressService.update(id, updateEmailAddressInput);
   }
 
   @Mutation(() => Boolean)
-  async removeEmailAddress(@Args('id') id: string): Promise<boolean> {
+  async deleteEmailAddress(@Args('id') id: string): Promise<boolean> {
     return this.emailAddressService.remove(id);
   }
 }

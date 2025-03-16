@@ -1,173 +1,260 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { Client } from '@opensearch-project/opensearch';
+import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateGroupingInput, UpdateGroupingInput } from './grouping.input';
 import { SearchGroupingInput } from './grouping.resolver';
-@Injectable()
-export class GroupingService {
-  private readonly index = 'groupings'; // OpenSearch index name
+import { Grouping } from './grouping.entity';
 
-  private openSearchService: Client;
+@Injectable()
+export class GroupingService implements OnModuleInit {
+  private readonly index = 'groupings';
+  private readonly openSearchService: Client;
+
   constructor() {
-    this.openSearchService = new Client({
-      node: 'http://localhost:9200',
-    });
+    const clientOptions: ClientOptions = {
+      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
+      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+        ? {
+            username: process.env.OPENSEARCH_USERNAME,
+            password: process.env.OPENSEARCH_PASSWORD,
+          }
+        : undefined,
+    };
+    this.openSearchService = new Client(clientOptions);
   }
 
-  // 📌 Create a new Grouping
-  async create(createGroupingInput: CreateGroupingInput): Promise<any> {
-    const grouping = {
+  async onModuleInit() {
+    await this.ensureIndex();
+  }
+
+
+  async create(createGroupingInput: CreateGroupingInput): Promise<Grouping> {
+    const grouping: Grouping = {
       id: `grouping--${uuidv4()}`,
-      type: 'grouping',
+      type: 'grouping' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
+      name: createGroupingInput.name, // Required field
       ...createGroupingInput,
     };
 
     try {
-      await this.openSearchService.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: grouping.id,
         body: grouping,
         refresh: 'wait_for',
       });
 
+      if (response.body.result !== 'created') {
+        throw new Error('Failed to index grouping');
+      }
       return grouping;
     } catch (error) {
-      throw new InternalServerErrorException(`Failed to create grouping: ${error.message}`);
+      throw new InternalServerErrorException({
+        message: 'Failed to create grouping',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // 📌 Find a Grouping by ID
-  async findOne(id: string): Promise<any> {
+  async findOne(id: string): Promise<Grouping> {
     try {
-      const { body } = await this.openSearchService.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
 
-      return body._source;
+      const source = response.body._source;
+      return {
+        id: response.body._id,
+        type: 'grouping' as const,
+        spec_version: source.spec_version || '2.1',
+        created: source.created || new Date().toISOString(),
+        modified: source.modified || new Date().toISOString(),
+        name: source.name, // Required field
+        object_refs: source.object_refs,
+        context: source.context,
+        ...source,
+      };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
-        throw new NotFoundException(`Grouping with ID ${id} not found.`);
+        throw new NotFoundException(`Grouping with ID ${id} not found`);
       }
-      throw new InternalServerErrorException(`Error fetching grouping: ${error.message}`);
+      throw new InternalServerErrorException({
+        message: 'Failed to fetch grouping',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // 📌 Update an existing Grouping
-  async update(id: string, updateGroupingInput: UpdateGroupingInput): Promise<any> {
+  async update(id: string, updateGroupingInput: UpdateGroupingInput): Promise<Grouping> {
     try {
       const existingGrouping = await this.findOne(id);
-
-      const updatedGrouping = {
+      const updatedGrouping: Grouping = {
         ...existingGrouping,
         ...updateGroupingInput,
         modified: new Date().toISOString(),
       };
 
-      await this.openSearchService.index({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
-        body: updatedGrouping,
+        body: { doc: updatedGrouping },
+        retry_on_conflict: 3,
         refresh: 'wait_for',
       });
 
+      if (response.body.result !== 'updated') {
+        throw new Error('Failed to update grouping');
+      }
       return updatedGrouping;
     } catch (error) {
-      throw new InternalServerErrorException(`Failed to update grouping: ${error.message}`);
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException({
+        message: 'Failed to update grouping',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // 📌 Delete a Grouping by ID
   async remove(id: string): Promise<boolean> {
     try {
-      const { body } = await this.openSearchService.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
         refresh: 'wait_for',
       });
-
-      return body.result === 'deleted';
+      return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
-        throw new NotFoundException(`Grouping with ID ${id} not found.`);
+        return false;
       }
-      throw new InternalServerErrorException(`Failed to delete grouping: ${error.message}`);
+      throw new InternalServerErrorException({
+        message: 'Failed to delete grouping',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // 📌 Search Groupings with Filters (Dynamic Search)
-  async searchWithFilters(filters: SearchGroupingInput, page = 1, pageSize = 10): Promise<any> {
+  async searchWithFilters(
+    filters: SearchGroupingInput = {},
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<{
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    results: Grouping[];
+  }> {
     try {
       const from = (page - 1) * pageSize;
-      const mustQueries = [];
-      const shouldQueries = [];
-      const filterQueries = [];
+      const queryBuilder: { query: any; sort?: any[] } = {
+        query: { bool: { must: [], filter: [], should: [] } },
+        sort: [{ modified: { order: 'desc' as const } }],
+      };
 
-      // 🔍 Construct dynamic search queries
       for (const [key, value] of Object.entries(filters)) {
         if (!value) continue;
 
         if (Array.isArray(value)) {
-          mustQueries.push({ terms: { [key]: value } });
+          queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
         } else if (typeof value === 'boolean' || typeof value === 'number') {
-          mustQueries.push({ term: { [key]: value } });
+          queryBuilder.query.bool.filter.push({ term: { [key]: value } });
         } else if (['created', 'modified'].includes(key)) {
-          // Handle date range filtering
           if (typeof value === 'object' && ('gte' in value || 'lte' in value)) {
-            filterQueries.push({ range: { [key]: value } });
-          } else {
-            filterQueries.push({ range: { [key]: { gte: value } } });
+            queryBuilder.query.bool.filter.push({ range: { [key]: value } });
+          } else if (value instanceof Date) {
+            queryBuilder.query.bool.filter.push({
+              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+            });
           }
         } else if (typeof value === 'string') {
           if (value.includes('*')) {
-            mustQueries.push({ wildcard: { [key]: value.toLowerCase() } });
+            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
           } else if (value.includes('~')) {
-            shouldQueries.push({ fuzzy: { [key]: { value, fuzziness: 'AUTO' } } });
+            queryBuilder.query.bool.should.push({
+              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
+            });
           } else {
-            mustQueries.push({ match_phrase: { [key]: value } });
+            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
           }
         }
       }
 
-      // 🏗 Construct OpenSearch query
-      const query: any = { bool: {} };
-
-      if (mustQueries.length > 0) query.bool.must = mustQueries;
-      if (shouldQueries.length > 0) query.bool.should = shouldQueries;
-      if (filterQueries.length > 0) query.bool.filter = filterQueries;
-
-      if (Object.keys(query.bool).length === 0) {
-        query.bool.must = [{ match_all: {} }];
+      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
+        queryBuilder.query = { match_all: {} };
+      } else if (queryBuilder.query.bool.should.length > 0) {
+        queryBuilder.query.bool.minimum_should_match = 1;
       }
 
-      // 🔎 Execute OpenSearch Query
-      const { body } = await this.openSearchService.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
-        body: {
-          query,
-          sort: [{ created: { order: 'desc' } }],
-        },
+        body: queryBuilder,
       });
 
-      // Extract `total` safely
-      const total = typeof body.hits.total === 'number' ? body.hits.total : body.hits.total?.value ?? 0;
+      const total = typeof response.body.hits.total === 'number'
+        ? response.body.hits.total
+        : response.body.hits.total?.value ?? 0;
 
       return {
-        total,
         page,
         pageSize,
-        results: body.hits.hits.map((hit) => ({
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        results: response.body.hits.hits.map((hit) => ({
           id: hit._id,
+          type: 'grouping' as const,
+          spec_version: hit._source.spec_version || '2.1',
+          created: hit._source.created || new Date().toISOString(),
+          modified: hit._source.modified || new Date().toISOString(),
+          name: hit._source.name, // Required field
+          context: hit._source.context,
+          object_refs:hit._source.object_refs,
           ...hit._source,
         })),
       };
     } catch (error) {
-      throw new InternalServerErrorException(`Error searching groupings in OpenSearch: ${error.message}`);
+      throw new InternalServerErrorException({
+        message: 'Failed to search groupings',
+        details: error.meta?.body?.error || error.message,
+      });
+    }
+  }
+
+  async ensureIndex(): Promise<void> {
+    try {
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
+      if (!exists.body) {
+        await this.openSearchService.indices.create({
+          index: this.index,
+          body: {
+            mappings: {
+              properties: {
+                id: { type: 'keyword' },
+                type: { type: 'keyword' },
+                spec_version: { type: 'keyword' },
+                created: { type: 'date' },
+                modified: { type: 'date' },
+                name: { type: 'text' },
+                description: { type: 'text' },
+                context: { type: 'keyword' },
+                object_refs: { type: 'keyword' },
+              },
+            },
+          },
+        });
+      }
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Failed to initialize groupings index',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 }

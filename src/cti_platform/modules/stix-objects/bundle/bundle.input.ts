@@ -9,7 +9,7 @@ export class CreateBundleInput {
   @Field(() => ID)
   id: string; // Unique identifier for the Bundle
 
-  @Field(() => [GraphQLJSON]) // ✅ Use GraphQLJSON for input objects
+  @Field(() => [GraphQLJSON]) //Use GraphQLJSON for input objects
   objects: any[];
 }
 

@@ -1,173 +1,254 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { Client } from '@opensearch-project/opensearch';
+import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateCourseOfActionInput, UpdateCourseOfActionInput } from './course-of-action.input';
 import { SearchCourseOfActionInput } from './course-of-action.resolver';
-@Injectable()
-export class CourseOfActionService {
-  private readonly index = 'course-of-actions'; // OpenSearch index name
+import { CourseOfAction } from './course-of-action.entity';
 
-  private openSearchService: Client;
+@Injectable()
+export class CourseOfActionService implements OnModuleInit {
+  private readonly index = 'course-of-actions';
+  private readonly openSearchService: Client;
+
   constructor() {
-    this.openSearchService = new Client({
-      node: 'http://localhost:9200',
-    });
+    const clientOptions: ClientOptions = {
+      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
+      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+        ? {
+            username: process.env.OPENSEARCH_USERNAME,
+            password: process.env.OPENSEARCH_PASSWORD,
+          }
+        : undefined,
+    };
+    this.openSearchService = new Client(clientOptions);
   }
 
-  // Create a new Course of Action
-  async create(createCourseOfActionInput: CreateCourseOfActionInput): Promise<any> {
-    const courseOfAction = {
+  async onModuleInit() {
+    await this.ensureIndex();
+  }
+
+  async create(createCourseOfActionInput: CreateCourseOfActionInput): Promise<CourseOfAction> {
+    const courseOfAction: CourseOfAction = {
       id: `course-of-action--${uuidv4()}`,
-      type: 'course-of-action',
+      type: 'course-of-action' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
+      name: createCourseOfActionInput.name, // Required field
       ...createCourseOfActionInput,
     };
 
     try {
-      await this.openSearchService.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: courseOfAction.id,
         body: courseOfAction,
         refresh: 'wait_for',
       });
 
+      if (response.body.result !== 'created') {
+        throw new Error('Failed to index course of action');
+      }
       return courseOfAction;
     } catch (error) {
-      throw new InternalServerErrorException(`Failed to create course of action: ${error.message}`);
+      throw new InternalServerErrorException({
+        message: 'Failed to create course of action',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // Find a course of action by ID
-  async findOne(id: string): Promise<any> {
+  async findOne(id: string): Promise<CourseOfAction> {
     try {
-      const { body } = await this.openSearchService.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
 
-      return body._source;
+      const source = response.body._source;
+      return {
+        id: response.body._id,
+        type: 'course-of-action' as const,
+        spec_version: source.spec_version || '2.1',
+        created: source.created || new Date().toISOString(),
+        modified: source.modified || new Date().toISOString(),
+        name: source.name, // Required field
+        ...source,
+      };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
-        throw new NotFoundException(`Course of Action with ID ${id} not found.`);
+        throw new NotFoundException(`Course of Action with ID ${id} not found`);
       }
-      throw new InternalServerErrorException(`Error fetching course of action: ${error.message}`);
+      throw new InternalServerErrorException({
+        message: 'Failed to fetch course of action',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // Update a course of action
-  async update(id: string, updateCourseOfActionInput: UpdateCourseOfActionInput): Promise<any> {
+  async update(id: string, updateCourseOfActionInput: UpdateCourseOfActionInput): Promise<CourseOfAction> {
     try {
       const existingCourse = await this.findOne(id);
-
-      const updatedCourse = {
+      const updatedCourse: CourseOfAction = {
         ...existingCourse,
         ...updateCourseOfActionInput,
         modified: new Date().toISOString(),
       };
 
-      await this.openSearchService.index({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
-        body: updatedCourse,
+        body: { doc: updatedCourse },
+        retry_on_conflict: 3,
         refresh: 'wait_for',
       });
+
+      if (response.body.result !== 'updated') {
+        throw new Error('Failed to update course of action');
+      }
 
       return updatedCourse;
     } catch (error) {
-      throw new InternalServerErrorException(`Failed to update course of action: ${error.message}`);
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException({
+        message: 'Failed to update course of action',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // Delete a course of action
   async remove(id: string): Promise<boolean> {
     try {
-      const { body } = await this.openSearchService.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
         refresh: 'wait_for',
       });
-
-      return body.result === 'deleted';
+      return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
-        throw new NotFoundException(`Course of Action with ID ${id} not found.`);
+        return false;
       }
-      throw new InternalServerErrorException(`Failed to delete course of action: ${error.message}`);
+      throw new InternalServerErrorException({
+        message: 'Failed to delete course of action',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // 🔎 Search with dynamic filters
-  async searchWithFilters(filters: SearchCourseOfActionInput, page = 1, pageSize = 10): Promise<any> {
+  async searchWithFilters(
+    filters: SearchCourseOfActionInput = {},
+    page: number = 1,
+    pageSize: number = 10
+  ): Promise<{
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    results: CourseOfAction[];
+  }> {
     try {
       const from = (page - 1) * pageSize;
-      const mustQueries = [];
-      const shouldQueries = [];
-      const filterQueries = [];
+      const queryBuilder: { query: any; sort?: any[] } = {
+        query: { bool: { must: [], filter: [], should: [] } },
+        sort: [{ modified: { order: 'desc' as const } }],
+      };
 
-      // Construct dynamic search queries
       for (const [key, value] of Object.entries(filters)) {
         if (!value) continue;
 
         if (Array.isArray(value)) {
-          mustQueries.push({ terms: { [key]: value } });
+          queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
         } else if (typeof value === 'boolean' || typeof value === 'number') {
-          mustQueries.push({ term: { [key]: value } });
+          queryBuilder.query.bool.filter.push({ term: { [key]: value } });
         } else if (['created', 'modified'].includes(key)) {
-          // Handle date range filtering
           if (typeof value === 'object' && ('gte' in value || 'lte' in value)) {
-            filterQueries.push({ range: { [key]: value } });
-          } else {
-            filterQueries.push({ range: { [key]: { gte: value } } });
+            queryBuilder.query.bool.filter.push({ range: { [key]: value } });
+          } else if (value instanceof Date) {
+            queryBuilder.query.bool.filter.push({
+              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+            });
           }
         } else if (typeof value === 'string') {
           if (value.includes('*')) {
-            mustQueries.push({ wildcard: { [key]: value.toLowerCase() } });
+            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
           } else if (value.includes('~')) {
-            shouldQueries.push({ fuzzy: { [key]: { value, fuzziness: 'AUTO' } } });
+            queryBuilder.query.bool.should.push({
+              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
+            });
           } else {
-            mustQueries.push({ match_phrase: { [key]: value } });
+            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
           }
         }
       }
 
-      // Construct OpenSearch query
-      const query: any = { bool: {} };
-
-      if (mustQueries.length > 0) query.bool.must = mustQueries;
-      if (shouldQueries.length > 0) query.bool.should = shouldQueries;
-      if (filterQueries.length > 0) query.bool.filter = filterQueries;
-
-      if (Object.keys(query.bool).length === 0) {
-        query.bool.must = [{ match_all: {} }];
+      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
+        queryBuilder.query = { match_all: {} };
+      } else if (queryBuilder.query.bool.should.length > 0) {
+        queryBuilder.query.bool.minimum_should_match = 1;
       }
 
-      // Execute OpenSearch Query
-      const { body } = await this.openSearchService.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
-        body: {
-          query,
-          sort: [{ created: { order: 'desc' } }],
-        },
+        body: queryBuilder,
       });
 
-      // Safely extract `total`
-      const total = typeof body.hits.total === 'number' ? body.hits.total : body.hits.total?.value ?? 0;
+      const total = typeof response.body.hits.total === 'number'
+        ? response.body.hits.total
+        : response.body.hits.total?.value ?? 0;
 
       return {
-        total,
         page,
         pageSize,
-        results: body.hits.hits.map((hit) => ({
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        results: response.body.hits.hits.map((hit) => ({
           id: hit._id,
+          type: 'course-of-action' as const,
+          spec_version: hit._source.spec_version || '2.1',
+          created: hit._source.created || new Date().toISOString(),
+          modified: hit._source.modified || new Date().toISOString(),
+          name: hit._source.name, // Required field
           ...hit._source,
         })),
       };
     } catch (error) {
-      throw new InternalServerErrorException(`Error searching course of actions in OpenSearch: ${error.message}`);
+      throw new InternalServerErrorException({
+        message: 'Failed to search courses of action',
+        details: error.meta?.body?.error || error.message,
+      });
+    }
+  }
+
+  async ensureIndex(): Promise<void> {
+    try {
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
+      if (!exists.body) {
+        await this.openSearchService.indices.create({
+          index: this.index,
+          body: {
+            mappings: {
+              properties: {
+                id: { type: 'keyword' },
+                type: { type: 'keyword' },
+                spec_version: { type: 'keyword' },
+                created: { type: 'date' },
+                modified: { type: 'date' },
+                name: { type: 'text' },
+                description: { type: 'text' },
+              },
+            },
+          },
+        });
+      }
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Failed to initialize course-of-actions index',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 }
