@@ -9,6 +9,7 @@ import { IngestionFromApiFeedsModule } from './modules/ingestion-from-api-feeds/
 import { IntegrationModule } from './modules/integration/integration.module';
 import { StixObjectsModule } from './modules/stix-objects/stix-objects.module';
 import { ConfigModule } from '@nestjs/config';
+import Joi from 'joi';
 import natsConfig, { natsConfigSchema } from './config/nats.config';
 import { NatsModule } from './modules/microservices/nats/nats.module';
 import { RedisModule } from './modules/microservices/redis/redis.module';
@@ -19,7 +20,10 @@ import redisConfig, { redisConfigSchema } from './config/redis.config';
     ConfigModule.forRoot({
       isGlobal: true,
       load: [redisConfig, natsConfig],
-      validationSchema: [redisConfigSchema, natsConfigSchema],
+      validationSchema: Joi.object({
+        redisConfigSchema,
+        natsConfigSchema,
+      }),
     }),
     RedisModule,
     NatsModule,
