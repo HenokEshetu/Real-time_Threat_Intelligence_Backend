@@ -1,117 +1,145 @@
-import { Injectable } from '@nestjs/common';
-import { Client } from '@opensearch-project/opensearch';
+import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateProcessInput, UpdateProcessInput } from './process.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { v4 as uuidv4 } from 'uuid';
-
 import { SearchProcessInput } from './process.resolver';
-@Injectable()
-export class ProcessService {
-  private readonly index = 'process'; // OpenSearch index name
+import { Process } from './process.entity';
 
-  private openSearchClient: Client;
+@Injectable()
+export class ProcessService implements OnModuleInit {
+  private readonly index = 'process';
+  private readonly openSearchClient: Client;
+
   constructor() {
-    this.openSearchClient = new Client({
-      node: 'http://localhost:9200',
-    });
+    const clientOptions: ClientOptions = {
+      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
+      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+        ? {
+            username: process.env.OPENSEARCH_USERNAME,
+            password: process.env.OPENSEARCH_PASSWORD,
+          }
+        : undefined,
+    };
+    this.openSearchClient = new Client(clientOptions);
   }
 
-  // Create a new Process
-  async create(createProcessInput: CreateProcessInput): Promise<any> {
-    this.validateProcess(createProcessInput); // Validate input
+  async onModuleInit() {
+    await this.ensureIndex();}
 
-    const id = `process-${uuidv4()}`; // Generate a unique ID for the document
-    const now = new Date().toISOString(); // Set timestamps
-    const process = {
-      id, // Set the generated ID
-      type: 'process',
+
+  async create(createProcessInput: CreateProcessInput): Promise<Process> {
+    this.validateProcess(createProcessInput);
+
+    const id = `process-${uuidv4()}`;
+    const now = new Date().toISOString();
+
+    const process: Process = {
+      id,
+      type: 'process' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
-      ...createProcessInput, // Spread input data
+      ...createProcessInput,
     };
 
     try {
-      // Index the new process into OpenSearch
-      await this.openSearchClient.index({
+      const response = await this.openSearchClient.index({
         index: this.index,
         id,
         body: process,
+        refresh: 'wait_for', // Ensures the document is available for search immediately
       });
 
-      return process; // Return the created process object
+      if (response.body.result !== 'created') {
+        throw new InternalServerErrorException('Failed to index process document');
+      }
+
+      return process;
     } catch (error) {
-      throw new StixValidationError(`Error creating process: ${error.message}`);
+      throw new StixValidationError(`Failed to create process: ${error.message}`);
+    }
+  }
+
+ 
+  async findOne(id: string): Promise<Process> {
+    try {
+      const response = await this.openSearchClient.get({
+        index: this.index,
+        id,
+      });
+
+      const source = response.body._source;
+      return {
+        id,
+        type: 'process' as const,
+        spec_version: source.spec_version || '2.1',
+        created: source.created || new Date().toISOString(),
+        modified: source.modified || new Date().toISOString(),
+        ...source,
+      };
+    } catch (error) {
+      if (error.meta?.statusCode === 404) {
+        throw new NotFoundException(`Process with ID ${id} not found`);
+      }
+      throw new InternalServerErrorException(`Failed to fetch process: ${error.message}`);
     }
   }
 
   
-  // Get a single process entry by ID
-  async findOne(id: string): Promise<any> {
-    try {
-      const { body } = await this.openSearchClient.get({
-        index: this.index,
-        id,
-      });
+  async update(id: string, updateProcessInput: UpdateProcessInput): Promise<Process> {
+    this.validateProcess(updateProcessInput);
 
-      return {
-        id, // Return the ID
-        type: 'process',
-        spec_version: '2.1',
-        created: body._source.created || new Date().toISOString(),
-        modified: body._source.modified || new Date().toISOString(),
-        ...body._source, // Include other fields from the document
+    try {
+      const existingProcess = await this.findOne(id);
+      const updatedDoc: Partial<Process> = {
+        ...updateProcessInput,
+        modified: new Date().toISOString(),
       };
-    } catch (error) {
-      throw new StixValidationError(`Process with ID ${id} not found`);
-    }
-  }
 
-  // Update an existing process
-  async update(id: string, updateProcessInput: UpdateProcessInput): Promise<any> {
-    this.validateProcess(updateProcessInput); // Validate input
-
-    try {
       const response = await this.openSearchClient.update({
         index: this.index,
         id,
-        body: {
-          doc: updateProcessInput, // Update the specified fields
-        },
+        body: { doc: updatedDoc },
+        retry_on_conflict: 3, // Retry on version conflicts
       });
 
       if (response.body.result !== 'updated') {
-        throw new StixValidationError('Error updating process');
+        throw new InternalServerErrorException('Failed to update process document');
       }
 
-      return { id, ...updateProcessInput }; // Return the updated process
+      return { ...existingProcess, ...updatedDoc };
     } catch (error) {
-      throw new StixValidationError(`Error updating process: ${error.message}`);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new StixValidationError(`Failed to update process: ${error.message}`);
     }
   }
 
-  // Remove a process entry by ID
+ 
   async remove(id: string): Promise<boolean> {
     try {
       const response = await this.openSearchClient.delete({
         index: this.index,
         id,
       });
-
-      return response.body.result === 'deleted'; // Return true if successfully deleted
+      return response.body.result === 'deleted';
     } catch (error) {
-      throw new StixValidationError(`Error deleting process with ID ${id}`);
+      if (error.meta?.statusCode === 404) {
+        return false;
+      }
+      throw new InternalServerErrorException(`Failed to delete process: ${error.message}`);
     }
   }
 
-  // Validate the process input
+ 
   private validateProcess(input: CreateProcessInput | UpdateProcessInput): void {
-    // Validate PID is a positive integer
     if (input.pid !== undefined && (input.pid < 0 || !Number.isInteger(input.pid))) {
       throw new StixValidationError('Process ID must be a positive integer');
     }
 
-    // Validate created_time is a valid timestamp
     if (input.created_time) {
       const timestamp = new Date(input.created_time);
       if (isNaN(timestamp.getTime())) {
@@ -119,7 +147,6 @@ export class ProcessService {
       }
     }
 
-    // Validate environment variables format
     if (input.environment_variables) {
       for (const envVar of input.environment_variables) {
         if (typeof envVar !== 'string') {
@@ -128,81 +155,138 @@ export class ProcessService {
       }
     }
 
-    // Validate references are in STIX format
     const validateStixRef = (ref: string) => {
       if (!ref.match(/^[a-z0-9-]+--[0-9a-fA-F-]{36}$/)) {
         throw new StixValidationError(`Invalid STIX reference format: ${ref}`);
       }
     };
 
-    if (input.creator_user_ref) {
-      validateStixRef(input.creator_user_ref);
-    }
-
-    if (input.image_ref) {
-      validateStixRef(input.image_ref);
-    }
-
-    if (input.parent_ref) {
-      validateStixRef(input.parent_ref);
-    }
-
-    if (input.child_refs) {
-      input.child_refs.forEach(validateStixRef);
-    }
-
-    if (input.opened_connection_refs) {
-      input.opened_connection_refs.forEach(validateStixRef);
-    }
+    if (input.creator_user_ref) validateStixRef(input.creator_user_ref);
+    if (input.image_ref) validateStixRef(input.image_ref);
+    if (input.parent_ref) validateStixRef(input.parent_ref);
+    if (input.child_refs) input.child_refs.forEach(validateStixRef);
+    if (input.opened_connection_refs) input.opened_connection_refs.forEach(validateStixRef);
   }
 
-// Search Processes with filters
-async searchWithFilters(
-  from: number = 0,
-  size: number = 10,
-  filters: SearchProcessInput
-): Promise<any[]> {
-  try {
-    const mustClauses: any[] = [];
 
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          mustClauses.push({ terms: { [key]: value } });
-        } else if (typeof value === 'boolean' || typeof value === 'number') {
-          mustClauses.push({ term: { [key]: value } });
-        } else {
-          mustClauses.push({ match: { [key]: value } });
+  async searchWithFilters(
+    from: number = 0,
+    size: number = 10,
+    filters: SearchProcessInput = {},
+  ): Promise<{
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    results: Process[];
+  }> {
+    try {
+      const queryBuilder: { query: any; sort?: any[] } = {
+        query: { bool: { must: [], filter: [] } },
+        sort: [{ modified: { order: 'desc' as const } }],
+      };
+
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+
+        switch (key) {
+          case 'pid':
+            queryBuilder.query.bool.filter.push({ term: { [key]: value } });
+            break;
+          case 'created_time':
+            if (value instanceof Date) {
+              queryBuilder.query.bool.filter.push({
+                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              });
+            }
+            break;
+          case 'environment_variables':
+            if (Array.isArray(value)) {
+              queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
+            }
+            break;
+          case 'creator_user_ref':
+          case 'image_ref':
+          case 'parent_ref':
+            queryBuilder.query.bool.must.push({ match: { [key]: { query: value, lenient: true } } });
+            break;
+          case 'child_refs':
+          case 'opened_connection_refs':
+            if (Array.isArray(value)) {
+              queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
+            }
+            break;
+          default:
+            queryBuilder.query.bool.must.push({ match: { [key]: { query: value, lenient: true } } });
         }
+      });
+
+      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
+        queryBuilder.query = { match_all: {} };
       }
-    });
 
-    const query = mustClauses.length > 0 ? { bool: { must: mustClauses } } : { match_all: {} };
-
-    const { body } = await this.openSearchClient.search({
-      index: this.index,
-      body: {
-        query,
+      const response = await this.openSearchClient.search({
+        index: this.index,
         from,
         size,
-        sort: [{ created: { order: 'desc' } }], // Sorting by creation date (latest first)
-      },
-    });
+        body: queryBuilder,
+      });
 
-    return body.hits.hits.map((hit) => ({
-      id: hit._id,
-      type: 'process',
-      spec_version: '2.1',
-      created: hit._source.created || new Date().toISOString(),
-      modified: hit._source.modified || new Date().toISOString(),
-      ...hit._source,
-    }));
-  } catch (error) {
-    throw new StixValidationError(`Error searching processes: ${error.message}`);
+      const total = typeof response.body.hits.total === 'object'
+        ? response.body.hits.total.value
+        : response.body.hits.total;
+
+      return {
+        page: Math.floor(from / size) + 1,
+        pageSize: size,
+        total,
+        totalPages: Math.ceil(total / size),
+        results: response.body.hits.hits.map((hit) => ({
+          id: hit._id,
+          type: 'process' as const,
+          spec_version: hit._source.spec_version || '2.1',
+          created: hit._source.created || new Date().toISOString(),
+          modified: hit._source.modified || new Date().toISOString(),
+          ...hit._source,
+        })),
+      };
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to search processes: ${error.message}`);
+    }
   }
-}
 
-
-
-
+  /**
+   * Ensures the OpenSearch index exists and is properly configured.
+   */
+  async ensureIndex(): Promise<void> {
+    try {
+      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      if (!exists.body) {
+        await this.openSearchClient.indices.create({
+          index: this.index,
+          body: {
+            mappings: {
+              properties: {
+                id: { type: 'keyword' },
+                type: { type: 'keyword' },
+                spec_version: { type: 'keyword' },
+                created: { type: 'date' },
+                modified: { type: 'date' },
+                pid: { type: 'integer' },
+                created_time: { type: 'date' },
+                creator_user_ref: { type: 'keyword' },
+                image_ref: { type: 'keyword' },
+                parent_ref: { type: 'keyword' },
+                child_refs: { type: 'keyword' },
+                opened_connection_refs: { type: 'keyword' },
+                environment_variables: { type: 'keyword' },
+              },
+            },
+          },
+        });
+      }
+    } catch (error) {
+      throw new InternalServerErrorException(`Failed to initialize process index: ${error.message}`);
+    }
+  }
 }

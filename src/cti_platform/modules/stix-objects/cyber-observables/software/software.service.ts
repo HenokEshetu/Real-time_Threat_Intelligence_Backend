@@ -1,108 +1,150 @@
-import { Injectable } from '@nestjs/common';
-import { Client } from '@opensearch-project/opensearch';
+import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateSoftwareInput, UpdateSoftwareInput } from './software.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { SearchSoftwareInput } from './software.resolver';
+import { Software } from './software.entity';
 
 @Injectable()
-export class SoftwareService {
-  private readonly index = 'software'; // OpenSearch index name
+export class SoftwareService implements OnModuleInit {
+  private readonly index = 'software';
+  private readonly openSearchClient: Client;
 
-  private openSearchClient: Client;
   constructor() {
-    this.openSearchClient = new Client({
-      node: 'http://localhost:9200',
-    });
+    const clientOptions: ClientOptions = {
+      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
+      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+        ? {
+            username: process.env.OPENSEARCH_USERNAME,
+            password: process.env.OPENSEARCH_PASSWORD,
+          }
+        : undefined,
+    };
+    this.openSearchClient = new Client(clientOptions);
   }
 
-  // Create a new software record
-  async create(createSoftwareInput: CreateSoftwareInput): Promise<any> {
+  async onModuleInit() {
+    await this.ensureIndex();}
+
+  async create(createSoftwareInput: CreateSoftwareInput): Promise<Software> {
     this.validateSoftware(createSoftwareInput);
 
-    const software = {
-      ...createSoftwareInput,
-      type: 'software',
+    const software: Software = {
+    
+      type: 'software' as const,
+      spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
+      ...createSoftwareInput,
     };
 
-    // Insert software into OpenSearch
-    const { body } = await this.openSearchClient.index({
-      index: this.index,
-      body: software,
-    });
+    try {
+      const response = await this.openSearchClient.index({
+        index: this.index,
+        body: software,
+        refresh: 'wait_for',
+      });
 
-    return {
-      id: body._id,
-      ...software,
-    };
+      if (response.body.result !== 'created') {
+        throw new Error('Failed to index software document');
+      }
+
+      return {
+        id: response.body._id,
+        ...software,
+      };
+    } catch (error) {
+      throw new StixValidationError(`Failed to create software: ${error.meta?.body?.error || error.message}`);
+    }
   }
 
-  
-  // Find one software by ID
-  async findOne(id: string): Promise<any> {
+  async findOne(id: string): Promise<Software> {
     try {
-      const { body } = await this.openSearchClient.get({
+      const response = await this.openSearchClient.get({
         index: this.index,
         id,
       });
 
+      const source = response.body._source;
       return {
-        id: body._id,
-        ...body._source,
+        id: response.body._id,
+        type: 'software' as const,
+        name:source.name,
+        spec_version: source.spec_version || '2.1',
+        created: source.created || new Date().toISOString(),
+        modified: source.modified || new Date().toISOString(),
+        ...source,
       };
     } catch (error) {
-      throw new StixValidationError('Software not found');
+      if (error.meta?.statusCode === 404) {
+        throw new NotFoundException(`Software with ID ${id} not found`);
+      }
+      throw new InternalServerErrorException({
+        message: 'Failed to fetch software',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // Update an existing software record
-  async update(id: string, updateSoftwareInput: UpdateSoftwareInput): Promise<any> {
+  async update(id: string, updateSoftwareInput: UpdateSoftwareInput): Promise<Software> {
     this.validateSoftware(updateSoftwareInput);
 
-    const software = {
-      ...updateSoftwareInput,
-      modified: new Date().toISOString(),
-    };
+    try {
+      const existing = await this.findOne(id);
+      const updatedDoc: Partial<Software> = {
+        ...updateSoftwareInput,
+        modified: new Date().toISOString(),
+      };
 
-    // Update the software in OpenSearch
-    await this.openSearchClient.update({
-      index: this.index,
-      id,
-      body: {
-        doc: software,
-      },
-    });
+      const response = await this.openSearchClient.update({
+        index: this.index,
+        id,
+        body: { doc: updatedDoc },
+        retry_on_conflict: 3,
+      });
 
-    return this.findOne(id);
+      if (response.body.result !== 'updated') {
+        throw new Error('Failed to update software document');
+      }
+
+      return { ...existing, ...updatedDoc };
+    } catch (error) {
+      if (error instanceof NotFoundException) throw error;
+      throw new StixValidationError(`Failed to update software: ${error.meta?.body?.error || error.message}`);
+    }
   }
 
-  // Remove a software record by ID
   async remove(id: string): Promise<boolean> {
-    const result = await this.openSearchClient.delete({
-      index: this.index,
-      id,
-    });
-
-    return result.body.result === 'deleted';
+    try {
+      const response = await this.openSearchClient.delete({
+        index: this.index,
+        id,
+      });
+      return response.body.result === 'deleted';
+    } catch (error) {
+      if (error.meta?.statusCode === 404) {
+        return false;
+      }
+      throw new InternalServerErrorException({
+        message: 'Failed to delete software',
+        details: error.meta?.body?.error || error.message,
+      });
+    }
   }
 
-  // Validate software fields before inserting or updating
   private validateSoftware(input: CreateSoftwareInput | UpdateSoftwareInput): void {
-    // Validate name is not empty if provided
     if ('name' in input && (!input.name || input.name.trim().length === 0)) {
       throw new StixValidationError('Software name cannot be empty');
     }
 
-    // Validate CPE format if provided
     if (input.cpe) {
-      const cpeRegex = /^cpe:(?:2\.[23]|)\:([aho]):(?:[^:]+)(?::[^:]+){0,5}:(?:[^:]+|)(?::[^:]+|)$/;
+      const cpeRegex = /^cpe:(?:2\.[23]|):[aho]:(?:[^:]+)(?::[^:]+){0,5}:(?:[^:]+|)(?::[^:]+|)$/;
       if (!cpeRegex.test(input.cpe)) {
         throw new StixValidationError('Invalid CPE format');
       }
     }
 
-    // Validate SWID format if provided
     if (input.swid) {
       input.swid.forEach((swid) => {
         if (!swid || swid.trim().length === 0) {
@@ -111,7 +153,6 @@ export class SoftwareService {
       });
     }
 
-    // Validate languages format if provided
     if (input.languages) {
       const languageRegex = /^[a-zA-Z]{2,3}(-[a-zA-Z]{2,3})?$/;
       input.languages.forEach((lang) => {
@@ -121,7 +162,6 @@ export class SoftwareService {
       });
     }
 
-    // Validate version format if provided
     if (input.version) {
       const versionRegex = /^[0-9a-zA-Z.-]+$/;
       if (!versionRegex.test(input.version)) {
@@ -129,59 +169,128 @@ export class SoftwareService {
       }
     }
 
-    // Validate vendor if provided
     if (input.vendor && input.vendor.trim().length === 0) {
       throw new StixValidationError('Vendor name cannot be empty');
     }
   }
 
-// Search Software with filters
-async searchWithFilters(
-  from: number = 0,
-  size: number = 10,
-  filters: SearchSoftwareInput
-): Promise<any[]> {
-  try {
-    const mustClauses: any[] = [];
+  async searchWithFilters(
+    from: number = 0,
+    size: number = 10,
+    filters: SearchSoftwareInput = {}
+  ): Promise<{
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    results: Software[];
+  }> {
+    try {
+      const queryBuilder: { query: any; sort?: any[] } = {
+        query: { bool: { must: [], filter: [] } },
+        sort: [{ modified: { order: 'desc' as const } }],
+      };
 
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          mustClauses.push({ terms: { [key]: value } }); // If the field is an array, use `terms`
-        } else if (typeof value === 'boolean' || typeof value === 'number') {
-          mustClauses.push({ term: { [key]: value } }); // Exact match for boolean/number
-        } else {
-          mustClauses.push({ match: { [key]: value } }); // Fuzzy search for text fields
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value === undefined || value === null) return;
+
+        switch (key) {
+          case 'name':
+          case 'cpe':
+          case 'vendor':
+            queryBuilder.query.bool.must.push({
+              match: { [key]: { query: value, lenient: true } },
+            });
+            break;
+          case 'languages':
+          case 'swid':
+            if (Array.isArray(value)) {
+              queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
+            }
+            break;
+          case 'created':
+          case 'modified':
+            if (value instanceof Date) {
+              queryBuilder.query.bool.filter.push({
+                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              });
+            }
+            break;
+          default:
+            queryBuilder.query.bool.must.push({
+              term: { [key]: value },
+            });
         }
+      });
+
+      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
+        queryBuilder.query = { match_all: {} };
       }
-    });
 
-    const query = mustClauses.length > 0 ? { bool: { must: mustClauses } } : { match_all: {} };
-
-    const { body } = await this.openSearchClient.search({
-      index: this.index,
-      body: {
-        query,
+      const response = await this.openSearchClient.search({
+        index: this.index,
         from,
         size,
-        sort: [{ created: { order: 'desc' } }], // Sorting by creation date (latest first)
-      },
-    });
+        body: queryBuilder,
+      });
 
-    return body.hits.hits.map((hit) => ({
-      id: hit._id,
-      type: 'software',
-      created: hit._source.created || new Date().toISOString(),
-      modified: hit._source.modified || new Date().toISOString(),
-      ...hit._source,
-    }));
-  } catch (error) {
-    throw new StixValidationError(`Error searching software: ${error.message}`);
+      const total = typeof response.body.hits.total === 'object'
+        ? response.body.hits.total.value
+        : response.body.hits.total;
+
+      return {
+        page: Math.floor(from / size) + 1,
+        pageSize: size,
+        total,
+        totalPages: Math.ceil(total / size),
+        results: response.body.hits.hits.map((hit) => ({
+          id: hit._id,
+          type: 'software' as const,
+          name:hit._source.name,
+          spec_version: hit._source.spec_version || '2.1',
+          created: hit._source.created || new Date().toISOString(),
+          modified: hit._source.modified || new Date().toISOString(),
+          ...hit._source,
+        })),
+      };
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Failed to search software',
+        details: error.meta?.body?.error || error.message,
+      });
+    }
   }
-}
 
-
-
-
-
+  async ensureIndex(): Promise<void> {
+    try {
+      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      if (!exists.body) {
+        await this.openSearchClient.indices.create({
+          index: this.index,
+          body: {
+            mappings: {
+              properties: {
+                id: { type: 'keyword' },
+                type: { type: 'keyword' },
+                spec_version: { type: 'keyword' },
+                created: { type: 'date' },
+                modified: { type: 'date' },
+                name: { type: 'text' },
+                cpe: { type: 'keyword' },
+                swid: { type: 'keyword' },
+                languages: { type: 'keyword' },
+                version: { type: 'keyword' },
+                vendor: { type: 'text' },
+              },
+            },
+          },
+        });
+      }
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Failed to initialize software index',
+        details: error.meta?.body?.error || error.message,
+      });
+    }
+  }
 }

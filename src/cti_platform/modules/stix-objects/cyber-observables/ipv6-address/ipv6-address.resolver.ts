@@ -1,4 +1,4 @@
-import { Resolver, Query, InputType, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
 import { IPv6AddressService } from './ipv6-address.service';
 import { IPv6Address } from './ipv6-address.entity';
 import { CreateIPv6AddressInput, UpdateIPv6AddressInput } from './ipv6-address.input';
@@ -8,41 +8,66 @@ import { PartialType } from '@nestjs/graphql';
 export class SearchIPv6AddressInput extends PartialType(CreateIPv6AddressInput) {}
 
 
+import { ObjectType, Field } from '@nestjs/graphql';
+
+@ObjectType()
+export class IPv6AddressSearchResult {
+  @Field(() => Int)
+  page: number;
+
+  @Field(() => Int)
+  pageSize: number;
+
+  @Field(() => Int)
+  total: number;
+
+  @Field(() => Int)
+  totalPages: number;
+
+  @Field(() => [IPv6Address])
+  results: IPv6Address[];
+}
+
 @Resolver(() => IPv6Address)
 export class IPv6AddressResolver {
   constructor(private readonly ipv6AddressService: IPv6AddressService) {}
 
   @Mutation(() => IPv6Address)
   async createIPv6Address(
-    @Args('createIPv6AddressInput') createIPv6AddressInput: CreateIPv6AddressInput,
+    @Args('input') createIPv6AddressInput: CreateIPv6AddressInput,
   ): Promise<IPv6Address> {
     return this.ipv6AddressService.create(createIPv6AddressInput);
   }
 
-  @Query(() => [IPv6Address])
-        async searchIPv6Address(
-          @Args('filters', { type: () => SearchIPv6AddressInput, nullable: true }) filters: Partial<SearchIPv6AddressInput> = {}, // Accept dynamic filters
-          @Args('page', { type: () => Number, defaultValue: 1 }) page: number = 1, // Pagination
-          @Args('pageSize', { type: () => Number, defaultValue: 10 }) pageSize: number = 10 // Pagination size
-        ): Promise<File[]> {
-          return this.ipv6AddressService.searchWithFilters(filters, page, pageSize); // Pass filters, page, and pageSize
-      
-      }
-  @Query(() => IPv6Address)
+  @Query(() => IPv6AddressSearchResult)
+  async searchIPv6Addresses(
+    @Args('filters', { type: () => SearchIPv6AddressInput, nullable: true }) filters: SearchIPv6AddressInput = {},
+    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
+    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
+  ): Promise<IPv6AddressSearchResult> {
+    return this.ipv6AddressService.searchWithFilters(filters, page, pageSize);
+  }
+
+  @Query(() => IPv6Address, { nullable: true })
   async ipv6Address(@Args('id') id: string): Promise<IPv6Address> {
     return this.ipv6AddressService.findOne(id);
+  }
+
+  @Query(() => [IPv6Address])
+  async ipv6AddressesByValue(@Args('value') value: string): Promise<IPv6Address[]> {
+    return this.ipv6AddressService.findByValue(value);
   }
 
   @Mutation(() => IPv6Address)
   async updateIPv6Address(
     @Args('id') id: string,
-    @Args('updateIPv6AddressInput') updateIPv6AddressInput: UpdateIPv6AddressInput,
+    @Args('input') updateIPv6AddressInput: UpdateIPv6AddressInput,
   ): Promise<IPv6Address> {
     return this.ipv6AddressService.update(id, updateIPv6AddressInput);
   }
 
   @Mutation(() => Boolean)
-  async removeIPv6Address(@Args('id') id: string): Promise<boolean> {
+  async deleteIPv6Address(@Args('id') id: string): Promise<boolean> {
     return this.ipv6AddressService.remove(id);
   }
 }

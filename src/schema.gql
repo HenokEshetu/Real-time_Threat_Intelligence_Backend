@@ -43,6 +43,14 @@ type Artifact {
   url: String
 }
 
+type ArtifactSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Artifact!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type AttackPattern {
   aliases: [String!]
   confidence: Float
@@ -64,6 +72,14 @@ type AttackPattern {
   version: String
 }
 
+type AttackPatternSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [AttackPattern!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type AuthResponse {
   message: String
   success: Boolean!
@@ -81,10 +97,19 @@ type AutonomousSystem {
   lang: String
   modified: String!
   name: String
+  number: Float!
   revoked: Boolean
   rir: String
   spec_version: String!
   type: String!
+}
+
+type AutonomousSystemSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [AutonomousSystem!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type Bundle {
@@ -115,6 +140,14 @@ type Campaign {
   type: String!
 }
 
+type CampaignSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Campaign!]!
+  total: Int!
+  totalPages: Int!
+}
+
 input ChangePasswordDto {
   newPassword: String!
   oldPassword: String!
@@ -140,6 +173,14 @@ type CourseOfAction {
   revoked: Boolean
   spec_version: String!
   type: String!
+}
+
+type CourseOfActionSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [CourseOfAction!]!
+  total: Int!
+  totalPages: Int!
 }
 
 input CreateArtifactInput {
@@ -563,6 +604,7 @@ input CreateLocationInput {
   country: String
   created: String!
   created_by_ref: String
+  default: LocationType!
   description: String
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -570,7 +612,6 @@ input CreateLocationInput {
   labels: [String!]
   lang: String
   latitude: String
-  location_type: LocationType!
   longitude: String
   modified: String!
   name: String!
@@ -1097,6 +1138,14 @@ type Directory {
   type: String!
 }
 
+type DirectorySearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Directory!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type DomainName {
   confidence: Float
   created: String!
@@ -1113,6 +1162,14 @@ type DomainName {
   spec_version: String!
   type: String!
   value: String!
+}
+
+type DomainNameSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [DomainName!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type EmailAddress {
@@ -1132,6 +1189,14 @@ type EmailAddress {
   spec_version: String!
   type: String!
   value: String!
+}
+
+type EmailAddressSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [EmailAddress!]!
+  total: Int!
+  totalPages: Int!
 }
 
 input EmailMIMEComponentInput {
@@ -1185,6 +1250,14 @@ type EmailMessage {
   type: String!
 }
 
+type EmailMessageSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [EmailMessage!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type ExternalReference {
   description: String
   external_id: String
@@ -1196,7 +1269,7 @@ type ExternalReference {
 input ExternalReferenceInput {
   description: String
   external_id: String
-  hashes: HashesInput
+  hashes: [HashesInput!]
   id: ID!
   source_name: String!
   url: String
@@ -1235,6 +1308,14 @@ type File {
   windows_pe_binary_ext: WindowsPEBinaryFileExtension
 }
 
+type FileSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [File!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type Grouping {
   confidence: Float
   context: String!
@@ -1253,6 +1334,14 @@ type Grouping {
   revoked: Boolean
   spec_version: String!
   type: String!
+}
+
+type GroupingSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Grouping!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type Hashes {
@@ -1288,6 +1377,14 @@ type IPv4Address {
   value: String!
 }
 
+type IPv4AddressSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [IPv4Address!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type IPv6Address {
   confidence: Float
   created: String!
@@ -1304,6 +1401,14 @@ type IPv6Address {
   spec_version: String!
   type: String!
   value: String!
+}
+
+type IPv6AddressSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [IPv6Address!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type Identity {
@@ -1337,6 +1442,14 @@ enum IdentityClass {
   UNKNOWN
 }
 
+type IdentitySearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Identity!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type Incident {
   affected_assets: [String!]
   aliases: [String!]
@@ -1363,11 +1476,18 @@ type Incident {
   type: String!
 }
 
+type IncidentSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Incident!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type Indicator {
   confidence: Float
   created: String!
   created_by_ref: String
-  default: PatternType!
   description: String
   extensions: JSONObject
   external_references: [ExternalReference!]
@@ -1379,6 +1499,7 @@ type Indicator {
   modified: String!
   name: String!
   pattern: String!
+  pattern_type: PatternType!
   pattern_version: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
@@ -1386,6 +1507,14 @@ type Indicator {
   type: String!
   valid_from: DateTime!
   valid_until: DateTime
+}
+
+type IndicatorSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Indicator!]!
+  total: Int!
+  totalPages: Int!
 }
 
 enum IndicatorType {
@@ -1450,6 +1579,14 @@ type Infrastructure {
   type: String!
 }
 
+type InfrastructureSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Infrastructure!]!
+  total: Int!
+  totalPages: Int!
+}
+
 enum InfrastructureType {
   AMPLIFICATION
   ANONYMIZATION
@@ -1488,6 +1625,14 @@ type IntrusionSet {
   secondary_motivations: [String!]
   spec_version: String!
   type: String!
+}
+
+type IntrusionSetSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [IntrusionSet!]!
+  total: Int!
+  totalPages: Int!
 }
 
 """
@@ -1540,6 +1685,14 @@ type Location {
   type: String!
 }
 
+type LocationSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Location!]!
+  total: Int!
+  totalPages: Int!
+}
+
 enum LocationType {
   ADMINISTRATIVE_AREA
   ASTRONOMICAL_OBJECT
@@ -1576,6 +1729,14 @@ type MACAddress {
   spec_version: String!
   type: String!
   value: String!
+}
+
+type MACAddressSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [MACAddress!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type Malware {
@@ -1638,6 +1799,22 @@ type MalwareAnalysis {
   version: String
 }
 
+type MalwareAnalysisSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [MalwareAnalysis!]!
+  total: Int!
+  totalPages: Int!
+}
+
+type MalwareSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Malware!]!
+  total: Int!
+  totalPages: Int!
+}
+
 enum MalwareType {
   ADWARE
   BACKDOOR
@@ -1663,133 +1840,133 @@ enum MalwareType {
 
 type Mutation {
   changePassword(input: ChangePasswordDto!): AuthResponse!
-  createArtifact(createArtifactInput: CreateArtifactInput!): Artifact!
+  createArtifact(input: CreateArtifactInput!): Artifact!
   createAttackPattern(input: CreateAttackPatternInput!): AttackPattern!
-  createAutonomousSystem(createAutonomousSystemInput: CreateAutonomousSystemInput!): AutonomousSystem!
-  createBundle(createBundleInput: CreateBundleInput!): Bundle!
+  createAutonomousSystem(input: CreateAutonomousSystemInput!): AutonomousSystem!
+  createBundle(input: CreateBundleInput!): Bundle!
   createCampaign(input: CreateCampaignInput!): Campaign!
-  createCourseOfAction(createCourseOfActionInput: CreateCourseOfActionInput!): CourseOfAction!
-  createDirectory(createDirectoryInput: CreateDirectoryInput!): Directory!
-  createDomainName(createDomainNameInput: CreateDomainNameInput!): DomainName!
-  createEmailAddress(createEmailAddressInput: CreateEmailAddressInput!): EmailAddress!
-  createEmailMessage(createEmailMessageInput: CreateEmailMessageInput!): EmailMessage!
-  createFile(createFileInput: CreateFileInput!): File!
-  createGrouping(createGroupingInput: CreateGroupingInput!): Grouping!
-  createIPv4Address(createIPv4AddressInput: CreateIPv4AddressInput!): IPv4Address!
-  createIPv6Address(createIPv6AddressInput: CreateIPv6AddressInput!): IPv6Address!
-  createIdentity(createGroupingInput: CreateIdentityInput!): Identity!
+  createCourseOfAction(input: CreateCourseOfActionInput!): CourseOfAction!
+  createDirectory(input: CreateDirectoryInput!): Directory!
+  createDomainName(input: CreateDomainNameInput!): DomainName!
+  createEmailAddress(input: CreateEmailAddressInput!): EmailAddress!
+  createEmailMessage(input: CreateEmailMessageInput!): EmailMessage!
+  createFile(input: CreateFileInput!): File!
+  createGrouping(input: CreateGroupingInput!): Grouping!
+  createIPv4Address(input: CreateIPv4AddressInput!): IPv4Address!
+  createIPv6Address(input: CreateIPv6AddressInput!): IPv6Address!
+  createIdentity(input: CreateIdentityInput!): Identity!
   createIncident(input: CreateIncidentInput!): Incident!
-  createIndicator(createIndicatorInput: CreateIndicatorInput!): Indicator!
-  createInfrastructure(createInfrastructureInput: CreateInfrastructureInput!): Infrastructure!
-  createIntrusionSet(createIntrusionSetInput: CreateIntrusionSetInput!): IntrusionSet!
-  createLocation(createLocationInput: CreateLocationInput!): Location!
-  createMACAddress(createMACAddressInput: CreateMACAddressInput!): MACAddress!
-  createMalware(createMalwareInput: CreateMalwareInput!): Malware!
+  createIndicator(input: CreateIndicatorInput!): Indicator!
+  createInfrastructure(input: CreateInfrastructureInput!): Infrastructure!
+  createIntrusionSet(input: CreateIntrusionSetInput!): IntrusionSet!
+  createLocation(input: CreateLocationInput!): Location!
+  createMACAddress(input: CreateMACAddressInput!): MACAddress!
+  createMalware(input: CreateMalwareInput!): Malware!
   createMalwareAnalysis(input: CreateMalwareAnalysisInput!): MalwareAnalysis!
-  createMutex(createMutexInput: CreateMutexInput!): Mutex!
-  createNetworkTraffic(createNetworkTrafficInput: CreateNetworkTrafficInput!): NetworkTraffic!
-  createNote(createNoteInput: CreateNoteInput!): Note!
+  createMutex(input: CreateMutexInput!): Mutex!
+  createNetworkTraffic(input: CreateNetworkTrafficInput!): NetworkTraffic!
+  createNote(input: CreateNoteInput!): Note!
   createObservedData(input: CreateObservedDataInput!): ObservedData!
   createOpinion(input: CreateOpinionInput!): Opinion!
-  createProcess(createProcessInput: CreateProcessInput!): Process!
-  createRelationship(createRelationshipInput: CreateRelationshipInput!): StixRelationship!
-  createReport(createReportInput: CreateReportInput!): Report!
+  createProcess(input: CreateProcessInput!): Process!
+  createRelationship(input: CreateRelationshipInput!): StixRelationship!
+  createReport(input: CreateReportInput!): Report!
   createSighting(input: CreateSightingInput!): Sighting!
-  createSoftware(createSoftwareInput: CreateSoftwareInput!): Software!
+  createSoftware(input: CreateSoftwareInput!): Software!
   createThreatActor(input: CreateThreatActorInput!): ThreatActor!
-  createTool(createToolInput: CreateToolInput!): Tool!
-  createUrl(createUrlInput: CreateUrlInput!): Url!
+  createTool(input: CreateToolInput!): Tool!
+  createUrl(input: CreateUrlInput!): Url!
   createUser(createUserInput: CreateUserDto!): User!
-  createUserAccount(createUserAccountInput: CreateUserAccountInput!): UserAccount!
-  createVulnerability(createVulnerabilityInput: CreateVulnerabilityInput!): Vulnerability!
-  createWindowsRegistryKey(createWindowsRegistryKeyInput: CreateWindowsRegistryKeyInput!): WindowsRegistryKey!
-  createX509Certificate(createX509CertificateInput: CreateX509CertificateInput!): X509Certificate!
+  createUserAccount(input: CreateUserAccountInput!): UserAccount!
+  createVulnerability(input: CreateVulnerabilityInput!): Vulnerability!
+  createWindowsRegistryKey(input: CreateWindowsRegistryKeyInput!): WindowsRegistryKey!
+  createX509Certificate(input: CreateX509CertificateInput!): X509Certificate!
+  deleteArtifact(id: String!): Boolean!
+  deleteAttackPattern(id: String!): Boolean!
+  deleteAutonomousSystem(id: String!): Boolean!
+  deleteBundle(id: String!): Boolean!
+  deleteCampaign(id: String!): Boolean!
+  deleteCourseOfAction(id: String!): Boolean!
+  deleteDirectory(id: String!): Boolean!
+  deleteDomainName(id: String!): Boolean!
+  deleteEmailAddress(id: String!): Boolean!
+  deleteEmailMessage(id: String!): Boolean!
+  deleteFile(id: String!): Boolean!
+  deleteGrouping(id: String!): Boolean!
+  deleteIPv4Address(id: String!): Boolean!
+  deleteIPv6Address(id: String!): Boolean!
+  deleteIdentity(id: String!): Boolean!
+  deleteIncident(id: String!): Boolean!
+  deleteIndicator(id: String!): Boolean!
+  deleteInfrastructure(id: String!): Boolean!
+  deleteIntrusionSet(id: String!): Boolean!
+  deleteLocation(id: String!): Boolean!
+  deleteMACAddress(id: String!): Boolean!
+  deleteMalware(id: String!): Boolean!
+  deleteMalwareAnalysis(id: String!): Boolean!
+  deleteMutex(id: String!): Boolean!
+  deleteNetworkTraffic(id: String!): Boolean!
+  deleteNote(id: String!): Boolean!
+  deleteObservedData(id: String!): Boolean!
+  deleteOpinion(id: String!): Boolean!
+  deleteProcess(id: String!): Boolean!
+  deleteRelationship(id: String!): Boolean!
+  deleteReport(id: String!): Boolean!
   deleteSighting(id: String!): Boolean!
+  deleteSoftware(id: String!): Boolean!
+  deleteThreatActor(id: String!): Boolean!
+  deleteTool(id: String!): Boolean!
+  deleteUrl(id: String!): Boolean!
+  deleteUserAccount(id: String!): Boolean!
+  deleteVulnerability(id: String!): Boolean!
+  deleteWindowsRegistryKey(id: String!): Boolean!
+  deleteX509Certificate(id: String!): Boolean!
   forgotPassword(input: forgotPasswordDto!): AuthResponse!
   login(input: LoginDto!): LoginResponse!
-  removeArtifact(id: String!): Boolean!
-  removeAttackPattern(id: String!): Boolean!
-  removeAutonomousSystem(id: String!): Boolean!
-  removeBundle(id: String!): Boolean!
-  removeCampaign(id: String!): Boolean!
-  removeCourseOfAction(id: String!): Boolean!
-  removeDirectory(id: String!): Boolean!
-  removeDomainName(id: String!): Boolean!
-  removeEmailAddress(id: String!): Boolean!
-  removeEmailMessage(id: String!): Boolean!
-  removeFile(id: String!): Boolean!
-  removeGrouping(id: String!): Boolean!
-  removeIPv4Address(id: String!): Boolean!
-  removeIPv6Address(id: String!): Boolean!
-  removeIdentity(id: String!): Boolean!
-  removeIncident(id: String!): Boolean!
-  removeIndicator(id: String!): Boolean!
-  removeInfrastructure(id: String!): Boolean!
-  removeIntrusionSet(id: String!): Boolean!
-  removeLocation(id: String!): Boolean!
-  removeMACAddress(id: String!): Boolean!
-  removeMalware(id: String!): Boolean!
-  removeMalwareAnalysis(id: String!): Boolean!
-  removeMutex(id: String!): Boolean!
-  removeNetworkTraffic(id: String!): Boolean!
-  removeNote(id: String!): Boolean!
-  removeObservedData(id: String!): Boolean!
-  removeOpinion(id: String!): Boolean!
-  removeProcess(id: String!): Boolean!
-  removeRelationship(id: String!): Boolean!
-  removeReport(id: String!): Boolean!
-  removeSoftware(id: String!): Boolean!
-  removeThreatActor(id: String!): Boolean!
-  removeTool(id: String!): Boolean!
-  removeUrl(id: String!): Boolean!
   removeUser(id: ID!): Boolean!
-  removeUserAccount(id: String!): Boolean!
-  removeVulnerability(id: String!): Boolean!
-  removeWindowsRegistryKey(id: String!): Boolean!
-  removeX509Certificate(id: String!): Boolean!
   resetPassword(input: ResetPasswordDto!): AuthResponse!
   signOut(input: SignOutDto!): AuthResponse!
-  updateArtifact(id: String!, updateArtifactInput: UpdateArtifactInput!): Artifact!
+  updateArtifact(id: String!, input: UpdateArtifactInput!): Artifact!
   updateAttackPattern(id: String!, input: UpdateAttackPatternInput!): AttackPattern!
-  updateAutonomousSystem(id: String!, updateAutonomousSystemInput: UpdateAutonomousSystemInput!): AutonomousSystem!
-  updateBundle(id: String!, updateBundleInput: UpdateBundleInput!): Bundle!
+  updateAutonomousSystem(id: String!, input: UpdateAutonomousSystemInput!): AutonomousSystem!
+  updateBundle(id: String!, input: UpdateBundleInput!): Bundle!
   updateCampaign(id: String!, input: UpdateCampaignInput!): Campaign!
-  updateCourseOfAction(id: String!, updateCourseOfActionInput: UpdateCourseOfActionInput!): CourseOfAction!
-  updateDirectory(id: String!, updateDirectoryInput: UpdateDirectoryInput!): Directory!
-  updateDomainName(id: String!, updateDomainNameInput: UpdateDomainNameInput!): DomainName!
-  updateEmailAddress(id: String!, updateEmailAddressInput: UpdateEmailAddressInput!): EmailAddress!
-  updateEmailMessage(id: String!, updateEmailMessageInput: UpdateEmailMessageInput!): EmailMessage!
-  updateFile(id: String!, updateFileInput: UpdateFileInput!): File!
-  updateGrouping(id: String!, updateGroupingInput: UpdateGroupingInput!): Grouping!
-  updateIPv4Address(id: String!, updateIPv4AddressInput: UpdateIPv4AddressInput!): IPv4Address!
-  updateIPv6Address(id: String!, updateIPv6AddressInput: UpdateIPv6AddressInput!): IPv6Address!
-  updateIdentity(id: String!, updateIdentityInput: UpdateIdentityInput!): Identity!
+  updateCourseOfAction(id: String!, input: UpdateCourseOfActionInput!): CourseOfAction!
+  updateDirectory(id: String!, input: UpdateDirectoryInput!): Directory!
+  updateDomainName(id: String!, input: UpdateDomainNameInput!): DomainName!
+  updateEmailAddress(id: String!, input: UpdateEmailAddressInput!): EmailAddress!
+  updateEmailMessage(id: String!, input: UpdateEmailMessageInput!): EmailMessage!
+  updateFile(id: String!, input: UpdateFileInput!): File!
+  updateGrouping(id: String!, input: UpdateGroupingInput!): Grouping!
+  updateIPv4Address(id: String!, input: UpdateIPv4AddressInput!): IPv4Address!
+  updateIPv6Address(id: String!, input: UpdateIPv6AddressInput!): IPv6Address!
+  updateIdentity(id: String!, input: UpdateIdentityInput!): Identity!
   updateIncident(id: String!, input: UpdateIncidentInput!): Incident!
-  updateIndicator(id: String!, updateIndicatorInput: UpdateIndicatorInput!): Indicator!
-  updateInfrastructure(id: String!, updateInfrastructureInput: UpdateInfrastructureInput!): Infrastructure!
-  updateIntrusionSet(id: String!, updateIntrusionSetInput: UpdateIntrusionSetInput!): IntrusionSet!
-  updateLocation(id: String!, updateLocationInput: UpdateLocationInput!): Location!
-  updateMACAddress(id: String!, updateMACAddressInput: UpdateMACAddressInput!): MACAddress!
-  updateMalware(id: String!, updateMalwareInput: UpdateMalwareInput!): Malware!
+  updateIndicator(id: String!, input: UpdateIndicatorInput!): Indicator!
+  updateInfrastructure(id: String!, input: UpdateInfrastructureInput!): Infrastructure!
+  updateIntrusionSet(id: String!, input: UpdateIntrusionSetInput!): IntrusionSet!
+  updateLocation(id: String!, input: UpdateLocationInput!): Location!
+  updateMACAddress(id: String!, input: UpdateMACAddressInput!): MACAddress!
+  updateMalware(id: String!, input: UpdateMalwareInput!): Malware!
   updateMalwareAnalysis(id: String!, input: UpdateMalwareAnalysisInput!): MalwareAnalysis!
-  updateMutex(id: String!, updateMutexInput: UpdateMutexInput!): Mutex!
-  updateNetworkTraffic(id: String!, updateNetworkTrafficInput: UpdateNetworkTrafficInput!): NetworkTraffic!
-  updateNote(id: String!, updateNoteInput: UpdateNoteInput!): Note!
+  updateMutex(id: String!, input: UpdateMutexInput!): Mutex!
+  updateNetworkTraffic(id: String!, input: UpdateNetworkTrafficInput!): NetworkTraffic!
+  updateNote(id: String!, input: UpdateNoteInput!): Note!
   updateObservedData(id: String!, input: UpdateObservedDataInput!): ObservedData!
   updateOpinion(id: String!, input: UpdateOpinionInput!): Opinion!
-  updateProcess(id: String!, updateProcessInput: UpdateProcessInput!): Process!
-  updateRelationship(id: String!, updateRelationshipInput: UpdateRelationshipInput!): StixRelationship!
-  updateReport(id: String!, updateReportInput: UpdateReportInput!): Report!
+  updateProcess(id: String!, input: UpdateProcessInput!): Process!
+  updateRelationship(id: String!, input: UpdateRelationshipInput!): StixRelationship!
+  updateReport(id: String!, input: UpdateReportInput!): Report!
   updateSighting(id: String!, input: UpdateSightingInput!): Sighting!
-  updateSoftware(id: String!, updateSoftwareInput: UpdateSoftwareInput!): Software!
+  updateSoftware(id: String!, input: UpdateSoftwareInput!): Software!
   updateThreatActor(id: String!, input: UpdateThreatActorInput!): ThreatActor!
-  updateTool(id: String!, updateToolInput: UpdateToolInput!): Tool!
-  updateUrl(id: String!, updateUrlInput: UpdateUrlInput!): Url!
+  updateTool(id: String!, input: UpdateToolInput!): Tool!
+  updateUrl(id: String!, input: UpdateUrlInput!): Url!
   updateUser(id: ID!, updateUserInput: UpdateUserDto!): User!
-  updateUserAccount(id: String!, updateUserAccountInput: UpdateUserAccountInput!): UserAccount!
-  updateVulnerability(id: String!, updateVulnerabilityInput: UpdateVulnerabilityInput!): Vulnerability!
-  updateWindowsRegistryKey(id: String!, updateWindowsRegistryKeyInput: UpdateWindowsRegistryKeyInput!): WindowsRegistryKey!
-  updateX509Certificate(id: String!, updateX509CertificateInput: UpdateX509CertificateInput!): X509Certificate!
+  updateUserAccount(id: String!, input: UpdateUserAccountInput!): UserAccount!
+  updateVulnerability(id: String!, input: UpdateVulnerabilityInput!): Vulnerability!
+  updateWindowsRegistryKey(id: String!, input: UpdateWindowsRegistryKeyInput!): WindowsRegistryKey!
+  updateX509Certificate(id: String!, input: UpdateX509CertificateInput!): X509Certificate!
 }
 
 type Mutex {
@@ -1807,6 +1984,14 @@ type Mutex {
   revoked: Boolean
   spec_version: String!
   type: String!
+}
+
+type MutexSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Mutex!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type NTFSFileExtension {
@@ -1865,6 +2050,14 @@ type NetworkTraffic {
   type: String!
 }
 
+type NetworkTrafficSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [NetworkTraffic!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type Note {
   abstract: String!
   authors: [String!]
@@ -1884,6 +2077,14 @@ type Note {
   revoked: Boolean
   spec_version: String!
   type: String!
+}
+
+type NoteSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Note!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type ObservedData {
@@ -1906,6 +2107,14 @@ type ObservedData {
   type: String!
 }
 
+type ObservedDataSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [ObservedData!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type Opinion {
   authors: [String!]
   confidence: Float
@@ -1924,6 +2133,14 @@ type Opinion {
   revoked: Boolean
   spec_version: String!
   type: String!
+}
+
+type OpinionSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Opinion!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type PDFFileExtension {
@@ -2000,107 +2217,109 @@ type Process {
   type: String!
 }
 
+type ProcessSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Process!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type Query {
-  Campaign(id: String!): Campaign
-  artifact(id: String!): Artifact!
-  artifacts(page: Int! = 1, pageSize: Int! = 10, searchParams: SearchArtifactInput): [Artifact!]!
+  artifactByID(id: String!): Artifact
   attackPattern(id: String!): AttackPattern
-  autonomousSystem(id: String!): AutonomousSystem!
-  autonomousSystemByNumber(number: Float!): AutonomousSystem!
-  autonomousSystems(page: Int! = 1, pageSize: Int! = 10, searchParams: SearchAutonomousSystemInput): [AutonomousSystem!]!
-  bundle(id: String!): Bundle!
-  directories(filters: SearchDirectoryInput, page: Float = 1, pageSize: Float = 10): [Directory!]!
+  autonomousSystemById(id: String!): AutonomousSystem
+  autonomousSystemByNumber(number: Int!): AutonomousSystem
+  bundle(id: String!): Bundle
+  campaign(id: String!): Campaign
+  courseOfAction(id: String!): CourseOfAction
   directoriesByPath(path: String!): [Directory!]!
-  directory(id: String!): Directory!
-  domainName(id: String!): DomainName!
-  domainNames(filters: SearchDomainNameInput, page: Float! = 1, pageSize: Float! = 10): [DomainName!]!
+  directory(id: String!): Directory
+  domainName(id: String!): DomainName
   domainNamesByValue(value: String!): [DomainName!]!
-  emailAddress(id: String!): EmailAddress!
+  emailAddress(id: String!): EmailAddress
   emailAddressesByDisplayName(displayName: String!): [EmailAddress!]!
   emailAddressesByValue(value: String!): [EmailAddress!]!
-  emailMessage(id: String!): EmailMessage!
-
-  """Find all expanded related objects"""
-  expandedRelatedObjects(objectId: String!): [StixRelationship!]!
-  file(id: String!): File!
-  findVulnerabilityByCveId(cveId: String!): Vulnerability
-  findVulnerabilityById(id: String!): Vulnerability
-  getCourseOfAction(id: String!): CourseOfAction
-  getGrouping(id: String!): Grouping
-  getIdentity(id: String!): Identity
-  getIncident(id: String!): Incident
-  getIndicator(id: String!): Indicator
-  getInfrastructure(id: String!): Infrastructure
-  getIntrusionSet(id: String!): IntrusionSet
-  getLocation(id: String!): Location
-  getNoteById(id: String!): Note
-  getObservedData(id: String!): ObservedData
-  getOpinion(id: String!): Opinion
-  getReport(id: String!): Report
-  getSighting(id: String!): Sighting
-  getThreatActor(id: String!): ThreatActor
-  getTool(id: String!): Tool
-  ipv4Address(id: String!): IPv4Address!
-  ipv6Address(id: String!): IPv6Address!
-  macAddress(id: String!): MACAddress!
-  mac_addresses(filter: SearchMACAddressInput, from: Float, size: Float): [MACAddress!]!
+  emailMessage(id: String!): EmailMessage
+  expandedRelatedObjects(objectId: String!): [StixRelationship!]
+  file(id: String!): File
+  filesByHash(hashValue: String!): [File!]!
+  grouping(id: String!): Grouping
+  identity(id: String!): Identity
+  incident(id: String!): Incident
+  indicator(id: String!): Indicator
+  infrastructure(id: String!): Infrastructure
+  intrusionSet(id: String!): IntrusionSet
+  ipv4Address(id: String!): IPv4Address
+  ipv4AddressesByValue(value: String!): [IPv4Address!]!
+  ipv6Address(id: String!): IPv6Address
+  ipv6AddressesByValue(value: String!): [IPv6Address!]!
+  location(id: String!): Location
+  macAddress(id: String!): MACAddress
   malware(id: String!): Malware
   malwareAnalysis(id: String!): MalwareAnalysis
-  mutex(id: String!): Mutex!
-  mutexes(filter: SearchMutexInput, from: Float, size: Float): [Mutex!]!
+  mutex(id: String!): Mutex
   mutexesByName(name: String!): [Mutex!]!
-  networkTraffic(id: String!): NetworkTraffic!
-  network_traffic(filter: SearchNetworkTrafficInput, from: Float, size: Float): [NetworkTraffic!]!
-  process(id: String!): Process!
-
-  """Find related objects for a given STIX ID"""
-  relatedObjects(objectId: String!): [StixRelationship!]!
-  relationship(id: String!): StixRelationship!
-  searchAddress(filters: SearchIPv4AddressInput, page: Float! = 1, pageSize: Float! = 10): [IPv4Address!]!
-  searchAttackPatterns(filters: SearchAttackPatternInput, page: Int! = 1, pageSize: Int! = 10): [AttackPattern!]!
-  searchCampaign(filters: SearchCampaignInput, page: Int! = 1, pageSize: Int! = 10): [Campaign!]!
-  searchCourseOfActions(filters: SearchCourseOfActionInput, page: Float! = 1, pageSize: Float! = 10): CourseOfAction!
-  searchEmailAddress(filters: SearchEmailAddressInput, page: Float! = 1, pageSize: Float! = 10): [EmailAddress!]!
-  searchEmailMessage(filters: SearchEmailMessageInput, page: Float! = 1, pageSize: Float! = 10): [EmailMessage!]!
-  searchFile(filters: SearchFileInput, page: Float! = 1, pageSize: Float! = 10): [File!]!
-  searchGrouping(filters: SearchGroupingInput, page: Float! = 1, pageSize: Float! = 10): Grouping!
-  searchIPv6Address(filters: SearchIPv6AddressInput, page: Float! = 1, pageSize: Float! = 10): [IPv6Address!]!
-  searchIdentity(filters: SearchIdentityInput, page: Float! = 1, pageSize: Float! = 10): Identity!
-  searchIncidents(filters: SearchIncidentInput, page: Float = 1, pageSize: Float = 10): [Incident!]!
-  searchIndicators(filters: SearchIndicatorInput, page: Float = 1, pageSize: Float = 10): [Indicator!]!
-  searchInfrastructureWithFilters(filters: CreateInfrastructureInput, page: Float! = 1, pageSize: Float! = 10): [Infrastructure!]!
-  searchIntrusionSets(filters: SearchIntrusionSetInput, page: Float! = 1, pageSize: Float! = 10): IntrusionSet!
-  searchLocations(filters: SearchLocationInput, page: Float = 1, pageSize: Float = 10): [Location!]!
-  searchMalwareAnalysisWithFilters(filters: SearchMalwareAnalysisInput, page: Float = 1, pageSize: Float = 10): [MalwareAnalysis!]!
-  searchMalwareWithFilters(filters: SearchMalwareInput, page: Float, pageSize: Float): [Malware!]!
-  searchNotesWithFilters(filters: SearchObservedDataInput, page: Float = 1, pageSize: Float = 10): [ObservedData!]!
-  searchOpinionWithDynamicFilters(filters: SearchOpinionInput, page: Float = 1, pageSize: Float = 10): [Opinion!]!
-
-  """Search relationships with filters"""
-  searchRelationships(filters: SearchRelationshipInput, page: Float! = 1, pageSize: Float! = 10): StixRelationship!
-  searchReports(filters: SearchReportInput, page: Float! = 1, pageSize: Float! = 10): Report!
-  searchSightings(filters: SearchSightingInput, page: Int! = 1, pageSize: Int! = 10): [Sighting!]!
-  searchThreatActors(filters: SearchThreatActorInput, page: Float! = 1, pageSize: Float! = 10): [ThreatActor!]!
-  searchTools(filters: SearchToolInput, page: Float, pageSize: Float): [Tool!]!
-
-  """Search URLs with dynamic filters and pagination"""
-  searchUrlsWithFilters(page: Float! = 1, pageSize: Float! = 10, searchParams: SearchUrlInput): Url!
-
-  """Search User Accounts with dynamic filters and pagination"""
-  searchUserAccounts(page: Float! = 1, pageSize: Float! = 10, searchParams: SearchUrlUserAccountInput): UserAccount!
-  searchVulnerabilities(filters: SearchVulnerabilityInput, page: Float! = 1, pageSize: Float! = 10, sortField: String! = "created", sortOrder: String! = "desc"): Vulnerability!
-
-  """Search Windows Registry Keys with filters and pagination"""
-  searchWindowsRegistryKeys(page: Float! = 1, pageSize: Float! = 10, searchParams: SearchX509CertificateInput): X509Certificate!
-  serchBundle(page: Int! = 1, pageSize: Int! = 10, searchParams: SearchBundleInput): [Bundle!]!
-  software(id: String!): Software!
-  url(id: String!): Url!
+  networkTraffic(id: String!): NetworkTraffic
+  note(id: String!): Note
+  observedData(id: String!): ObservedData
+  opinion(id: String!): Opinion
+  process(id: String!): Process
+  relatedRelationships(objectId: String!): [StixRelationship!]!
+  relationship(id: String!): StixRelationship
+  report(id: String!): Report
+  searchArtifacts(filters: SearchArtifactInput, from: Int! = 0, size: Int! = 10): ArtifactSearchResult!
+  searchAttackPatterns(filters: SearchAttackPatternInput, page: Int! = 1, pageSize: Int! = 10): AttackPatternSearchResult!
+  searchAutonomousSystems(filters: SearchAutonomousSystemInput, from: Int! = 0, size: Int! = 10): AutonomousSystemSearchResult!
+  searchBundles(filters: SearchBundleInput, page: Int! = 1, pageSize: Int! = 10): SearchResult!
+  searchCampaigns(filters: SearchCampaignInput, page: Int! = 1, pageSize: Int! = 10): CampaignSearchResult!
+  searchCoursesOfAction(filters: SearchCourseOfActionInput, page: Int! = 1, pageSize: Int! = 10): CourseOfActionSearchResult!
+  searchDirectories(filters: SearchDirectoryInput, page: Int! = 1, pageSize: Int! = 10): DirectorySearchResult!
+  searchDomainNames(filters: SearchDomainNameInput, page: Int! = 1, pageSize: Int! = 10): DomainNameSearchResult!
+  searchEmailAddresses(filters: SearchEmailAddressInput, from: Int! = 0, size: Int! = 10): EmailAddressSearchResult!
+  searchEmailMessages(filters: SearchEmailMessageInput, from: Int! = 0, size: Int! = 10): EmailMessageSearchResult!
+  searchFiles(filters: SearchFileInput, from: Int! = 0, size: Int! = 10): FileSearchResult!
+  searchGroupings(filters: SearchGroupingInput, page: Int! = 1, pageSize: Int! = 10): GroupingSearchResult!
+  searchIPv4Addresses(filters: SearchIPv4AddressInput, page: Int! = 1, pageSize: Int! = 10): IPv4AddressSearchResult!
+  searchIPv6Addresses(filters: SearchIPv6AddressInput, page: Int! = 1, pageSize: Int! = 10): IPv6AddressSearchResult!
+  searchIdentities(filters: SearchIdentityInput, page: Int! = 1, pageSize: Int! = 10): IdentitySearchResult!
+  searchIncidents(filters: SearchIncidentInput, page: Int! = 1, pageSize: Int! = 10): IncidentSearchResult!
+  searchIndicators(filters: SearchIndicatorInput, page: Int! = 1, pageSize: Int! = 10): IndicatorSearchResult!
+  searchInfrastructures(filters: SearchInfrastructureInput, page: Int! = 1, pageSize: Int! = 10): InfrastructureSearchResult!
+  searchIntrusionSets(filters: SearchIntrusionSetInput, page: Int! = 1, pageSize: Int! = 10): IntrusionSetSearchResult!
+  searchLocations(filters: SearchLocationInput, page: Int! = 1, pageSize: Int! = 10): LocationSearchResult!
+  searchMACAddresses(filter: SearchMACAddressInput, from: Int! = 0, size: Int! = 10): MACAddressSearchResult!
+  searchMalware(filters: SearchMalwareInput, page: Int! = 1, pageSize: Int! = 10): MalwareSearchResult!
+  searchMalwareAnalyses(filters: SearchMalwareAnalysisInput, page: Int! = 1, pageSize: Int! = 10): MalwareAnalysisSearchResult!
+  searchMutexes(filters: SearchMutexInput, from: Int! = 0, size: Int! = 10): MutexSearchResult!
+  searchNetworkTraffic(filters: SearchNetworkTrafficInput, from: Int! = 0, size: Int! = 10): NetworkTrafficSearchResult!
+  searchNotes(filters: SearchNoteInput, page: Int! = 1, pageSize: Int! = 10): NoteSearchResult!
+  searchObservedData(filters: SearchObservedDataInput, page: Int! = 1, pageSize: Int! = 10): ObservedDataSearchResult!
+  searchOpinions(filters: SearchOpinionInput, fullTextSearch: String, page: Int! = 1, pageSize: Int! = 10, sortField: String, sortOrder: String! = "desc"): OpinionSearchResult!
+  searchProcesses(filters: SearchProcessInput, from: Int! = 0, size: Int! = 10): ProcessSearchResult!
+  searchRelationships(filters: SearchRelationshipInput, page: Int! = 1, pageSize: Int! = 10, sortField: String = "modified", sortOrder: String! = "desc"): StixRelationshipSearchResult!
+  searchReports(filters: SearchReportInput, page: Int! = 1, pageSize: Int! = 10): ReportSearchResult!
+  searchSightings(filters: SearchSightingInput, page: Int! = 1, pageSize: Int! = 10): SightingSearchResult!
+  searchSoftware(filters: SearchSoftwareInput, from: Int! = 0, size: Int! = 10): SoftwareSearchResult!
+  searchThreatActors(filters: SearchThreatActorInput, page: Int! = 1, pageSize: Int! = 10): ThreatActorSearchResult!
+  searchTools(filters: SearchToolInput, page: Int! = 1, pageSize: Int! = 10): ToolSearchResult!
+  searchUrls(filters: SearchUrlInput, page: Int! = 1, pageSize: Int! = 10): UrlSearchResult!
+  searchUserAccounts(filters: SearchUrlUserAccountInput, page: Int! = 1, pageSize: Int! = 10): UserAccountSearchResult!
+  searchVulnerabilities(filters: SearchVulnerabilityInput, page: Int! = 1, pageSize: Int! = 10, sortField: String = "modified", sortOrder: String! = "desc"): VulnerabilitySearchResult!
+  searchWindowsRegistryKeys(filters: SearchWindowsRegistryKeyInput, page: Int! = 1, pageSize: Int! = 10): WindowsRegistryKeySearchResult!
+  searchX509Certificates(filters: SearchX509CertificateInput, from: Int! = 0, size: Int! = 10): X509CertificateSearchResult!
+  sighting(id: String!): Sighting
+  software(id: String!): Software
+  threatActor(id: String!): ThreatActor
+  tool(id: String!): Tool
+  url(id: String!): Url
   user(id: ID!): User!
-  userAccount(id: String!): UserAccount!
+  userAccount(id: String!): UserAccount
   users: [User!]!
-  windowsRegistryKey(id: String!): WindowsRegistryKey!
-  x509Certificate(id: String!): X509Certificate!
-  x509Certificates: [X509Certificate!]!
+  vulnerability(id: String!): Vulnerability
+  vulnerabilityByCveId(cveId: String!): Vulnerability
+  windowsRegistryKey(id: String!): WindowsRegistryKey
+  x509Certificate(id: String!): X509Certificate
 }
 
 type RasterImageFileExtension {
@@ -2192,6 +2411,14 @@ type Report {
   revoked: Boolean
   spec_version: String!
   type: String!
+}
+
+type ReportSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Report!]!
+  total: Int!
+  totalPages: Int!
 }
 
 input ResetPasswordDto {
@@ -2572,6 +2799,29 @@ input SearchIndicatorInput {
   valid_until: DateTime
 }
 
+input SearchInfrastructureInput {
+  Relationship: [RelationshipCommonInput!]
+  aliases: [String!]
+  confidence: Float
+  created: String
+  created_by_ref: String
+  description: String
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
+  first_seen: DateTime
+  id: ID
+  infrastructure_types: [InfrastructureType!]
+  kill_chain_phases: [KillChainPhaseInput!]
+  labels: [String!]
+  lang: String
+  last_seen: DateTime
+  modified: String
+  name: String
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
 input SearchIntrusionSetInput {
   Relationship: [RelationshipCommonInput!]
   aliases: [String!]
@@ -2606,6 +2856,7 @@ input SearchLocationInput {
   country: String
   created: String
   created_by_ref: String
+  default: LocationType
   description: String
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -2613,7 +2864,6 @@ input SearchLocationInput {
   labels: [String!]
   lang: String
   latitude: String
-  location_type: LocationType
   longitude: String
   modified: String
   name: String
@@ -2753,6 +3003,27 @@ input SearchNetworkTrafficInput {
   type: String
 }
 
+input SearchNoteInput {
+  Relationship: [RelationshipCommonInput!]
+  abstract: String
+  authors: [String!]
+  confidence: Float
+  content: String
+  content_type: String
+  created: String
+  created_by_ref: String
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
 input SearchObservedDataInput {
   Relationship: [RelationshipCommonInput!]
   confidence: Float
@@ -2789,6 +3060,35 @@ input SearchOpinionInput {
   object_refs: [String!]
   opinion: String
   revoked: Boolean
+  spec_version: String
+  type: String
+}
+
+input SearchProcessInput {
+  arguments: JSON
+  child_refs: [String!]
+  command_line: String
+  confidence: Float
+  created: String
+  created_by_ref: String
+  created_time: String
+  creator_user_ref: String
+  cwd: String
+  defanged: Boolean
+  environment_variables: [String!]
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
+  id: ID
+  image_ref: String
+  is_hidden: Boolean
+  labels: [String!]
+  lang: String
+  modified: String
+  opened_connection_refs: [String!]
+  parent_ref: String
+  pid: Float
+  revoked: Boolean
+  service_dll_refs: JSON
   spec_version: String
   type: String
 }
@@ -2836,6 +3136,14 @@ input SearchReportInput {
   type: String
 }
 
+type SearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Bundle!]!
+  total: Int!
+  totalPages: Int!
+}
+
 input SearchSightingInput {
   confidence: Float
   count: Int
@@ -2857,6 +3165,28 @@ input SearchSightingInput {
   summary: String
   type: String
   where_sighted_refs: [String!]
+}
+
+input SearchSoftwareInput {
+  confidence: Float
+  cpe: String
+  created: String
+  created_by_ref: String
+  defanged: Boolean
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
+  id: ID
+  labels: [String!]
+  lang: String
+  languages: [String!]
+  modified: String
+  name: String
+  revoked: Boolean
+  spec_version: String
+  swid: [String!]
+  type: String
+  vendor: String
+  version: String
 }
 
 input SearchThreatActorInput {
@@ -2983,6 +3313,27 @@ input SearchVulnerabilityInput {
   vulnerability_status: String
 }
 
+input SearchWindowsRegistryKeyInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  creator_user_ref: String
+  defanged: Boolean
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
+  id: ID
+  key: String
+  labels: [String!]
+  lang: String
+  modified: String
+  modified_time: String
+  number_of_subkeys: String
+  revoked: Boolean
+  spec_version: String
+  type: String
+  values: [WindowsRegistryValueInput!]
+}
+
 input SearchX509CertificateInput {
   confidence: Float
   created: String
@@ -3035,6 +3386,14 @@ type Sighting {
   where_sighted_refs: [String!]
 }
 
+type SightingSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Sighting!]!
+  total: Int!
+  totalPages: Int!
+}
+
 input SignOutDto {
   token: String!
 }
@@ -3061,6 +3420,14 @@ type Software {
   version: String
 }
 
+type SoftwareSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Software!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type StixRelationship {
   confidence: Float
   created: String!
@@ -3080,6 +3447,14 @@ type StixRelationship {
   stop_time: String
   target_ref: ID!
   type: String!
+}
+
+type StixRelationshipSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [StixRelationship!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type ThreatActor {
@@ -3109,6 +3484,14 @@ type ThreatActor {
   spec_version: String!
   threat_actor_types: [ThreatActorType!]!
   type: String!
+}
+
+type ThreatActorSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [ThreatActor!]!
+  total: Int!
+  totalPages: Int!
 }
 
 enum ThreatActorType {
@@ -3146,6 +3529,14 @@ type Tool {
   tool_types: [ToolType!]!
   tool_version: String
   type: String!
+}
+
+type ToolSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Tool!]!
+  total: Int!
+  totalPages: Int!
 }
 
 enum ToolType {
@@ -3311,7 +3702,7 @@ input UpdateDirectoryInput {
   lang: String
   modified: String!
   mtime: DateTime
-  path: String
+  path: String!
   path_enc: String
   revoked: Boolean
   spec_version: String!
@@ -3605,6 +3996,7 @@ input UpdateLocationInput {
   country: String
   created: String!
   created_by_ref: String
+  default: LocationType!
   description: String
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -3612,7 +4004,6 @@ input UpdateLocationInput {
   labels: [String!]
   lang: String
   latitude: String
-  location_type: LocationType!
   longitude: String
   modified: String!
   name: String!
@@ -4126,6 +4517,14 @@ type Url {
   value: String!
 }
 
+type UrlSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Url!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type User {
   createdAt: DateTime!
   email: String!
@@ -4167,6 +4566,14 @@ type UserAccount {
   user_id: String
 }
 
+type UserAccountSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [UserAccount!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type Vulnerability {
   affected_products: [String!]
   confidence: Float
@@ -4191,6 +4598,14 @@ type Vulnerability {
   spec_version: String!
   type: String!
   vulnerability_status: String
+}
+
+type VulnerabilitySearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [Vulnerability!]!
+  total: Int!
+  totalPages: Int!
 }
 
 type WindowsPEBinaryFileExtension {
@@ -4261,6 +4676,14 @@ type WindowsRegistryKey {
   values: [WindowsRegistryValue!]
 }
 
+type WindowsRegistryKeySearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [WindowsRegistryKey!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type WindowsRegistryValue {
   data: String
   data_type: String
@@ -4313,6 +4736,14 @@ type X509Certificate {
   validity_not_before: DateTime
   version: String
   x509_v3_extensions: [String!]
+}
+
+type X509CertificateSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [X509Certificate!]!
+  total: Int!
+  totalPages: Int!
 }
 
 input forgotPasswordDto {

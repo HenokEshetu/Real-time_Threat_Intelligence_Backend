@@ -1,25 +1,35 @@
-import { Injectable, NotFoundException, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
 import { Client } from '@opensearch-project/opensearch';
 import { Bundle } from './bundle.entity';
 import { CreateBundleInput, UpdateBundleInput } from './bundle.input';
+import { SearchBundleInput } from './bundle.resolver';
 import { v4 as uuidv4 } from 'uuid';
 
 @Injectable()
-export class BundleService {
+export class BundleService implements OnModuleInit {
   private client: Client;
-  private readonly index = 'bundles'; // OpenSearch index
-
+  private readonly index = 'bundles';
+  
   constructor() {
     this.client = new Client({
-      node: 'http://localhost:9200',
+      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
+      // Add authentication if needed
+      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD 
+        ? {
+            username: process.env.OPENSEARCH_USERNAME,
+            password: process.env.OPENSEARCH_PASSWORD,
+          }
+        : undefined,
     });
   }
 
-  /**
-   * Create a new STIX Bundle
-   */
+  async onModuleInit() {
+    await this.ensureIndexExists();
+  }
+
   async create(createBundleInput: CreateBundleInput): Promise<Bundle> {
     const id = `bundle--${uuidv4()}`;
+    const timestamp = new Date().toISOString();
     const bundle: Bundle = {
       id,
       type: 'bundle',
@@ -27,133 +37,211 @@ export class BundleService {
     };
 
     try {
-      await this.client.index({
+      const response = await this.client.index({
         index: this.index,
         id,
         body: bundle,
+        refresh: true, // Make document available for search immediately
       });
+
+      if (response.body.result !== 'created') {
+        throw new Error('Failed to create document');
+      }
 
       return bundle;
     } catch (error) {
-      throw new InternalServerErrorException('Error creating bundle in OpenSearch');
+      throw new InternalServerErrorException({
+        message: 'Error creating bundle',
+        error: error.message,
+      });
     }
   }
 
-  /**
-   * Find a bundle by ID
-   */
   async findOne(id: string): Promise<Bundle> {
     try {
-      const { body } = await this.client.get({
+      const response = await this.client.get({
         index: this.index,
         id,
       });
 
-      return body._source as Bundle;
+      return {
+        ...response.body._source,
+        id: response.body._id,
+      } as Bundle;
     } catch (error) {
-      if (error.meta?.body?.found === false) {
+      if (error.meta?.statusCode === 404) {
         throw new NotFoundException(`Bundle with ID ${id} not found`);
       }
-      throw new InternalServerErrorException('Error fetching bundle from OpenSearch');
+      throw new InternalServerErrorException({
+        message: 'Error fetching bundle',
+        error: error.message,
+      });
     }
   }
-
-  /**
-   * Search bundles with filters and pagination
-   */
   async searchWithFilters(
-    filters: Partial<Bundle>,
+    filters: SearchBundleInput,
     page: number = 1,
     pageSize: number = 10
-  ): Promise<any> {
-    try {
-      const from = (page - 1) * pageSize;
-      const mustQueries = [];
-
-      // Construct dynamic query based on filters
-      for (const [key, value] of Object.entries(filters)) {
-        if (value) {
-          if (typeof value === 'string') {
-            mustQueries.push({
-              wildcard: {
-                [key]: `*${value}*`, // Partial match
-              },
+  ): Promise<{
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    results: Bundle[];
+  }> {
+    const from = (page - 1) * pageSize;
+    const queryBuilder = {
+      query: {
+        bool: {
+          must: [] as any[],
+          filter: [] as any[],
+        },
+      },
+      sort: [{ modified: { order: 'desc' } as const }],
+    };
+  
+    for (const [key, value] of Object.entries(filters)) {
+      if (value === undefined || value === null) continue;
+  
+      switch (typeof value) {
+        case 'string':
+          queryBuilder.query.bool.must.push({
+            query_string: {
+              query: `${key}:${value}*`,
+              default_operator: 'AND',
+            },
+          });
+          break;
+        case 'number':
+        case 'boolean':
+          queryBuilder.query.bool.filter.push({
+            term: { [key]: value },
+          });
+          break;
+        case 'object':
+          if (value instanceof Date) {
+            queryBuilder.query.bool.filter.push({
+              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
             });
-          } else {
-            mustQueries.push({
-              match: { [key]: value }, // Exact match for non-string fields
+          } else if (Array.isArray(value)) {
+            queryBuilder.query.bool.filter.push({
+              terms: { [key]: value },
             });
           }
-        }
+          break;
       }
-
-      // Default to match_all if no filters are provided
-      const query = mustQueries.length > 0 ? { bool: { must: mustQueries } } : { match_all: {} };
-
-      // Execute search query in OpenSearch
-      const { body } = await this.client.search({
+    }
+  
+    if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
+      queryBuilder.query = { match_all: {} } as any;
+    }
+  
+    try {
+      const response = await this.client.search({
         index: this.index,
         from,
         size: pageSize,
-        body: { query },
+        body: queryBuilder,
       });
-
-      // Extract total number of hits
-      const total = body.hits.total instanceof Object ? body.hits.total.value : body.hits.total;
-
-      // Format results
-      const results = body.hits.hits.map((hit) => ({
-        id: hit._id,
-        type: 'bundle',
-        spec_version: '2.1',
-        ...hit._source,
-      }));
-
+  
+      const total = typeof response.body.hits.total === 'object'
+        ? response.body.hits.total.value
+        : response.body.hits.total;
+  
       return {
         page,
         pageSize,
         total,
         totalPages: Math.ceil(total / pageSize),
-        results,
+        results: response.body.hits.hits.map(hit => ({
+          id: hit._id,
+          ...(hit._source as Bundle),
+        })),
       };
     } catch (error) {
-      throw new InternalServerErrorException('Error searching bundles in OpenSearch');
+      throw new InternalServerErrorException({
+        message: 'Search operation failed',
+        error: error.message,
+        details: error.meta?.body?.error,
+      });
     }
   }
+  
 
-  /**
-   * Update a bundle
-   */
   async update(id: string, updateBundleInput: UpdateBundleInput): Promise<Bundle> {
     try {
-      await this.client.update({
+      const existingBundle = await this.findOne(id);
+      
+      const response = await this.client.update({
         index: this.index,
         id,
         body: {
-          doc: updateBundleInput,
-          doc_as_upsert: true, // If document doesn't exist, create it
+          doc: {
+            ...updateBundleInput,
+            modified: new Date().toISOString(),
+          },
+          doc_as_upsert: false,
         },
+        retry_on_conflict: 3,
       });
 
-      return this.findOne(id);
+      if (response.body.result !== 'updated') {
+        throw new Error('Failed to update document');
+      }
+
+      return { ...existingBundle, ...updateBundleInput };
     } catch (error) {
-      throw new InternalServerErrorException('Error updating bundle in OpenSearch');
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException({
+        message: 'Error updating bundle',
+        error: error.message,
+      });
     }
   }
 
-  /**
-   * Delete a bundle by ID
-   */
   async remove(id: string): Promise<boolean> {
     try {
-      const { body } = await this.client.delete({
+      const response = await this.client.delete({
         index: this.index,
         id,
       });
 
-      return body.result === 'deleted';
+      return response.body.result === 'deleted';
     } catch (error) {
-      return false; // If delete fails, return false instead of throwing an error
+      if (error.meta?.statusCode === 404) {
+        return false;
+      }
+      throw new InternalServerErrorException({
+        message: 'Error deleting bundle',
+        error: error.message,
+      });
+    }
+  }
+
+ 
+  async ensureIndexExists(): Promise<void> {
+    try {
+      const exists = await this.client.indices.exists({ index: this.index });
+      if (!exists.body) {
+        await this.client.indices.create({
+          index: this.index,
+          body: {
+            mappings: {
+              properties: {
+                type: { type: 'keyword' },
+                created: { type: 'date' },
+                modified: { type: 'date' },
+                spec_version: { type: 'keyword' },
+              },
+            },
+          },
+        });
+      }
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Failed to initialize index',
+        error: error.message,
+      });
     }
   }
 }
