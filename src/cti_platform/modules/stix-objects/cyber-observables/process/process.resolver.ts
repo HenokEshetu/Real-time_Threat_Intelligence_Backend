@@ -1,28 +1,12 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args } from '@nestjs/graphql';
 import { ProcessService } from './process.service';
 import { Process } from './process.entity';
 import { CreateProcessInput, UpdateProcessInput } from './process.input';
 
-import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
 @InputType()
 export class SearchProcessInput extends PartialType(CreateProcessInput) {}
 
-
-
-@ObjectType()
-export class ProcessSearchResult {
-  @Field(() => Int)
-  page: number;
-  @Field(() => Int)
-  pageSize: number;
-  @Field(() => Int)
-  total: number;
-  @Field(() => Int)
-  totalPages: number;
-  @Field(() => [Process])
-  results: Process[];
-}
 
 @Resolver(() => Process)
 export class ProcessResolver {
@@ -30,21 +14,23 @@ export class ProcessResolver {
 
   @Mutation(() => Process)
   async createProcess(
-    @Args('input') createProcessInput: CreateProcessInput,
+    @Args('createProcessInput') createProcessInput: CreateProcessInput,
   ): Promise<Process> {
     return this.processService.create(createProcessInput);
   }
 
-  @Query(() => ProcessSearchResult)
-  async searchProcesses(
-    @Args('from', { type: () => Int, defaultValue: 0 }) from: number,
-    @Args('size', { type: () => Int, defaultValue: 10 }) size: number,
-    @Args('filters', { type: () => SearchProcessInput, nullable: true }) filters: SearchProcessInput = {},
-  ): Promise<ProcessSearchResult> {
-    return this.processService.searchWithFilters(from, size, filters);
+  // Search process dynamically using filters
+  @Query(() => [Process], { name: 'process' })
+  async searchProcess(
+    @Args('from', { type: () => Number, nullable: true }) from?: number,
+    @Args('size', { type: () => Number, nullable: true }) size?: number,
+    @Args('filter', { type: () => SearchProcessInput, nullable: true }) filter?: SearchProcessInput,
+  ): Promise<Process[]> {
+    return this.processService.searchWithFilters(from ?? 0, size ?? 10, filter ?? {});
   }
+  
 
-  @Query(() => Process, { nullable: true })
+  @Query(() => Process)
   async process(@Args('id') id: string): Promise<Process> {
     return this.processService.findOne(id);
   }
@@ -52,13 +38,13 @@ export class ProcessResolver {
   @Mutation(() => Process)
   async updateProcess(
     @Args('id') id: string,
-    @Args('input') updateProcessInput: UpdateProcessInput,
+    @Args('updateProcessInput') updateProcessInput: UpdateProcessInput,
   ): Promise<Process> {
     return this.processService.update(id, updateProcessInput);
   }
 
   @Mutation(() => Boolean)
-  async deleteProcess(@Args('id') id: string): Promise<boolean> {
+  async removeProcess(@Args('id') id: string): Promise<boolean> {
     return this.processService.remove(id);
   }
 }

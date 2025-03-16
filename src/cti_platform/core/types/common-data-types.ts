@@ -362,7 +362,7 @@ export class ExternalReferenceInput {
  @Field() source_name: string;
  @Field({ nullable: true }) description?: string;
  @Field({ nullable: true }) url?: string;
- @Field(() => [HashesInput], { nullable: true }) hashes?: HashesInput[];
+ @Field(() => HashesInput, { nullable: true }) hashes?: HashesInput[];
  @Field({ nullable: true }) external_id?: string;
 }
 

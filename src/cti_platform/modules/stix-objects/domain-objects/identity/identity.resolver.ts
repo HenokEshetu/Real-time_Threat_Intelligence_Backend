@@ -1,62 +1,61 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args } from '@nestjs/graphql';
 import { IdentityService } from './identity.service';
 import { Identity } from './identity.entity';
 import { CreateIdentityInput, UpdateIdentityInput } from './identity.input';
-import { ObjectType, Field } from '@nestjs/graphql';
+import { NotFoundException } from '@nestjs/common';
+
+
 import { PartialType } from '@nestjs/graphql';
 
 @InputType()
 export class SearchIdentityInput extends PartialType(CreateIdentityInput){}
 
-@ObjectType()
-export class IdentitySearchResult {
-  @Field(() => Int)
-  page: number;
-  @Field(() => Int)
-  pageSize: number;
-  @Field(() => Int)
-  total: number;
-  @Field(() => Int)
-  totalPages: number;
-  @Field(() => [Identity])
-  results: Identity[];
-}
 
-@Resolver(() => Identity)
+@Resolver('Identity')
 export class IdentityResolver {
   constructor(private readonly identityService: IdentityService) {}
 
-  @Mutation(() => Identity)
+  //  Create a new Course of Action
+  @Mutation(() => Identity )
   async createIdentity(
-    @Args('input') createIdentityInput: CreateIdentityInput,
-  ): Promise<Identity> {
-    return this.identityService.create(createIdentityInput);
+    @Args('createGroupingInput') createIdentityInput: CreateIdentityInput,
+  ): Promise<string> {
+    const grouping = await this.identityService.create(createIdentityInput);
+    return grouping.id;
   }
 
-  @Query(() => IdentitySearchResult)
-  async searchIdentities(
-    @Args('filters', { type: () => SearchIdentityInput, nullable: true }) filters: SearchIdentityInput = {},
-    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
-    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
-  ): Promise<IdentitySearchResult> {
-    return this.identityService.searchWithFilters(filters, page, pageSize);
+  //  Get a Course of Action by ID
+  @Query(() => Identity , { nullable: true })
+  async getIdentity(@Args('id') id: string): Promise<any> {
+    const grouping = await this.identityService.findOne(id);
+    if (!grouping) {
+      throw new NotFoundException(`Course of Action with ID ${id} not found.`);
+    }
+    return grouping;
   }
 
-  @Query(() => Identity, { nullable: true })
-  async identity(@Args('id') id: string): Promise<Identity> {
-    return this.identityService.findOne(id);
-  }
-
-  @Mutation(() => Identity)
+  //  Update a Course of Action
+  @Mutation(() => Identity )
   async updateIdentity(
     @Args('id') id: string,
-    @Args('input') updateIdentityInput: UpdateIdentityInput,
-  ): Promise<Identity> {
+    @Args('updateIdentityInput') updateIdentityInput: UpdateIdentityInput,
+  ): Promise<any> {
     return this.identityService.update(id, updateIdentityInput);
   }
 
+  //  Delete a Course of Action
   @Mutation(() => Boolean)
-  async deleteIdentity(@Args('id') id: string): Promise<boolean> {
+  async removeIdentity(@Args('id') id: string): Promise<boolean> {
     return this.identityService.remove(id);
+  }
+
+  //  Search Course of Actions with filters
+  @Query(() => Identity )
+  async searchIdentity(
+    @Args('filters', { type: () => SearchIdentityInput, nullable: true }) filters: Partial<SearchIdentityInput>,
+    @Args('page', { type: () => Number, defaultValue: 1 }) page: number,
+    @Args('pageSize', { type: () => Number, defaultValue: 10 }) pageSize: number,
+  ): Promise<any> {
+    return this.identityService.searchIdentityWithFilters(filters, page, pageSize);
   }
 }

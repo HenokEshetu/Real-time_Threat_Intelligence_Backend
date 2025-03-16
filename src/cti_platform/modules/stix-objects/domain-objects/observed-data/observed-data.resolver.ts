@@ -1,63 +1,53 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args } from '@nestjs/graphql';
 import { ObservedDataService } from './observed-data.service';
 import { ObservedData } from './observed-data.entity';
 import { CreateObservedDataInput, UpdateObservedDataInput } from './observed-data.input';
-import { ObjectType, Field } from '@nestjs/graphql';
+
+
 import { PartialType } from '@nestjs/graphql';
 
 @InputType()
 export class SearchObservedDataInput extends PartialType(CreateObservedDataInput){}
 
 
-@ObjectType()
-export class ObservedDataSearchResult {
-  @Field(() => Int)
-  page: number;
-  @Field(() => Int)
-  pageSize: number;
-  @Field(() => Int)
-  total: number;
-  @Field(() => Int)
-  totalPages: number;
-  @Field(() => [ObservedData])
-  results: ObservedData[];
-}
+
+
 
 @Resolver(() => ObservedData)
 export class ObservedDataResolver {
   constructor(private readonly observedDataService: ObservedDataService) {}
 
   @Mutation(() => ObservedData)
-  async createObservedData(
-    @Args('input') createObservedDataInput: CreateObservedDataInput,
-  ): Promise<ObservedData> {
-    return this.observedDataService.create(createObservedDataInput);
+  async createObservedData(@Args('input') input: CreateObservedDataInput): Promise<ObservedData> {
+    return this.observedDataService.create(input);
   }
 
-  @Query(() => ObservedDataSearchResult)
-  async searchObservedData(
-    @Args('filters', { type: () => SearchObservedDataInput, nullable: true }) filters: SearchObservedDataInput = {},
-    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
-    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
-  ): Promise<ObservedDataSearchResult> {
-    return this.observedDataService.searchWithFilters(filters, page, pageSize);
-  }
+  @Query(() => [ObservedData])
+  @Query(() => [ObservedData])
+    async searchNotesWithFilters(
+      @Args('filters', { type: () => SearchObservedDataInput, nullable: true }) filters?: Partial<SearchObservedDataInput>,
+      @Args('page', { type: () => Number, nullable: true, defaultValue: 1 }) page?: number,
+      @Args('pageSize', { type: () => Number, nullable: true, defaultValue: 10 }) pageSize?: number,
+    ): Promise<ObservedData[]> {
+      const result = await this.observedDataService.searchObservedDataWithFilters(filters, page, pageSize);
+      return result.results;
+    }
 
   @Query(() => ObservedData, { nullable: true })
-  async observedData(@Args('id') id: string): Promise<ObservedData> {
+  async getObservedData(@Args('id', { type: () => String }) id: string): Promise<ObservedData> {
     return this.observedDataService.findOne(id);
   }
 
   @Mutation(() => ObservedData)
   async updateObservedData(
-    @Args('id') id: string,
-    @Args('input') updateObservedDataInput: UpdateObservedDataInput,
+    @Args('id', { type: () => String }) id: string,
+    @Args('input') input: UpdateObservedDataInput,
   ): Promise<ObservedData> {
-    return this.observedDataService.update(id, updateObservedDataInput);
+    return this.observedDataService.update(id, input);
   }
 
   @Mutation(() => Boolean)
-  async deleteObservedData(@Args('id') id: string): Promise<boolean> {
+  async removeObservedData(@Args('id', { type: () => String }) id: string): Promise<boolean> {
     return this.observedDataService.remove(id);
   }
 }

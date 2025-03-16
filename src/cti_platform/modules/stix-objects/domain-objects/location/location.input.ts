@@ -10,7 +10,6 @@ export class CreateLocationInput extends CommonInput {
   description?: string;
 
   @Field(() => LocationType)
-  default: LocationType.UNKNOWN
   location_type: LocationType;
 
   @Field(() => String, { nullable: true })

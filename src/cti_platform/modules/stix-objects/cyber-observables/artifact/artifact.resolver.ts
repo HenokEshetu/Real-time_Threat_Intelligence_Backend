@@ -1,4 +1,4 @@
-import { Resolver, Int,InputType, Query, Mutation, Args, ObjectType, Field } from '@nestjs/graphql';
+import { Resolver, Int,InputType, Query, Mutation, Args } from '@nestjs/graphql';
 import { ArtifactService } from './artifact.service';
 import { Artifact } from './artifact.entity';
 import { CreateArtifactInput, UpdateArtifactInput } from './artifact.input';
@@ -7,60 +7,43 @@ import { PartialType } from '@nestjs/graphql';
 @InputType()
 export class SearchArtifactInput extends PartialType(CreateArtifactInput) {}
 
-// Define the SearchResult type for paginated responses
-@ObjectType()
-export class ArtifactSearchResult {
-  @Field(() => Int)
-  page: number;
-
-  @Field(() => Int)
-  pageSize: number;
-
-  @Field(() => Int)
-  total: number;
-
-  @Field(() => Int)
-  totalPages: number;
-
-  @Field(() => [Artifact])
-  results: Artifact[];
-}
-
 @Resolver(() => Artifact)
 export class ArtifactResolver {
   constructor(private readonly artifactService: ArtifactService) {}
 
   @Mutation(() => Artifact)
   async createArtifact(
-    @Args('input') createArtifactInput: CreateArtifactInput,
+    @Args('createArtifactInput') createArtifactInput: CreateArtifactInput,
   ): Promise<Artifact> {
     return this.artifactService.create(createArtifactInput);
   }
 
-  @Query(() => ArtifactSearchResult)
-  async searchArtifacts(
-    @Args('filters', { type: () => SearchArtifactInput, nullable: true }) filters: SearchArtifactInput = {},
-    @Args('from', { type: () => Int, defaultValue: 0 }) from: number,
-    @Args('size', { type: () => Int, defaultValue: 10 }) size: number,
-  ): Promise<ArtifactSearchResult> {
-    return this.artifactService.searchWithFilters(filters, from, size);
+  @Query(() => [Artifact])
+  async artifacts(
+    @Args('searchParams', { type: () => SearchArtifactInput, nullable: true }) searchParams?:SearchArtifactInput,
+    @Args('page', { type: () => Int, defaultValue: 1 }) page?: number,
+    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize?: number
+  ): Promise<Artifact[]> {
+    const from = (page - 1) * pageSize;
+    const result = await this.artifactService.searchWithFilters(searchParams || {}, from, pageSize);
+    return result.results;
   }
 
-  @Query(() => Artifact, { nullable: true })
-  async artifactByID(@Args('id') id: string): Promise<Artifact> {
+  @Query(() => Artifact)
+  async artifact(@Args('id') id: string): Promise<Artifact> {
     return this.artifactService.findOne(id);
   }
 
   @Mutation(() => Artifact)
   async updateArtifact(
     @Args('id') id: string,
-    @Args('input') updateArtifactInput: UpdateArtifactInput,
+    @Args('updateArtifactInput') updateArtifactInput: UpdateArtifactInput,
   ): Promise<Artifact> {
     return this.artifactService.update(id, updateArtifactInput);
   }
 
   @Mutation(() => Boolean)
-  async deleteArtifact(@Args('id') id: string): Promise<boolean> {
+  async removeArtifact(@Args('id') id: string): Promise<boolean> {
     return this.artifactService.remove(id);
   }
 }

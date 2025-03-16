@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation,InputType, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation,InputType, Args } from '@nestjs/graphql';
 import { DomainNameService } from './domain-name.service';
 import { DomainName } from './domain-name.entity';
 import { CreateDomainNameInput, UpdateDomainNameInput } from './domain-name.input';
@@ -7,47 +7,21 @@ import { PartialType } from '@nestjs/graphql';
 @InputType()
 export class SearchDomainNameInput extends PartialType(CreateDomainNameInput) {}
 
-import { ObjectType, Field } from '@nestjs/graphql';
-
-@ObjectType()
-export class DomainNameSearchResult {
-  @Field(() => Int)
-  page: number;
-
-  @Field(() => Int)
-  pageSize: number;
-
-  @Field(() => Int)
-  total: number;
-
-  @Field(() => Int)
-  totalPages: number;
-
-  @Field(() => [DomainName])
-  results: DomainName[];
-}
 
 @Resolver(() => DomainName)
 export class DomainNameResolver {
   constructor(private readonly domainNameService: DomainNameService) {}
 
-  @Mutation(() => DomainName)
-  async createDomainName(
-    @Args('input') createDomainNameInput: CreateDomainNameInput,
-  ): Promise<DomainName> {
-    return this.domainNameService.create(createDomainNameInput);
-  }
+  @Query(() => [DomainName])
+async domainNames(
+  @Args('filters', { type: () =>SearchDomainNameInput, nullable: true }) filters: Partial<SearchDomainNameInput> = {}, // Accept dynamic filters
+  @Args('page', { type: () => Number, defaultValue: 1 }) page: number = 1, // Pagination
+  @Args('pageSize', { type: () => Number, defaultValue: 10 }) pageSize: number = 10 // Pagination size
+): Promise<DomainName[]> {
+  return this.domainNameService.searchWithFilters(filters, page, pageSize); // Pass filters, page, and pageSize
+}
 
-  @Query(() => DomainNameSearchResult)
-  async searchDomainNames(
-    @Args('filters', { type: () => SearchDomainNameInput, nullable: true }) filters: SearchDomainNameInput = {},
-    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
-    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
-  ): Promise<DomainNameSearchResult> {
-    return this.domainNameService.searchWithFilters(filters, page, pageSize);
-  }
-
-  @Query(() => DomainName, { nullable: true })
+  @Query(() => DomainName)
   async domainName(@Args('id') id: string): Promise<DomainName> {
     return this.domainNameService.findOne(id);
   }
@@ -58,15 +32,23 @@ export class DomainNameResolver {
   }
 
   @Mutation(() => DomainName)
+  async createDomainName(
+    @Args('createDomainNameInput') createDomainNameInput: CreateDomainNameInput,
+  ): Promise<DomainName> {
+    return this.domainNameService.create(createDomainNameInput);
+  }
+
+  @Mutation(() => DomainName)
   async updateDomainName(
     @Args('id') id: string,
-    @Args('input') updateDomainNameInput: UpdateDomainNameInput,
+    @Args('updateDomainNameInput') updateDomainNameInput: UpdateDomainNameInput,
   ): Promise<DomainName> {
     return this.domainNameService.update(id, updateDomainNameInput);
   }
 
   @Mutation(() => Boolean)
-  async deleteDomainName(@Args('id') id: string): Promise<boolean> {
+  async removeDomainName(@Args('id') id: string): Promise<boolean> {
     return this.domainNameService.remove(id);
   }
+  
 }

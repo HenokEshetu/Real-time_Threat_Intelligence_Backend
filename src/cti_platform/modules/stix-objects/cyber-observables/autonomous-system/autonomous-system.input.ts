@@ -4,8 +4,10 @@ import {  CyberObservableCommonInput } from '../../../../core/types/common-data-
 export class CreateAutonomousSystemInput extends CyberObservableCommonInput {
   @Field(() => Int)
   number: number;
+
   @Field(() => String, { nullable: true })
   name?: string;
+
   @Field(() => String, { nullable: true })
   rir?: string;
 }
@@ -13,9 +15,11 @@ export class CreateAutonomousSystemInput extends CyberObservableCommonInput {
 @InputType()
 export class UpdateAutonomousSystemInput extends CyberObservableCommonInput {
   @Field(() => Int, { nullable: true })
-  number: number;
+  number?: number;
+
   @Field(() => String, { nullable: true })
   name?: string;
+
   @Field(() => String, { nullable: true })
   rir?: string;
 }

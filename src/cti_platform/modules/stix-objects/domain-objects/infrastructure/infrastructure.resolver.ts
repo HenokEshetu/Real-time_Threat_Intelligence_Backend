@@ -1,63 +1,57 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args } from '@nestjs/graphql';
 import { InfrastructureService } from './infrastructure.service';
 import { Infrastructure } from './infrastructure.entity';
 import { CreateInfrastructureInput, UpdateInfrastructureInput } from './infrastructure.input';
-import { ObjectType, Field } from '@nestjs/graphql';
+
+
+
 import { PartialType } from '@nestjs/graphql';
 
 @InputType()
 export class SearchInfrastructureInput extends PartialType(CreateInfrastructureInput){}
 
 
-@ObjectType()
-export class InfrastructureSearchResult {
-  @Field(() => Int)
-  page: number;
-  @Field(() => Int)
-  pageSize: number;
-  @Field(() => Int)
-  total: number;
-  @Field(() => Int)
-  totalPages: number;
-  @Field(() => [Infrastructure])
-  results: Infrastructure[];
-}
 
 @Resolver(() => Infrastructure)
 export class InfrastructureResolver {
   constructor(private readonly infrastructureService: InfrastructureService) {}
 
+  // Create Infrastructure
   @Mutation(() => Infrastructure)
   async createInfrastructure(
-    @Args('input') createInfrastructureInput: CreateInfrastructureInput,
+    @Args('createInfrastructureInput') createInfrastructureInput: CreateInfrastructureInput
   ): Promise<Infrastructure> {
     return this.infrastructureService.create(createInfrastructureInput);
   }
 
-  @Query(() => InfrastructureSearchResult)
-  async searchInfrastructures(
-    @Args('filters', { type: () => SearchInfrastructureInput, nullable: true }) filters: SearchInfrastructureInput = {},
-    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
-    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
-  ): Promise<InfrastructureSearchResult> {
-    return this.infrastructureService.searchWithFilters(filters, page, pageSize);
-  }
-
+  // Find Infrastructure by ID
   @Query(() => Infrastructure, { nullable: true })
-  async infrastructure(@Args('id') id: string): Promise<Infrastructure> {
+  async getInfrastructure(@Args('id') id: string): Promise<Infrastructure> {
     return this.infrastructureService.findOne(id);
   }
 
+  // Update Infrastructure
   @Mutation(() => Infrastructure)
   async updateInfrastructure(
     @Args('id') id: string,
-    @Args('input') updateInfrastructureInput: UpdateInfrastructureInput,
+    @Args('updateInfrastructureInput') updateInfrastructureInput: UpdateInfrastructureInput
   ): Promise<Infrastructure> {
     return this.infrastructureService.update(id, updateInfrastructureInput);
   }
 
+  // Delete Infrastructure
   @Mutation(() => Boolean)
-  async deleteInfrastructure(@Args('id') id: string): Promise<boolean> {
+  async removeInfrastructure(@Args('id') id: string): Promise<boolean> {
     return this.infrastructureService.remove(id);
+  }
+
+  // Search Infrastructure with Filters
+  @Query(() => [Infrastructure])
+  async searchInfrastructureWithFilters(
+    @Args('filters', { type: () => CreateInfrastructureInput, nullable: true }) filters?: Partial<CreateInfrastructureInput>,
+    @Args('page', { type: () => Number, defaultValue: 1 }) page?: number,
+    @Args('pageSize', { type: () => Number, defaultValue: 10 }) pageSize?: number
+  ): Promise<{ total: number; page: number; pageSize: number; results: Infrastructure[] }> {
+    return this.infrastructureService.searchInfrastructureWithFilters(filters, page, pageSize);
   }
 }

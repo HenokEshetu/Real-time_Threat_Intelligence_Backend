@@ -1,250 +1,149 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Client } from '@opensearch-project/opensearch';
 import { CreateWindowsRegistryKeyInput, UpdateWindowsRegistryKeyInput } from './windows-registry-key.input';
 import { WindowsRegistryKey } from './windows-registry-key.entity';
+
 import { SearchWindowsRegistryKeyInput } from './windows-registry-key.resolver';
 
 @Injectable()
-export class WindowsRegistryKeyService implements OnModuleInit  {
-  private readonly index = 'windows-registry-keys';
-  private readonly openSearchClient: Client;
-
+export class WindowsRegistryKeyService {
+  private readonly index = 'windows-registry-keys'; // OpenSearch index name
+  private openSearchClient: Client;
   constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
+    this.openSearchClient = new Client({
+      node: 'http://localhost:9200',
+    });
   }
 
-  async onModuleInit() {
-    await this.ensureIndex();}
-
+  /**
+   * Create a new Windows Registry Key in OpenSearch
+   */
   async create(createWindowsRegistryKeyInput: CreateWindowsRegistryKeyInput): Promise<WindowsRegistryKey> {
     const windowsRegistryKey: WindowsRegistryKey = {
       id: `windows-registry-key--${uuidv4()}`,
-      type: 'windows-registry-key' as const,
-      spec_version: '2.1',
-      created: new Date().toISOString(),
-      modified: new Date().toISOString(),
       ...createWindowsRegistryKeyInput,
+      created: new Date().toISOString(),
+
+      modified: new Date().toISOString(),
+
     };
 
-    try {
-      const response = await this.openSearchClient.index({
-        index: this.index,
-        id: windowsRegistryKey.id,
-        body: windowsRegistryKey,
-        refresh: 'wait_for',
-      });
+    await this.openSearchClient.index({
+      index: this.index,
+      id: windowsRegistryKey.id,
+      body: windowsRegistryKey,
+    });
 
-      if (response.body.result !== 'created') {
-        throw new Error('Failed to index Windows Registry Key document');
-      }
-      return windowsRegistryKey;
+    return windowsRegistryKey;
+  }
+
+  /**
+   * Find one Windows Registry Key by ID
+   */
+  async findOne(id: string): Promise<WindowsRegistryKey | null> {
+    try {
+      const { body } = await this.openSearchClient.get({ index: this.index, id });
+      return body._source as WindowsRegistryKey;
     } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to create Windows Registry Key',
-        details: error.meta?.body?.error || error.message,
-      });
+      throw new NotFoundException('Windows Registry Key not found');
     }
   }
 
-  async findOne(id: string): Promise<WindowsRegistryKey> {
-    try {
-      const response = await this.openSearchClient.get({ index: this.index, id });
-      const source = response.body._source;
-      return {
-        id: response.body._id,
-        type: 'windows-registry-key' as const,
-        spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
-        ...source,
-      };
-    } catch (error) {
-      if (error.meta?.statusCode === 404) {
-        throw new NotFoundException(`Windows Registry Key with ID ${id} not found`);
-      }
-      throw new InternalServerErrorException({
-        message: 'Failed to fetch Windows Registry Key',
-        details: error.meta?.body?.error || error.message,
-      });
+  /**
+   * Update a Windows Registry Key in OpenSearch
+   */
+  async update(id: string, updateWindowsRegistryKeyInput: UpdateWindowsRegistryKeyInput): Promise<WindowsRegistryKey | null> {
+    const existingRegistryKey = await this.findOne(id);
+    if (!existingRegistryKey) {
+      throw new NotFoundException('Windows Registry Key not found');
     }
+
+    const updatedRegistryKey: WindowsRegistryKey = {
+      ...existingRegistryKey,
+      ...updateWindowsRegistryKeyInput,
+      modified: new Date().toISOString(),
+
+    };
+
+    await this.openSearchClient.update({
+      index: this.index,
+      id,
+      body: { doc: updatedRegistryKey },
+    });
+
+    return updatedRegistryKey;
   }
 
-  async update(id: string, updateWindowsRegistryKeyInput: UpdateWindowsRegistryKeyInput): Promise<WindowsRegistryKey> {
-    try {
-      const existingRegistryKey = await this.findOne(id);
-      const updatedRegistryKey: WindowsRegistryKey = {
-        ...existingRegistryKey,
-        ...updateWindowsRegistryKeyInput,
-        modified: new Date().toISOString(),
-      };
-
-      const response = await this.openSearchClient.update({
-        index: this.index,
-        id,
-        body: { doc: updatedRegistryKey },
-        retry_on_conflict: 3,
-      });
-
-      if (response.body.result !== 'updated') {
-        throw new Error('Failed to update Windows Registry Key document');
-      }
-
-      return updatedRegistryKey;
-    } catch (error) {
-      if (error instanceof NotFoundException) throw error;
-      throw new InternalServerErrorException({
-        message: 'Failed to update Windows Registry Key',
-        details: error.meta?.body?.error || error.message,
-      });
-    }
-  }
-
+  /**
+   * Delete a Windows Registry Key from OpenSearch
+   */
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({ index: this.index, id });
-      return response.body.result === 'deleted';
+      await this.openSearchClient.delete({ index: this.index, id });
+      return true;
     } catch (error) {
-      if (error.meta?.statusCode === 404) {
-        return false;
-      }
-      throw new InternalServerErrorException({
-        message: 'Failed to delete Windows Registry Key',
-        details: error.meta?.body?.error || error.message,
-      });
+      return false;
     }
   }
 
+  /**
+   * Search Windows Registry Keys with dynamic filters
+   */
   async searchWithFilters(
-    searchParams: SearchWindowsRegistryKeyInput = {},
+    searchParams: SearchWindowsRegistryKeyInput,
     page: number = 1,
     pageSize: number = 10
-  ): Promise<{
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-    results: WindowsRegistryKey[];
-  }> {
+  ): Promise<any> {
     try {
       const from = (page - 1) * pageSize;
-      const queryBuilder: { query: any; sort?: any[] } = {
-        query: { bool: { must: [], filter: [] } },
-        sort: [{ modified: { order: 'desc' as const } }],
-      };
+      const mustQueries = [];
 
+      // Construct dynamic search query based on provided filters
       for (const [key, value] of Object.entries(searchParams)) {
-        if (value === undefined || value === null) continue;
-
-        switch (key) {
-          case 'key':
-          case 'creator_user_ref':
-            queryBuilder.query.bool.must.push({
-              match: { [key]: { query: value, lenient: true } },
-            });
-            break;
-          case 'created':
-          case 'modified':
-            if (value instanceof Date) {
-              queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
-              });
-            }
-            break;
-          case 'number_of_subkeys':
-            queryBuilder.query.bool.filter.push({
-              term: { [key]: value },
-            });
-            break;
-          case 'values':
-            if (Array.isArray(value)) {
-              queryBuilder.query.bool.filter.push({
-                terms: { [key]: value },
-              });
-            }
-            break;
-          default:
-            queryBuilder.query.bool.must.push({
-              match: { [key]: { query: value, lenient: true } },
-            });
+        if (value !== undefined) {
+          if (value instanceof Date) {
+            mustQueries.push({ range: { [key]: { gte: value.toISOString() } } });
+          } else {
+            mustQueries.push({ match: { [key]: value } });
+          }
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
-        queryBuilder.query = { match_all: {} };
-      }
+      // Use match_all if no filters are provided
+      const query = mustQueries.length > 0 ? { bool: { must: mustQueries } } : { match_all: {} };
 
-      const response = await this.openSearchClient.search({
+      // Execute search query in OpenSearch
+      const { body } = await this.openSearchClient.search({
         index: this.index,
         from,
         size: pageSize,
-        body: queryBuilder,
+        body: { query },
       });
 
-      const total = typeof response.body.hits.total === 'object'
-        ? response.body.hits.total.value
-        : response.body.hits.total;
+      // Extract total number of hits
+      const total = body.hits.total instanceof Object ? body.hits.total.value : body.hits.total;
 
+      // Map results to the required structure
+      const results = body.hits.hits.map((hit) => ({
+        id: hit._id,
+        type: 'windows-registry-key',
+        spec_version: '2.1',
+        created: hit._source.created || new Date().toISOString(),
+        modified: hit._source.modified || new Date().toISOString(),
+        ...hit._source,
+      }));
+
+      // Return results with pagination metadata
       return {
         page,
         pageSize,
         total,
         totalPages: Math.ceil(total / pageSize),
-        results: response.body.hits.hits.map((hit) => ({
-          id: hit._id,
-          type: 'windows-registry-key' as const,
-          spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          ...hit._source,
-        })),
+        results,
       };
     } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to search Windows Registry Keys',
-        details: error.meta?.body?.error || error.message,
-      });
-    }
-  }
-
-  async ensureIndex(): Promise<void> {
-    try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
-      if (!exists.body) {
-        await this.openSearchClient.indices.create({
-          index: this.index,
-          body: {
-            mappings: {
-              properties: {
-                id: { type: 'keyword' },
-                type: { type: 'keyword' },
-                spec_version: { type: 'keyword' },
-                created: { type: 'date' },
-                modified: { type: 'date' },
-                key: { type: 'keyword' },
-                values: { type: 'keyword' },
-                number_of_subkeys: { type: 'integer' },
-                creator_user_ref: { type: 'keyword' },
-              },
-            },
-          },
-        });
-      }
-    } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to initialize windows-registry-keys index',
-        details: error.meta?.body?.error || error.message,
-      });
+      throw new InternalServerErrorException('Error searching Windows Registry Keys in OpenSearch');
     }
   }
 }

@@ -8,7 +8,7 @@ export class CreateX509CertificateInput extends CyberObservableCommonInput{
   is_self_signed?: boolean;
 
   @Field(() => HashesInput, { nullable: true })
-  hashes?: Record<string, string>;
+  hashes?: HashesInput[];
 
   @Field(() => String, { nullable: true })
   version?: string;

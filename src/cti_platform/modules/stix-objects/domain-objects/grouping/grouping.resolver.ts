@@ -1,63 +1,59 @@
-import { Resolver, InputType, Query, Mutation, Args,Int } from '@nestjs/graphql';
+import { Resolver, InputType, Query, Mutation, Args } from '@nestjs/graphql';
 import { GroupingService } from './grouping.service';
 import { Grouping } from './grouping.entity';
 import { CreateGroupingInput, UpdateGroupingInput } from './grouping.input';
+import { NotFoundException } from '@nestjs/common';
+
 import { PartialType } from '@nestjs/graphql';
-import { ObjectType, Field } from '@nestjs/graphql';
 
 @InputType()
 export class SearchGroupingInput extends PartialType(CreateGroupingInput){}
 
-
-@ObjectType()
-export class GroupingSearchResult {
-  @Field(() => Int)
-  page: number;
-  @Field(() => Int)
-  pageSize: number;
-  @Field(() => Int)
-  total: number;
-  @Field(() => Int)
-  totalPages: number;
-  @Field(() => [Grouping])
-  results: Grouping[];
-}
-
-@Resolver(() => Grouping)
+@Resolver('Grouping')
 export class GroupingResolver {
-  constructor(private readonly groupingService: GroupingService) {}
+  constructor(private readonly GroupingService: GroupingService) {}
 
-  @Mutation(() => Grouping)
+  //  Create a new Course of Action
+  @Mutation(() => Grouping )
   async createGrouping(
-    @Args('input') createGroupingInput: CreateGroupingInput,
-  ): Promise<Grouping> {
-    return this.groupingService.create(createGroupingInput);
+    @Args('createGroupingInput') createGroupingInput: CreateGroupingInput,
+  ): Promise<string> {
+    const grouping = await this.GroupingService.create(createGroupingInput);
+    return grouping.id;
   }
 
-  @Query(() => GroupingSearchResult)
-  async searchGroupings(
-    @Args('filters', { type: () => SearchGroupingInput, nullable: true }) filters: SearchGroupingInput = {},
-    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
-    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
-  ): Promise<GroupingSearchResult> {
-    return this.groupingService.searchWithFilters(filters, page, pageSize);
+  //  Get a Course of Action by ID
+  @Query(() => Grouping , { nullable: true })
+  async getGrouping(@Args('id') id: string): Promise<any> {
+    const grouping = await this.GroupingService.findOne(id);
+    if (!grouping) {
+      throw new NotFoundException(`Course of Action with ID ${id} not found.`);
+    }
+    return grouping;
   }
 
-  @Query(() => Grouping, { nullable: true })
-  async grouping(@Args('id') id: string): Promise<Grouping> {
-    return this.groupingService.findOne(id);
-  }
-
-  @Mutation(() => Grouping)
+  //  Update a Course of Action
+  @Mutation(() => Grouping )
   async updateGrouping(
     @Args('id') id: string,
-    @Args('input') updateGroupingInput: UpdateGroupingInput,
-  ): Promise<Grouping> {
-    return this.groupingService.update(id, updateGroupingInput);
+    @Args('updateGroupingInput') updateGroupingInput: UpdateGroupingInput,
+  ): Promise<any> {
+    return this.GroupingService.update(id, updateGroupingInput);
   }
 
+  //  Delete a Course of Action
   @Mutation(() => Boolean)
-  async deleteGrouping(@Args('id') id: string): Promise<boolean> {
-    return this.groupingService.remove(id);
+  async removeGrouping(@Args('id') id: string): Promise<boolean> {
+    return this.GroupingService.remove(id);
+  }
+
+  //  Search Course of Actions with filters
+  @Query(() => Grouping )
+  async searchGrouping(
+    @Args('filters', { type: () => SearchGroupingInput, nullable: true }) filters: Partial<SearchGroupingInput>,
+    @Args('page', { type: () => Number, defaultValue: 1 }) page: number,
+    @Args('pageSize', { type: () => Number, defaultValue: 10 }) pageSize: number,
+  ): Promise<any> {
+    return this.GroupingService.searchWithFilters(filters, page, pageSize);
   }
 }
