@@ -1,11 +1,27 @@
-import { Resolver, Query,InputType, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
 import { MACAddressService } from './mac-address.service';
 import { MACAddress } from './mac-address.entity';
 import { CreateMACAddressInput, UpdateMACAddressInput } from './mac-address.input';
-
+import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
 @InputType()
 export class SearchMACAddressInput extends PartialType(CreateMACAddressInput) {}
+
+
+
+@ObjectType()
+export class MACAddressSearchResult {
+  @Field(() => Int)
+  page: number;
+  @Field(() => Int)
+  pageSize: number;
+  @Field(() => Int)
+  total: number;
+  @Field(() => Int)
+  totalPages: number;
+  @Field(() => [MACAddress])
+  results: MACAddress[];
+}
 
 @Resolver(() => MACAddress)
 export class MACAddressResolver {
@@ -13,24 +29,21 @@ export class MACAddressResolver {
 
   @Mutation(() => MACAddress)
   async createMACAddress(
-    @Args('createMACAddressInput') createMACAddressInput: CreateMACAddressInput,
+    @Args('input') createMACAddressInput: CreateMACAddressInput,
   ): Promise<MACAddress> {
     return this.macAddressService.create(createMACAddressInput);
   }
 
-  
-// Search MAC addresses dynamically using filters
-@Query(() => [MACAddress], { name: 'mac_addresses' })
-async searchMACAddresses(
-  @Args('from', { type: () => Number, nullable: true }) from?: number,
-  @Args('size', { type: () => Number, nullable: true }) size?: number,
-  @Args('filter', { type: () => SearchMACAddressInput, nullable: true }) filter?: Partial<SearchMACAddressInput>,
-): Promise<MACAddress[]> {
-  return this.macAddressService.searchWithFilters(from ?? 0, size ?? 10, filter ?? {});
-}
+  @Query(() => MACAddressSearchResult)
+  async searchMACAddresses(
+    @Args('from', { type: () => Int, defaultValue: 0 }) from: number,
+    @Args('size', { type: () => Int, defaultValue: 10 }) size: number,
+    @Args('filter', { type: () => SearchMACAddressInput, nullable: true }) filter: SearchMACAddressInput = {},
+  ): Promise<MACAddressSearchResult> {
+    return this.macAddressService.searchWithFilters(from, size, filter);
+  }
 
-
-  @Query(() => MACAddress)
+  @Query(() => MACAddress, { nullable: true })
   async macAddress(@Args('id') id: string): Promise<MACAddress> {
     return this.macAddressService.findOne(id);
   }
@@ -38,13 +51,13 @@ async searchMACAddresses(
   @Mutation(() => MACAddress)
   async updateMACAddress(
     @Args('id') id: string,
-    @Args('updateMACAddressInput') updateMACAddressInput: UpdateMACAddressInput,
+    @Args('input') updateMACAddressInput: UpdateMACAddressInput,
   ): Promise<MACAddress> {
     return this.macAddressService.update(id, updateMACAddressInput);
   }
 
   @Mutation(() => Boolean)
-  async removeMACAddress(@Args('id') id: string): Promise<boolean> {
+  async deleteMACAddress(@Args('id') id: string): Promise<boolean> {
     return this.macAddressService.remove(id);
   }
 }

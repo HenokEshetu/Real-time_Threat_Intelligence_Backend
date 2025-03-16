@@ -1,16 +1,28 @@
-import { Resolver, Query,InputType, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
 import { RelationshipService } from './relationship.service';
 import { StixRelationship } from './relationship.entity';
 import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
-
-
 import { PartialType } from '@nestjs/graphql';
+import { ObjectType, Field } from '@nestjs/graphql';
+
 
 @InputType()
 export class SearchRelationshipInput extends PartialType(CreateRelationshipInput){}
 
 
-
+@ObjectType()
+export class StixRelationshipSearchResult {
+  @Field(() => Int)
+  page: number;
+  @Field(() => Int)
+  pageSize: number;
+  @Field(() => Int)
+  total: number;
+  @Field(() => Int)
+  totalPages: number;
+  @Field(() => [StixRelationship])
+  results: StixRelationship[];
+}
 
 @Resolver(() => StixRelationship)
 export class RelationshipResolver {
@@ -18,53 +30,51 @@ export class RelationshipResolver {
 
   @Mutation(() => StixRelationship)
   async createRelationship(
-    @Args('createRelationshipInput') createRelationshipInput: CreateRelationshipInput
+    @Args('input') createRelationshipInput: CreateRelationshipInput,
   ): Promise<StixRelationship> {
     return this.relationshipService.create(createRelationshipInput);
   }
 
-  
-  @Query(() => StixRelationship)
+  @Query(() => StixRelationshipSearchResult)
+  async searchRelationships(
+    @Args('filters', { type: () => SearchRelationshipInput, nullable: true }) filters: SearchRelationshipInput = {},
+    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
+    @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
+    @Args('sortField', { type: () => String, defaultValue: 'modified', nullable: true }) sortField: keyof StixRelationship = 'modified',
+    @Args('sortOrder', { type: () => String, defaultValue: 'desc' }) sortOrder: 'asc' | 'desc' = 'desc',
+  ): Promise<StixRelationshipSearchResult> {
+    return this.relationshipService.searchWithFilters(filters, page, pageSize, sortField, sortOrder);
+  }
+
+  @Query(() => StixRelationship, { nullable: true })
   async relationship(@Args('id') id: string): Promise<StixRelationship> {
     return this.relationshipService.findOne(id);
+  }
+
+  @Query(() => [StixRelationship])
+  async relatedRelationships(
+    @Args('objectId') objectId: string,
+  ): Promise<StixRelationship[]> {
+    return this.relationshipService.findRelatedObjects(objectId);
+  }
+
+  @Query(() => [StixRelationship], { nullable: true })
+  async expandedRelatedObjects(
+    @Args('objectId') objectId: string,
+  ): Promise<any[]> {
+    return this.relationshipService.findExpandedRelatedObjects(objectId);
   }
 
   @Mutation(() => StixRelationship)
   async updateRelationship(
     @Args('id') id: string,
-    @Args('updateRelationshipInput') updateRelationshipInput: UpdateRelationshipInput
+    @Args('input') updateRelationshipInput: UpdateRelationshipInput,
   ): Promise<StixRelationship> {
     return this.relationshipService.update(id, updateRelationshipInput);
   }
 
   @Mutation(() => Boolean)
-  async removeRelationship(@Args('id') id: string): Promise<boolean> {
+  async deleteRelationship(@Args('id') id: string): Promise<boolean> {
     return this.relationshipService.remove(id);
-  }
-
-
-
-
-
-  // Search relationships with filters
-  @Query(() => StixRelationship, { description: 'Search relationships with filters' })
-  async searchRelationships(
-    @Args('filters', { type: () => SearchRelationshipInput, nullable: true }) filters?: Partial<SearchRelationshipInput>,
-    @Args('page', { type: () => Number, defaultValue: 1 }) page?: number,
-    @Args('pageSize', { type: () => Number, defaultValue: 10 }) pageSize?: number
-  ): Promise<any> {
-    return this.relationshipService.searchWithFilters(filters, page, pageSize);
-  }
-
-  //  Find relationships directly linked to an object
-  @Query(() => [StixRelationship], { description: 'Find related objects for a given STIX ID' })
-  async relatedObjects(@Args('objectId', { type: () => String }) objectId: string): Promise<StixRelationship[]> {
-    return this.relationshipService.findRelatedObjects(objectId);
-  }
-
-  //  Find all expanded related objects
-  @Query(() => [StixRelationship], { description: 'Find all expanded related objects' })
-  async expandedRelatedObjects(@Args('objectId', { type: () => String }) objectId: string): Promise<any[]> {
-    return this.relationshipService.findExpandedRelatedObjects(objectId);
   }
 }

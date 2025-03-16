@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { GraphQLModule } from '@nestjs/graphql';
-import { APP_GUARD } from '@nestjs/core';
-import { JwtAuthGuard } from './user-management/guards/jwt-auth.guard';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { CtiPlatformModule } from './cti_platform/cti_platform.module';
 import { UserManagementModule } from './user-management/user-management.module';

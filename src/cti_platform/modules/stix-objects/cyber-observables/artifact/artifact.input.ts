@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import { Hashes, HashesInput,  CyberObservableCommonInput } from '../../../../core/types/common-data-types';
+import { HashesInput,  CyberObservableCommonInput } from '../../../../core/types/common-data-types';
 @InputType()
 export class CreateArtifactInput extends CyberObservableCommonInput {
   @Field(() => String, { nullable: true })

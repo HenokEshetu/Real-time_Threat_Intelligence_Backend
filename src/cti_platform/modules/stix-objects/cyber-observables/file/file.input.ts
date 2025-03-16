@@ -17,7 +17,7 @@ class AlternateDataStreamInput extends CyberObservableCommonInput{
   name: string;
 
   @Field(() =>HashesInput, { nullable: true })
-  hashes?: HashesInput[];
+  hashes?: Record<string, string>;
 
   @Field(() => Number, { nullable: true })
   size?: number;
@@ -95,13 +95,13 @@ class WindowsPESectionInput extends CyberObservableCommonInput{
   entropy?: number;
 
   @Field(() => HashesInput, { nullable: true })
-  hashes?: HashesInput[];
+  hashes?: Record<string, string>;
 }
 
 @InputType()
 export class CreateFileInput extends CyberObservableCommonInput {
   @Field(() => HashesInput, { nullable: true })
-  hashes?: HashesInput[];
+  hashes?: Record<string, string>;
 
   @Field(() => Number, { nullable: true })
   size?: number;

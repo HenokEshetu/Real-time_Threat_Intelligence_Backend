@@ -1,226 +1,302 @@
-import { Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
-import { Client } from '@opensearch-project/opensearch';
+import { Injectable, InternalServerErrorException, NotFoundException,OnModuleInit } from '@nestjs/common';
+import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateIPv4AddressInput, UpdateIPv4AddressInput } from './ipv4-address.input';
 import { IPv4Address } from './ipv4-address.entity';
 import { SearchIPv4AddressInput } from './ipv4-address.resolver';
-@Injectable()
-export class IPv4AddressService {
-  private readonly index = 'ipv4-addresses'; // OpenSearch index name
-  private openSearchClient: Client;
-  constructor() {
-    this.openSearchClient = new Client({
-      node: 'http://localhost:9200',
-    });
-  }
 
-  // Create a new IPv4 address document
+@Injectable()
+export class IPv4AddressService implements OnModuleInit{
+  private readonly index = 'ipv4-addresses';
+  private readonly openSearchClient: Client;
+
+  constructor() {
+    const clientOptions: ClientOptions = {
+      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
+      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+        ? {
+            username: process.env.OPENSEARCH_USERNAME,
+            password: process.env.OPENSEARCH_PASSWORD,
+          }
+        : undefined,
+    };
+    this.openSearchClient = new Client(clientOptions);
+  }
+  
+  async onModuleInit() {
+    await this.ensureIndex();}
+
   async create(createIPv4AddressInput: CreateIPv4AddressInput): Promise<IPv4Address> {
-    const id = `ipv4-${Date.now()}`;  // Generate a unique ID for the IPv4 address
+    const id = `ipv4-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
     const now = new Date().toISOString();
 
-    // Ensure spec_version, value, and other fields are included
     const doc: IPv4Address = {
       id,
-      type: 'ipv4-addr',
-      spec_version: '2.1',  // Include spec_version here
+      type: 'ipv4-addr' as const,
+      spec_version: '2.1',
       created: now,
       modified: now,
-      value: createIPv4AddressInput.value,  // Ensure value is passed from input
+      value: createIPv4AddressInput.value,
       resolves_to_refs: createIPv4AddressInput.resolves_to_refs || [],
       belongs_to_refs: createIPv4AddressInput.belongs_to_refs || [],
-      ...createIPv4AddressInput,  // Include other fields from the input
+      ...createIPv4AddressInput,
     };
 
     try {
-      // Index the document in OpenSearch
       const response = await this.openSearchClient.index({
         index: this.index,
         id,
         body: doc,
+        refresh: 'wait_for',
       });
 
-      // Ensure that the document was successfully created
       if (response.body.result !== 'created') {
-        throw new InternalServerErrorException('Failed to create IPv4 address');
+        throw new Error('Failed to index document');
       }
-
-      return doc;  // Return the created document
+      return doc;
     } catch (error) {
-      throw new InternalServerErrorException('Error creating IPv4 address in OpenSearch', error.message);
+      throw new InternalServerErrorException({
+        message: 'Failed to create IPv4 address',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // Update an existing IPv4 address document
   async update(id: string, updateIPv4AddressInput: UpdateIPv4AddressInput): Promise<IPv4Address> {
-    const now = new Date().toISOString();
-
-    // Fetch the existing IPv4 address document from OpenSearch
-    const existingIPv4Address = await this.findOne(id);
-    if (!existingIPv4Address) {
-      throw new NotFoundException(`IPv4 Address with ID ${id} not found`);
-    }
-
-    // Prepare the updated document with the new data
-    const updatedDoc = {
-      ...existingIPv4Address,
-      ...updateIPv4AddressInput,
-      resolves_to_refs: updateIPv4AddressInput.resolves_to_refs || existingIPv4Address.resolves_to_refs,
-      belongs_to_refs: updateIPv4AddressInput.belongs_to_refs || existingIPv4Address.belongs_to_refs,
-      spec_version: existingIPv4Address.spec_version,  // Retain spec_version during update
-      modified: new Date().toISOString(),
-
-    };
-
     try {
-      // Update the document in OpenSearch
-      await this.openSearchClient.update({
+      const existing = await this.findOne(id);
+      if (!existing) {
+        throw new NotFoundException(`IPv4 Address with ID ${id} not found`);
+      }
+
+      const updatedDoc: Partial<IPv4Address> = {
+        ...updateIPv4AddressInput,
+        resolves_to_refs: updateIPv4AddressInput.resolves_to_refs ?? existing.resolves_to_refs,
+        belongs_to_refs: updateIPv4AddressInput.belongs_to_refs ?? existing.belongs_to_refs,
+        modified: new Date().toISOString(),
+      };
+
+      const response = await this.openSearchClient.update({
         index: this.index,
         id,
         body: { doc: updatedDoc },
+        retry_on_conflict: 3,
       });
 
-      return updatedDoc;  // Return the updated document
+      if (response.body.result !== 'updated') {
+        throw new Error('Failed to update document');
+      }
+
+      return { ...existing, ...updatedDoc };
     } catch (error) {
-      throw new InternalServerErrorException('Error updating IPv4 address in OpenSearch', error.message);
+      if (error instanceof NotFoundException) throw error;
+      throw new InternalServerErrorException({
+        message: 'Failed to update IPv4 address',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // Find an IPv4 address by its ID
-  async findOne(id: string): Promise<IPv4Address | null> {
+  async findOne(id: string): Promise<IPv4Address> {
     try {
       const response = await this.openSearchClient.get({
         index: this.index,
         id,
       });
 
-      // Return the document source (the actual IPv4 address data)
+      const source = response.body._source;
       return {
         id,
-        type: 'ipv4-addr',
-        spec_version: response.body._source.spec_version || '2.1',  // Ensure spec_version is included
-        created: response.body._source.created || new Date().toISOString(),
-        modified: response.body._source.modified || new Date().toISOString(),
-        value: response.body._source.value,  // Ensure value is included
-        resolves_to_refs: response.body._source.resolves_to_refs || [],
-        belongs_to_refs: response.body._source.belongs_to_refs || [],
-        ...response.body._source,
+        type: 'ipv4-addr' as const,
+        spec_version: source.spec_version || '2.1',
+        created: source.created || new Date().toISOString(),
+        modified: source.modified || new Date().toISOString(),
+        value: source.value,
+        resolves_to_refs: source.resolves_to_refs || [],
+        belongs_to_refs: source.belongs_to_refs || [],
+        ...source,
       };
     } catch (error) {
-      if (error.meta?.body?.found === false) {
-        return null;  // Return null if the IPv4 address was not found
+      if (error.meta?.statusCode === 404) {
+        throw new NotFoundException(`IPv4 Address with ID ${id} not found`);
       }
-      throw new InternalServerErrorException('Error fetching IPv4 address from OpenSearch', error.message);
+      throw new InternalServerErrorException({
+        message: 'Failed to fetch IPv4 address',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // Remove an IPv4 address document by its ID
   async remove(id: string): Promise<boolean> {
     try {
       const response = await this.openSearchClient.delete({
         index: this.index,
         id,
       });
-
-      return response.body.result === 'deleted';  // Return true if the document was deleted
+      return response.body.result === 'deleted';
     } catch (error) {
-      if (error.meta?.body?.found === false) {
-        throw new NotFoundException(`IPv4 Address with ID ${id} not found`);
+      if (error.meta?.statusCode === 404) {
+        return false;
       }
-      throw new InternalServerErrorException('Error deleting IPv4 address in OpenSearch', error.message);
+      throw new InternalServerErrorException({
+        message: 'Failed to delete IPv4 address',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
 
-  // Find IPv4 addresses by value
   async findByValue(value: string): Promise<IPv4Address[]> {
     try {
       const response = await this.openSearchClient.search({
         index: this.index,
         body: {
           query: {
-            match: {
-              value: value,  // Search by the value field
-            },
+            match: { value: { query: value, lenient: true } },
           },
         },
       });
 
-      // Return the matched documents
       return response.body.hits.hits.map((hit) => ({
         id: hit._id,
-        type: 'ipv4-addr',
-        spec_version: hit._source.spec_version || '2.1',  // Ensure spec_version is included
+        type: 'ipv4-addr' as const,
+        spec_version: hit._source.spec_version || '2.1',
         created: hit._source.created || new Date().toISOString(),
         modified: hit._source.modified || new Date().toISOString(),
-        value: hit._source.value,  // Ensure value is included
+        value: hit._source.value,
         resolves_to_refs: hit._source.resolves_to_refs || [],
         belongs_to_refs: hit._source.belongs_to_refs || [],
         ...hit._source,
       }));
     } catch (error) {
-      throw new InternalServerErrorException('Error fetching IPv4 addresses by value from OpenSearch', error.message);
+      throw new InternalServerErrorException({
+        message: 'Failed to find IPv4 addresses by value',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
+
   async searchWithFilters(
-    searchParams: SearchIPv4AddressInput, // Filters passed by the user
+    searchParams: SearchIPv4AddressInput = {},
     page: number = 1,
     pageSize: number = 10
-  ): Promise<any> {
+  ): Promise<{
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+    results: IPv4Address[];
+  }> {
     try {
-      // Calculate the 'from' value for pagination (skip the previous pages)
       const from = (page - 1) * pageSize;
-      const mustQueries = [];
-  
-      // Construct dynamic search query based on filters (searchParams)
+      const queryBuilder: { query: any; sort?: any[] } = {
+        query: {
+          bool: {
+            must: [],
+            filter: [],
+          },
+        },
+        sort: [{ modified: { order: 'desc' as const } }],
+      };
+
       for (const [key, value] of Object.entries(searchParams)) {
-        if (value !== undefined) {
-          // If the value is a Date, use range query
-          if (value instanceof Date) {
-            mustQueries.push({
-              range: { [key]: { gte: value.toISOString() } }, // Filters based on a date range (greater than or equal to)
+        if (value === undefined || value === null) continue;
+
+        switch (key) {
+          case 'value':
+            queryBuilder.query.bool.must.push({
+              match: { [key]: { query: value, lenient: true } },
             });
-          } else {
-            mustQueries.push({ match: { [key]: value } });
-          }
+            break;
+          case 'resolves_to_refs':
+          case 'belongs_to_refs':
+            if (Array.isArray(value)) {
+              queryBuilder.query.bool.filter.push({
+                terms: { [key]: value },
+              });
+            }
+            break;
+          case 'created':
+          case 'modified':
+            if (value instanceof Date) {
+              queryBuilder.query.bool.filter.push({
+                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              });
+            }
+            break;
+          default:
+            queryBuilder.query.bool.must.push({
+              term: { [key]: value },
+            });
         }
       }
-  
-      // Use match_all if no filters are provided
-      const query = mustQueries.length > 0 ? { bool: { must: mustQueries } } : { match_all: {} };
-  
-      // Execute search query in OpenSearch
-      const { body } = await this.openSearchClient.search({
+
+      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
+        queryBuilder.query = { match_all: {} };
+      }
+
+      const response = await this.openSearchClient.search({
         index: this.index,
         from,
         size: pageSize,
-        body: { query },
+        body: queryBuilder,
       });
-  
-      // Extract total number of hits
-      const total = body.hits.total instanceof Object ? body.hits.total.value : body.hits.total;
-  
-      // Map the results to the desired format
-      const results = body.hits.hits.map((hit) => ({
-        id: hit._id,
-        type: 'ipv4-addr',
-        spec_version: '2.1',
-        created: hit._source.created || new Date().toISOString(),
-        modified: hit._source.modified || new Date().toISOString(),
-        resolves_to_refs: hit._source.resolves_to_refs || [],
-        belongs_to_refs: hit._source.belongs_to_refs || [],
-        ...hit._source,
-      }));
-  
-      // Return results with pagination details
+
+      const total = typeof response.body.hits.total === 'object'
+        ? response.body.hits.total.value
+        : response.body.hits.total;
+
       return {
         page,
         pageSize,
-        total, // Total number of documents
-        totalPages: Math.ceil(total / pageSize), // Calculate total pages
-        results,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+        results: response.body.hits.hits.map((hit) => ({
+          id: hit._id,
+          type: 'ipv4-addr' as const,
+          spec_version: hit._source.spec_version || '2.1',
+          created: hit._source.created || new Date().toISOString(),
+          modified: hit._source.modified || new Date().toISOString(),
+          value: hit._source.value,
+          resolves_to_refs: hit._source.resolves_to_refs || [],
+          belongs_to_refs: hit._source.belongs_to_refs || [],
+          ...hit._source,
+        })),
       };
     } catch (error) {
-      throw new InternalServerErrorException('Error fetching IPv4 addresses from OpenSearch');
+      throw new InternalServerErrorException({
+        message: 'Failed to search IPv4 addresses',
+        details: error.meta?.body?.error || error.message,
+      });
     }
   }
-  
+
+  async ensureIndex(): Promise<void> {
+    try {
+      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      if (!exists.body) {
+        await this.openSearchClient.indices.create({
+          index: this.index,
+          body: {
+            mappings: {
+              properties: {
+                id: { type: 'keyword' },
+                type: { type: 'keyword' },
+                spec_version: { type: 'keyword' },
+                created: { type: 'date' },
+                modified: { type: 'date' },
+                value: { type: 'keyword' },
+                resolves_to_refs: { type: 'keyword' },
+                belongs_to_refs: { type: 'keyword' },
+              },
+            },
+          },
+        });
+      }
+    } catch (error) {
+      throw new InternalServerErrorException({
+        message: 'Failed to initialize ipv4-addresses index',
+        details: error.meta?.body?.error || error.message,
+      });
+    }
+  }
 }
