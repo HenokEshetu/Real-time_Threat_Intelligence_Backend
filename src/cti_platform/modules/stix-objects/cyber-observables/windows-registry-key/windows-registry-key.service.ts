@@ -35,6 +35,7 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       ...createWindowsRegistryKeyInput,
+      ...(createWindowsRegistryKeyInput.enrichment ? { enrichment: createWindowsRegistryKeyInput.enrichment } : {}),
     };
 
     try {

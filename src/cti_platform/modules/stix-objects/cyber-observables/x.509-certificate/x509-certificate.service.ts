@@ -38,6 +38,7 @@ export class X509CertificateService implements OnModuleInit{
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       ...createX509CertificateInput,
+      ...(createX509CertificateInput.enrichment ? { enrichment: createX509CertificateInput.enrichment } : {}),
     };
 
     try {
@@ -248,7 +249,7 @@ export class X509CertificateService implements OnModuleInit{
   }
 
   private validateHashes(hashes: any): void {
-    const validHashAlgorithms = ['MD5', 'SHA_1', 'SHA_256', 'SHA_512'];
+    const validHashAlgorithms = ['MD5', 'SHA-1', 'SHA-256', 'SHA-512'];
     for (const [algorithm, hash] of Object.entries(hashes)) {
       const algo = algorithm.toUpperCase(); // normalize algorithm name
       if (!validHashAlgorithms.includes(algo)) {
@@ -263,17 +264,17 @@ export class X509CertificateService implements OnModuleInit{
             throw new StixValidationError(`Invalid MD5 hash format`);
           }
           break;
-        case 'SHA_1':
+        case 'SHA-1':
           if (!/^[a-f0-9]{40}$/i.test(hash)) {
             throw new StixValidationError(`Invalid SHA-1 hash format`);
           }
           break;
-        case 'SHA_256':
+        case 'SHA-256':
           if (!/^[a-f0-9]{64}$/i.test(hash)) {
             throw new StixValidationError(`Invalid SHA-256 hash format`);
           }
           break;
-        case 'SHA_512':
+        case 'SHA-512':
           if (!/^[a-f0-9]{128}$/i.test(hash)) {
             throw new StixValidationError(`Invalid SHA-512 hash format`);
           }

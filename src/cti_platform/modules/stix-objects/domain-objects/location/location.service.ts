@@ -38,6 +38,7 @@ export class LocationService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createLocationInput.name, // Required field
       ...createLocationInput,
+      ...(createLocationInput.enrichment ? { enrichment: createLocationInput.enrichment } : {}),
     };
 
     try {

@@ -37,6 +37,7 @@ export class IdentityService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createIdentityInput.name, // Required field
       ...createIdentityInput,
+      ...(createIdentityInput.enrichment ? { enrichment: createIdentityInput.enrichment } : {}),
     };
 
     try {

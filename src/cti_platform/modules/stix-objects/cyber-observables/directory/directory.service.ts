@@ -39,6 +39,7 @@ export class DirectoryService implements OnModuleInit{
       modified: now,
       path: createDirectoryInput.path,
       ...createDirectoryInput,
+      ...(createDirectoryInput.enrichment ? { enrichment: createDirectoryInput.enrichment } : {}),
     };
 
     try {

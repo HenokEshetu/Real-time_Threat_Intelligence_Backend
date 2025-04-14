@@ -37,6 +37,7 @@ export class ToolService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createToolInput.name, // Required field
       ...createToolInput,
+      ...(createToolInput.enrichment ? { enrichment: createToolInput.enrichment } : {}),
     };
 
     try {

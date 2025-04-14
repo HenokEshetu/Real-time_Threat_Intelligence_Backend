@@ -42,6 +42,7 @@ export class ArtifactService implements OnModuleInit {
       modified: timestamp,
       ...createArtifactInput,
       hashes: this.convertHashesInputToHashes(createArtifactInput.hashes),
+      ...(createArtifactInput.enrichment ? { enrichment: createArtifactInput.enrichment } : {}), // Optional enrichment
     };
 
     try {
@@ -282,7 +283,7 @@ export class ArtifactService implements OnModuleInit {
 
 private validateHashes(hashes: Record<string, string> | undefined): void {
   if (!hashes) return;
-  const validHashAlgorithms = ['MD5', 'SHA_1', 'SHA_256', 'SHA_512'];
+  const validHashAlgorithms = ['MD5', 'SHA-1', 'SHA-256', 'SHA-512'];
   for (const [algorithm, value] of Object.entries(hashes)) {
       if (!algorithm || !value) {
           throw new StixValidationError('Hash must have algorithm and value');
@@ -299,9 +300,9 @@ private validateHashes(hashes: Record<string, string> | undefined): void {
   private isValidHashFormat(algorithm: string, hash: string): boolean {
     const hashPatterns: Record<string, RegExp> = {
       'MD5': /^[a-fA-F0-9]{32}$/,
-      'SHA_1': /^[a-fA-F0-9]{40}$/,
-      'SHA_256': /^[a-fA-F0-9]{64}$/,
-      'SHA_512': /^[a-fA-F0-9]{128}$/,
+      'SHA-1': /^[a-fA-F0-9]{40}$/,
+      'SHA-256': /^[a-fA-F0-9]{64}$/,
+      'SHA-512': /^[a-fA-F0-9]{128}$/,
     };
     return hashPatterns[algorithm]?.test(hash) ?? false;
   }

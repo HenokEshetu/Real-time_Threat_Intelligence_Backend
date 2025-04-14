@@ -37,6 +37,7 @@ export class UserAccountService implements OnModuleInit {
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       ...createUserAccountInput,
+      ...(createUserAccountInput.enrichment ? { enrichment: createUserAccountInput.enrichment } : {}),
     };
 
     try {

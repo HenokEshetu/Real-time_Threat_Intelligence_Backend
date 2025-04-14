@@ -38,6 +38,8 @@ export class UrlService implements OnModuleInit {
       created: now,
       modified: now,
       value: createUrlInput.value,
+      ...createUrlInput,
+      ...(createUrlInput.enrichment ? { enrichment: createUrlInput.enrichment } : {}),
     };
 
     try {

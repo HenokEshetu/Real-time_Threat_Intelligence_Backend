@@ -37,6 +37,7 @@ export class ReportService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createReportInput.name, // Required field
       ...createReportInput,
+      ...(createReportInput.enrichment ? { enrichment: createReportInput.enrichment } : {}),
     };
 
     try {

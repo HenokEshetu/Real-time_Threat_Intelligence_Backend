@@ -36,6 +36,7 @@ export class CampaignService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createCampaignInput.name, // Required field
       ...createCampaignInput,
+      ...(createCampaignInput.enrichment ? { enrichment: createCampaignInput.enrichment } : {}),
     };
 
     try {

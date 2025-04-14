@@ -42,6 +42,7 @@ export class NetworkTrafficService implements OnModuleInit{
       created: now,
       modified: now,
       ...createNetworkTrafficInput,
+      ...(createNetworkTrafficInput.enrichment ? { enrichment: createNetworkTrafficInput.enrichment } : {}),
     };
 
     try {

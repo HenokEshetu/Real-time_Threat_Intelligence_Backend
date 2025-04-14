@@ -38,6 +38,7 @@ export class DomainNameService  implements OnModuleInit {
       modified: now,
       value: createDomainNameInput.value,
       ...createDomainNameInput,
+      ...(createDomainNameInput.enrichment ? { enrichment: createDomainNameInput.enrichment } : {}),
     };
 
     try {

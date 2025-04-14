@@ -119,6 +119,7 @@ export class AutonomousSystemService implements OnModuleInit {
       created: now,
       modified: now,
       ...createAutonomousSystemInput,
+      ...(createAutonomousSystemInput.enrichment ? { enrichment: createAutonomousSystemInput.enrichment } : {}), // Optional enrichment
     };
 
     try {

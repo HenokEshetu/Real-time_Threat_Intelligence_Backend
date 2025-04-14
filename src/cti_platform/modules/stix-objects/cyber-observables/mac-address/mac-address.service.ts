@@ -40,6 +40,7 @@ export class MACAddressService implements OnModuleInit {
       modified: now,
       value: createMACAddressInput.value, // Required field
       ...createMACAddressInput,
+      ...(createMACAddressInput.enrichment ? { enrichment: createMACAddressInput.enrichment } : {}),
     };
 
     try {

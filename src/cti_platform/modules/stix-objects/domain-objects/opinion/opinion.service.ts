@@ -37,6 +37,7 @@ export class OpinionService implements OnModuleInit {
       modified: new Date().toISOString(),
       opinion: createOpinionInput.opinion, // Required field
       ...createOpinionInput,
+      ...(createOpinionInput.object_refs ? { object_refs: createOpinionInput.object_refs } : {}),
     };
 
     try {

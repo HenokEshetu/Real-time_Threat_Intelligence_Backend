@@ -37,6 +37,7 @@ export class NoteService implements OnModuleInit {
       modified: new Date().toISOString(),
       content: createNoteInput.content, // Required field
       ...createNoteInput,
+      ...(createNoteInput.enrichment ? { enrichment: createNoteInput.enrichment } : {}),
     };
 
     try {

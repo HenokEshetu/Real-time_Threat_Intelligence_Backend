@@ -37,6 +37,7 @@ export class InfrastructureService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createInfrastructureInput.name, // Required field
       ...createInfrastructureInput,
+      ...(createInfrastructureInput.enrichment ? { enrichment: createInfrastructureInput.enrichment } : {}),
     };
 
     try {

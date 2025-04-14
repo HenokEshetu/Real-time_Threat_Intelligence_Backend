@@ -27,46 +27,46 @@ export class FileService implements OnModuleInit {
   async onModuleInit() {
     await this.ensureIndex();}
 
-  async create(createFileInput: CreateFileInput): Promise<File> {
-    const id = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date().toISOString();
-
-    const doc: File = {
-      id,
-      type: 'file' as const,
-      spec_version: '2.1',
-      created: now,
-      modified: now,
-      ...createFileInput,
-    };
-
-    // Validate and convert hashes if provided
-    if (doc.hashes) {
-      const convertedHashes = this.convertHashesInputToHashes(doc.hashes);
-      this.validateHashes(convertedHashes);
-      // Assign record directly instead of converting to an array
-      doc.hashes = convertedHashes;
-    }
-
-    try {
-      const response = await this.openSearchClient.index({
-        index: this.index,
+    async create(createFileInput: CreateFileInput): Promise<File> {
+      const id = `file-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const now = new Date().toISOString();
+    
+      const doc: File = {
         id,
-        body: doc,
-        refresh: 'wait_for',
-      });
-
-      if (response.body.result !== 'created') {
-        throw new Error('Failed to index document');
+        type: 'file' as const,
+        spec_version: '2.1',
+        created: now,
+        modified: now,
+        ...createFileInput,
+        ...(createFileInput.enrichment ? { enrichment: createFileInput.enrichment } : {}),
+      };
+    
+      // Validate and convert hashes if provided
+      if (doc.hashes) {
+        const convertedHashes = this.convertHashesInputToHashes(doc.hashes);
+        this.validateHashes(convertedHashes);
+        doc.hashes = convertedHashes;
       }
-      return doc;
-    } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to create file',
-        details: error.meta?.body?.error || error.message,
-      });
+    
+      try {
+        const response = await this.openSearchClient.index({
+          index: this.index,
+          id,
+          body: doc,
+          refresh: 'wait_for',
+        });
+    
+        if (response.body.result !== 'created') {
+          throw new Error('Failed to index document');
+        }
+        return doc;
+      } catch (error) {
+        throw new InternalServerErrorException({
+          message: 'Failed to create file',
+          details: error.meta?.body?.error || error.message,
+        });
+      }
     }
-  }
 
   async update(id: string, updateFileInput: UpdateFileInput): Promise<File> {
     try {
@@ -258,6 +258,7 @@ export class FileService implements OnModuleInit {
                 { match: { 'hashes.SHA-256': hashValue } },
                 { match: { 'hashes.MD5': hashValue } },
                 { match: { 'hashes.SHA-1': hashValue } },
+                { match: { 'hashes.SHA-512': hashValue } },
               ],
               minimum_should_match: 1,
             },
@@ -326,7 +327,7 @@ export class FileService implements OnModuleInit {
 
   private validateHashes(hashes: Record<string, string> | undefined): void {
     if (!hashes) return;
-    const validHashAlgorithms = ['MD5', 'SHA_1', 'SHA_256', 'SHA_512'];
+    const validHashAlgorithms = ['MD5', 'SHA-1', 'SHA-256', 'SHA-512'];
     for (const [algorithm, value] of Object.entries(hashes)) {
       if (!algorithm || !value) {
         throw new StixValidationError('Hash must have algorithm and value');
@@ -335,7 +336,17 @@ export class FileService implements OnModuleInit {
         throw new StixValidationError(`Invalid hash algorithm: ${algorithm}. Must be one of ${validHashAlgorithms.join(', ')}`);
       }
       if (typeof value !== 'string' || !this.isValidHashFormat(algorithm, value)) {
-        throw new StixValidationError(`Invalid ${algorithm} hash value: ${value}`);
+        // Try to find a valid algorithm by checking all patterns
+        const foundAlgo = validHashAlgorithms.find(algo => this.isValidHashFormat(algo, value));
+        if (foundAlgo) {
+          if (foundAlgo !== algorithm) {
+            // Update key to the correct algorithm
+            delete hashes[algorithm];
+            hashes[foundAlgo] = value;
+          }
+        } else {
+          throw new StixValidationError(`Invalid ${algorithm} hash value: ${value}`);
+        }
       }
     }
   }
@@ -347,6 +358,8 @@ export class FileService implements OnModuleInit {
       'SHA_256': /^[a-fA-F0-9]{64}$/,
       'SHA_512': /^[a-fA-F0-9]{128}$/,
     };
-    return hashPatterns[algorithm]?.test(hash) ?? false;
+    // Normalize algorithm key by replacing "-" with "_"
+    const normalizedAlgorithm = algorithm.replace(/-/g, '_');
+    return hashPatterns[normalizedAlgorithm]?.test(hash) ?? false;
   }
 }

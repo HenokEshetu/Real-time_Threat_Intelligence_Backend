@@ -42,6 +42,7 @@ export class ProcessService implements OnModuleInit {
       created: now,
       modified: now,
       ...createProcessInput,
+      ...(createProcessInput.enrichment ? { enrichment: createProcessInput.enrichment } : {}),
     };
 
     try {

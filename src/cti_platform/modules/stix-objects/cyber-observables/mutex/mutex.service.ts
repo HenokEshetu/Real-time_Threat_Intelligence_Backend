@@ -40,6 +40,7 @@ export class MutexService implements OnModuleInit  {
       modified: now,
       name: createMutexInput.name, // Required field
       ...createMutexInput,
+      ...(createMutexInput.enrichment ? { enrichment: createMutexInput.enrichment } : {}),
     };
 
     try {

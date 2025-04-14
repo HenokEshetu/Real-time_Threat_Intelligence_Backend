@@ -37,8 +37,8 @@ export class ThreatActor extends CommonProperties {
   @Field(() => String, { nullable: true })
   resource_level?: string;
 
-  @Field(() => Boolean, { nullable: true })
-  primary_motivation?: boolean;
+  @Field(() => String, { nullable: true })
+  primary_motivation?: string;
 
   @Field(() => [String], { nullable: true })
   secondary_motivations?: string[];
