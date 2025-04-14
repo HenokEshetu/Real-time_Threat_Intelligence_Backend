@@ -38,6 +38,7 @@ export class ThreatActorService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createThreatActorInput.name, // Required field
       ...createThreatActorInput,
+      ...(createThreatActorInput.enrichment ? { enrichment: createThreatActorInput.enrichment } : {}),
     };
 
     try {

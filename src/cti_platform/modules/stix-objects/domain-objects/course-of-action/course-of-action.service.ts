@@ -37,6 +37,7 @@ export class CourseOfActionService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createCourseOfActionInput.name, // Required field
       ...createCourseOfActionInput,
+      ...(createCourseOfActionInput.enrichment ? { enrichment: createCourseOfActionInput.enrichment } : {}),
     };
 
     try {

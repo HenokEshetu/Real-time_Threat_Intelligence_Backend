@@ -36,6 +36,7 @@ export class IntrusionSetService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createIntrusionSetInput.name, // Required field
       ...createIntrusionSetInput,
+      ...(createIntrusionSetInput.enrichment ? { enrichment: createIntrusionSetInput.enrichment } : {}),
     };
 
     try {

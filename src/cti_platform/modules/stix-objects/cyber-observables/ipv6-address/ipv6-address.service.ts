@@ -39,6 +39,7 @@ export class IPv6AddressService implements OnModuleInit {
       value: createIPv6AddressInput.value,
       resolves_to_refs: createIPv6AddressInput.resolves_to_refs,
       ...createIPv6AddressInput,
+      ...(createIPv6AddressInput.enrichment ? { enrichment: createIPv6AddressInput.enrichment } : {}),
     };
 
     try {

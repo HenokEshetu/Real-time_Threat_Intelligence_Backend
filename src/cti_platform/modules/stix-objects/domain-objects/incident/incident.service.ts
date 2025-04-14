@@ -36,6 +36,7 @@ export class IncidentService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createIncidentInput.name, // Required field
       ...createIncidentInput,
+      ...(createIncidentInput.enrichment ? { enrichment: createIncidentInput.enrichment } : {}),
     };
 
     try {

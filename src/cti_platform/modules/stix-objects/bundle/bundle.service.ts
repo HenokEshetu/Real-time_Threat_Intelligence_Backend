@@ -27,6 +27,10 @@ export class BundleService implements OnModuleInit {
     await this.ensureIndexExists();
   }
 
+  public getClient(): Client {
+    return this.client;
+  }
+
   async create(createBundleInput: CreateBundleInput): Promise<Bundle> {
     const id = `bundle--${uuidv4()}`;
     const timestamp = new Date().toISOString();

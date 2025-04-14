@@ -37,6 +37,7 @@ export class IndicatorService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createIndicatorInput.name, // Required field
       ...createIndicatorInput,
+      ...(createIndicatorInput.enrichment ? { enrichment: createIndicatorInput.enrichment } : {}),
     };
 
     try {

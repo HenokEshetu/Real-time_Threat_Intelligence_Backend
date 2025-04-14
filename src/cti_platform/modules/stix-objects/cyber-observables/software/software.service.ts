@@ -37,6 +37,7 @@ export class SoftwareService implements OnModuleInit {
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       ...createSoftwareInput,
+      ...(createSoftwareInput.enrichment ? { enrichment: createSoftwareInput.enrichment } : {}),
     };
 
     try {

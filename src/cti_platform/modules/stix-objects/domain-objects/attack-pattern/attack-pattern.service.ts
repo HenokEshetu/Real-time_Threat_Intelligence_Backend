@@ -36,6 +36,7 @@ export class AttackPatternService implements OnModuleInit{
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       ...createAttackPatternInput,
+      ...(createAttackPatternInput.enrichment ? { enrichment: createAttackPatternInput.enrichment } : {}),
     };
 
     try {

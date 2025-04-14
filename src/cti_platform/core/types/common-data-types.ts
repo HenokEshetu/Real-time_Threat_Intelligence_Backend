@@ -284,6 +284,44 @@ export class ExtensionDefinition {
  @Field(() => [String], { nullable: true }) extension_properties?: string[];
 }
 
+@ObjectType()
+export class Enrichment {
+  @Field(() => GraphQLJSON, { nullable: true })
+  geo?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  whois?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  virustotal?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  abuseipdb?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  shodan?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  threatfox?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  dns?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  ssl?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  asn?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  hybrid?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  threatcrowd?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  misp?: any;
+}
 
 
 
@@ -300,7 +338,10 @@ export class CommonProperties {
  @Field({ nullable: true }) confidence?: number;
  @Field({ nullable: true }) lang?: string;
  @Field(() => [ExternalReference], { nullable: true }) external_references?: ExternalReference[];
+ @Field(() => [String], { nullable: true }) object_marking_refs?: string[];
  @Field(() => GraphQLJSONObject, { nullable: true }) extensions?: Dictionary;
+ @Field(() => Enrichment, { nullable: true })
+ enrichment?: Enrichment; 
 }
 
 
@@ -329,22 +370,30 @@ export type TimestampPrecision = 'year' | 'month' | 'day' | 'hour' | 'minute' | 
 export type ConfidenceScale = number;
 
 
-// STIX Object Marking Types
+// src/cti_platform/core/types/common-data-types.ts
 export type MarkingDefinitionType = 'statement' | 'tlp' | 'iep';
-@ObjectType()
-export class STIXPattern {
- @Field()
- pattern: string;
- @Field()
- pattern_type: PatternType;
- @Field({ nullable: true }) 
- pattern_version?: string;
- @Field(() => String)    
- valid_from?: string;
- @Field(() => String)  
- valid_until?: string; 
+
+export interface MarkingDefinition {
+  type: 'marking-definition';
+  id: string;
+  created: string;
+  definition_type: MarkingDefinitionType;
+  definition: Record<string, any>;
 }
 
+@ObjectType()
+export class STIXPattern {
+  @Field()
+  pattern: string;
+  @Field()
+  pattern_type: PatternType;
+  @Field({ nullable: true })
+  pattern_version?: string;
+  @Field(() => String)
+  valid_from?: string;
+  @Field(() => String)
+  valid_until?: string;
+}
 
 @InputType()
 export class HashesInput {
@@ -407,6 +456,46 @@ export class ExtensionDefinitionInput {
 
 
 @InputType()
+export class EnrichmentInput {
+  @Field(() => GraphQLJSON, { nullable: true })
+  geo?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  whois?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  virustotal?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  abuseipdb?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  shodan?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  threatfox?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  dns?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  ssl?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  asn?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  hybrid?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  threatcrowd?: any;
+
+  @Field(() => GraphQLJSON, { nullable: true })
+  misp?: any;
+}
+
+
+@InputType()
 export class CommonInput {
  @Field() type: string;
  @Field() spec_version: '2.1';
@@ -420,6 +509,8 @@ export class CommonInput {
  @Field({ nullable: true }) lang?: string;
  @Field(() => [ExternalReferenceInput], { nullable: true }) external_references?: ExternalReferenceInput[];
  @Field(() => GraphQLJSONObject, { nullable: true }) extensions?: Dictionary;
+ @Field(() => EnrichmentInput, { nullable: true })
+  enrichment?: EnrichmentInput; 
 }
 
 
@@ -453,6 +544,3 @@ export class STIXPatternInput {
  @Field(() => GraphQLDateTime)
  valid_until?: string;
 }
-
-
-

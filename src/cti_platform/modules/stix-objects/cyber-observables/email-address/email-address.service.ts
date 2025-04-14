@@ -39,6 +39,7 @@ export class EmailAddressService implements OnModuleInit {
       value: createEmailAddressInput.value,
       display_name: createEmailAddressInput.display_name || '',
       ...createEmailAddressInput,
+      ...(createEmailAddressInput.enrichment ? { enrichment: createEmailAddressInput.enrichment } : {}),
     };
 
     try {

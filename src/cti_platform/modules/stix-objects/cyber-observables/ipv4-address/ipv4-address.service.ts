@@ -40,6 +40,7 @@ export class IPv4AddressService implements OnModuleInit{
       resolves_to_refs: createIPv4AddressInput.resolves_to_refs || [],
       belongs_to_refs: createIPv4AddressInput.belongs_to_refs || [],
       ...createIPv4AddressInput,
+      ...(createIPv4AddressInput.enrichment ? { enrichment: createIPv4AddressInput.enrichment } : {}),
     };
 
     try {

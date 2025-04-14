@@ -38,6 +38,7 @@ export class EmailMessageService implements OnModuleInit {
       created: now,
       modified: now,
       ...createEmailMessageInput,
+      ...(createEmailMessageInput.enrichment ? { enrichment: createEmailMessageInput.enrichment } : {}),
     };
 
     try {

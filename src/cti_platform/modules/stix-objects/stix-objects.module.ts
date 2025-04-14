@@ -142,3 +142,15 @@ import opensearchConfig from 'src/cti_platform/config/opensearch.config';
   exports: ['OPENSEARCH_CLIENT'],
 })
 export class StixObjectsModule {}
+
+
+
+
+
+
+
+
+
+
+
+

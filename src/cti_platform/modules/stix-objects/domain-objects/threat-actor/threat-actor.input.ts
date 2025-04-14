@@ -33,8 +33,8 @@ export class CreateThreatActorInput extends CommonInput {
   @Field(() => String, { nullable: true })
   resource_level?: string;
 
-  @Field(() => Boolean, { nullable: true })
-  primary_motivation?: boolean;
+  @Field(() => String, { nullable: true }) // Corrected from boolean to string
+  primary_motivation?: 'financial-gain' | 'espionage' | 'ideology' | 'destruction' | 'political' | 'competitive' | 'revenge' | 'unknown';
 
   @Field(() => [String], { nullable: true })
   secondary_motivations?: string[];

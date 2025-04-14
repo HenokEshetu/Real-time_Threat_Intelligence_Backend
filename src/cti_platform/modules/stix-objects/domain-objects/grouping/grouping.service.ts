@@ -38,6 +38,7 @@ export class GroupingService implements OnModuleInit {
       modified: new Date().toISOString(),
       name: createGroupingInput.name, // Required field
       ...createGroupingInput,
+      ...(createGroupingInput.enrichment ? { enrichment: createGroupingInput.enrichment } : {}),
     };
 
     try {

@@ -39,6 +39,7 @@ export class ObservedDataService implements OnModuleInit {
       last_observed: createObservedDataInput.last_observed,   // Required field
       number_observed: createObservedDataInput.number_observed, // Required field
       ...createObservedDataInput,
+      ...(createObservedDataInput.object_refs ? { object_refs: createObservedDataInput.object_refs } : {}),
     };
 
     try {
