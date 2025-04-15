@@ -20,7 +20,7 @@
     "id": "AlienVault-OTX",
     "name": "AlienVault",
     "apiUrl": "https://otx.alienvault.com/api/v1/indicators/export",
-    "apiKeyEnv": "ALIENVAULT_API_KEY",
+    "apiKeyEnv": "OTX_API_KEY",
     "headers": {
       "X-OTX-API-KEY": "${apiKey}",
       "Accept": "application/json"
