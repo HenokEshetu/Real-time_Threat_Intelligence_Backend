@@ -81,10 +81,13 @@ import {CreateSightingInput} from '../../stix-objects/sighting/sighting.input';
 import { CreateRelationshipInput } from '../../stix-objects/relationships/relationship.input';
 import { CreateBundleInput } from '../../stix-objects/bundle/bundle.input';
 import { CreateX509CertificateInput } from '../../stix-objects/cyber-observables/x.509-certificate/x509-certificate.input';
+
+
 import { Injectable, InternalServerErrorException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectQueue, Process, Processor } from '@nestjs/bull';
 import { Queue, Job } from 'bull';
 import axios, { AxiosError } from 'axios';
+import Bottleneck from 'bottleneck';
 import { v4 as uuidv4 } from 'uuid';
 import { FeedProviderConfig, GenericStixObject, StixType } from './feed.types';
 import { FeedUtils } from './feed.utils';
@@ -99,6 +102,7 @@ import {
   STIX_SPEC_VERSION,
 } from './feed.constants';
 
+
 // Define a generic StixService interface
 interface StixService<T> {
   create(input: T): Promise<{ id: string; [key: string]: any }>;
@@ -106,16 +110,45 @@ interface StixService<T> {
 
 // Union of all Create*Input types
 type StixCreateInput =
-  | CreateArtifactInput | CreateAutonomousSystemInput | CreateDirectoryInput | CreateDomainNameInput
-  | CreateEmailAddressInput | CreateEmailMessageInput | CreateFileInput | CreateIPv4AddressInput
-  | CreateIPv6AddressInput | CreateMACAddressInput | CreateMutexInput | CreateNetworkTrafficInput
-  | CreateProcessInput | CreateSoftwareInput | CreateUrlInput | CreateUserAccountInput
-  | CreateWindowsRegistryKeyInput | CreateX509CertificateInput | CreateAttackPatternInput
-  | CreateCampaignInput | CreateCourseOfActionInput | CreateGroupingInput | CreateIdentityInput
-  | CreateIncidentInput | CreateIndicatorInput | CreateInfrastructureInput | CreateIntrusionSetInput
-  | CreateLocationInput | CreateMalwareInput | CreateMalwareAnalysisInput | CreateNoteInput
-  | CreateObservedDataInput | CreateOpinionInput | CreateReportInput | CreateThreatActorInput
-  | CreateToolInput | CreateVulnerabilityInput | CreateSightingInput | CreateRelationshipInput
+  | CreateArtifactInput
+  | CreateAutonomousSystemInput
+  | CreateDirectoryInput
+  | CreateDomainNameInput
+  | CreateEmailAddressInput
+  | CreateEmailMessageInput
+  | CreateFileInput
+  | CreateIPv4AddressInput
+  | CreateIPv6AddressInput
+  | CreateMACAddressInput
+  | CreateMutexInput
+  | CreateNetworkTrafficInput
+  | CreateProcessInput
+  | CreateSoftwareInput
+  | CreateUrlInput
+  | CreateUserAccountInput
+  | CreateWindowsRegistryKeyInput
+  | CreateX509CertificateInput
+  | CreateAttackPatternInput
+  | CreateCampaignInput
+  | CreateCourseOfActionInput
+  | CreateGroupingInput
+  | CreateIdentityInput
+  | CreateIncidentInput
+  | CreateIndicatorInput
+  | CreateInfrastructureInput
+  | CreateIntrusionSetInput
+  | CreateLocationInput
+  | CreateMalwareInput
+  | CreateMalwareAnalysisInput
+  | CreateNoteInput
+  | CreateObservedDataInput
+  | CreateOpinionInput
+  | CreateReportInput
+  | CreateThreatActorInput
+  | CreateToolInput
+  | CreateVulnerabilityInput
+  | CreateSightingInput
+  | CreateRelationshipInput
   | CreateBundleInput;
 
 interface EnrichmentResult {
@@ -132,7 +165,8 @@ export class FeedIngesterService implements OnModuleInit {
   private readonly defaultCreatedByRef: string;
   private readonly concurrency: number = parseInt(process.env.FEED_CONCURRENCY || '10', 10);
   private readonly defaultSchedule: string = process.env.FEED_SCHEDULE || '*/2 * * * *'; // Default: every 2 minutes
-  private readonly defaultTimeout: number = parseInt(process.env.FEED_TIMEOUT || `${DEFAULT_TIMEOUT}`, 30);
+  private readonly defaultTimeout: number = parseInt(process.env.FEED_TIMEOUT || `${DEFAULT_TIMEOUT}`, 10);
+  private readonly limiters: Map<string, Bottleneck> = new Map(); // Store limiters per feed
 
   private readonly serviceFactory: Map<StixType, StixService<any>> = new Map<StixType, StixService<any>>([
     ['artifact', this.artifactService],
@@ -225,8 +259,33 @@ export class FeedIngesterService implements OnModuleInit {
   }
 
   async onModuleInit() {
+    await this.initializeLimiters();
     await this.scheduleFeedProcessing();
-    this.logger.log('Feed Ingester Service initialized'); // Changed to log for brevity
+    this.logger.log('Feed Ingester Service initialized');
+  }
+
+  private async initializeLimiters() {
+    try {
+      const configs = await this.feedConfigService.getAllConfigs();
+      if (configs.length === 0) {
+        this.logger.warn('No feed configurations found during limiter initialization');
+        return;
+      }
+      for (const config of configs) {
+        this.limiters.set(
+          config.id,
+          new Bottleneck({
+            maxConcurrent: 1,
+            minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY, // Default to 1000ms
+          }),
+        );
+        this.logger.debug(`Initialized rate limiter for feed ${config.id} with rateLimitDelay ${config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY}ms`);
+      }
+      this.logger.log(`Initialized ${this.limiters.size} rate limiters`);
+    } catch (error) {
+      this.logger.error(`Failed to initialize rate limiters: ${error instanceof Error ? error.message : error}`);
+      throw new InternalServerErrorException('Failed to initialize rate limiters');
+    }
   }
 
   private async scheduleFeedProcessing(): Promise<void> {
@@ -244,21 +303,21 @@ export class FeedIngesterService implements OnModuleInit {
       }
 
       const schedule = configs[0].schedule || this.defaultSchedule;
-      const job = await this.feedQueue.add(
+      await this.feedQueue.add(
         'processAllFeeds',
         {},
         { repeat: { cron: schedule }, jobId: `all-feeds-${uuidv4()}` },
       );
-      this.logger.log(`Scheduled feed processing with cron ${schedule}`); // Simplified
+      this.logger.log(`Scheduled feed processing with cron ${schedule}`);
     } catch (error) {
-      this.logger.error(`Failed to schedule feed processing: ${error.message}`);
+      this.logger.error(`Failed to schedule feed processing: ${error instanceof Error ? error.message : error}`);
       throw new InternalServerErrorException('Failed to initialize feed scheduler');
     }
   }
 
   @Process('processAllFeeds')
   async handleProcessAllFeeds(job: Job): Promise<void> {
-    this.logger.log(`Starting job ${job.id} to process all feeds`); // Simplified
+    this.logger.log(`Starting job ${job.id} to process all feeds`);
     try {
       const configs = await this.feedConfigService.getAllConfigs();
       if (configs.length === 0) {
@@ -269,14 +328,14 @@ export class FeedIngesterService implements OnModuleInit {
       await Promise.all(
         configs.map(config =>
           this.processFeed(config).catch(error => {
-            this.logger.error(`Failed to process feed ${config.name}: ${error.message}`);
+            this.logger.error(`Failed to process feed ${config.name}: ${error instanceof Error ? error.message : error}`);
           }),
         ),
       );
-      this.logger.log(`Job ${job.id} completed`); // Simplified
+      this.logger.log(`Job ${job.id} completed`);
     } catch (error) {
-      this.logger.error(`Job ${job.id} failed: ${error.message}`);
-      throw new InternalServerErrorException(`Feed processing failed: ${error.message}`);
+      this.logger.error(`Job ${job.id} failed: ${error instanceof Error ? error.message : error}`);
+      throw new InternalServerErrorException(`Feed processing failed: ${error instanceof Error ? error.message : error}`);
     }
   }
 
@@ -292,7 +351,7 @@ export class FeedIngesterService implements OnModuleInit {
         return;
       }
     } catch (error) {
-      this.logger.error(`Failed to fetch indicators from ${config.name}: ${error.message}`);
+      this.logger.error(`Failed to fetch indicators from ${config.name}: ${error instanceof Error ? error.message : error}`);
       throw error;
     }
 
@@ -303,7 +362,7 @@ export class FeedIngesterService implements OnModuleInit {
       const results = await Promise.allSettled(
         batch.map(indicator =>
           this.processStixObject(indicator, config).catch(err => {
-            this.logger.error(`Error processing ${indicator.indicator}: ${err.message}`);
+            this.logger.error(`Error processing ${indicator.indicator}: ${err instanceof Error ? err.message : err}`);
             return Promise.reject(err);
           }),
         ),
@@ -314,13 +373,30 @@ export class FeedIngesterService implements OnModuleInit {
 
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     this.logger.log(
-      `Completed ${config.name} with ${indicators.length - failedCount}/${indicators.length} objects processed in ${elapsedSeconds}s`
-    ); // Summarized
+      `Completed ${config.name} with ${indicators.length - failedCount}/${indicators.length} objects processed in ${elapsedSeconds}s`,
+    );
   }
+
   private async processStixObject(obj: GenericStixObject, config: FeedProviderConfig): Promise<boolean> {
+    const loggerContext = `Feed ${config.name}, ID ${obj.id || 'unknown'}`;
+    this.logger.debug(`Processing indicator: ${JSON.stringify(obj, null, 2)} [${loggerContext}]`);
+
+    // Validate indicator
+    if (!obj || (!obj.indicator && !obj.value && !obj.name && !obj.hashes)) {
+      this.logger.warn(`Skipping invalid indicator: ${JSON.stringify(obj, null, 2)} [${loggerContext}]`);
+      return false;
+    }
+
     const stixType = FeedUtils.identifyStixType(obj);
-    if (await this.lookupService.findByValue(obj.indicator || obj.value || obj.name, stixType)) {
-      this.logger.debug(`Skipping duplicate ${stixType}: ${obj.id || obj.indicator}`);
+
+    const lookupValue = obj.indicator || obj.value || obj.name || (obj.hashes ? Object.values(obj.hashes)[0] : undefined);
+    if (!lookupValue) {
+      this.logger.warn(`No valid lookup value for indicator: ${JSON.stringify(obj, null, 2)} [${loggerContext}]`);
+      return false;
+    }
+
+    if (await this.lookupService.findByValue(lookupValue, stixType)) {
+      this.logger.debug(`Skipping duplicate ${stixType}: ${lookupValue} [${loggerContext}]`);
       return true;
     }
 
@@ -342,20 +418,19 @@ export class FeedIngesterService implements OnModuleInit {
       await Promise.all(
         relationships.map(rel =>
           this.relationshipService.create(rel).catch(err => {
-            this.logger.warn(`Failed to create relationship for ${storedObject.id}: ${err.message}`);
+            this.logger.warn(`Failed to create relationship for ${storedObject.id}: ${err instanceof Error ? err.message : err} [${loggerContext}]`);
           }),
         ),
       );
     }
 
+    this.logger.log(`Successfully processed ${stixType}: ${storedObject.id} [${loggerContext}]`);
     return true;
   }
-
 
   private adaptToGenericIndicator(enrichedResult: any): GenericStixObject {
     const { enrichment, ...baseIndicator } = enrichedResult;
 
-    // Define allowed enrichment sources (optional whitelist)
     const allowedEnrichmentSources = new Set([
       'geo',
       'whois',
@@ -369,15 +444,11 @@ export class FeedIngesterService implements OnModuleInit {
       'hybrid',
       'threatcrowd',
       'misp',
+      'ipinfo',
     ]);
 
-    // Dynamically adapt enrichment
     const adaptedEnrichment = enrichment
-      ? Object.fromEntries(
-          Object.entries(enrichment).filter(([key]) =>
-            allowedEnrichmentSources.has(key),
-          ),
-        )
+      ? Object.fromEntries(Object.entries(enrichment).filter(([key]) => allowedEnrichmentSources.has(key)))
       : undefined;
 
     return {
@@ -386,46 +457,40 @@ export class FeedIngesterService implements OnModuleInit {
     };
   }
 
+  private async transformToStixInput(indicator: GenericStixObject, config: FeedProviderConfig): Promise<EnrichmentResult> {
+    const type = FeedUtils.identifyStixType(indicator);
+    const commonProps = this.createCommonProperties(indicator, config);
+    const pattern = FeedUtils.createStixPattern(indicator);
 
-  private async transformToStixInput(
-  indicator: GenericStixObject,
-  config: FeedProviderConfig,
-): Promise<EnrichmentResult> {
-  const type = FeedUtils.identifyStixType(indicator);
-  const commonProps = this.createCommonProperties(indicator, config);
-  const pattern = FeedUtils.createStixPattern(indicator);
+    const externalReferences = this.buildExternalReferences(indicator, config);
 
-  // Generate external references dynamically
-  const externalReferences = this.buildExternalReferences(indicator, config);
+    const baseInput = {
+      ...commonProps,
+      type,
+      external_references: externalReferences.length > 0 ? externalReferences : undefined,
+      enrichment: indicator.enrichment,
+    };
 
-  // Base STIX input with dynamic enrichment and references
-  const baseInput = {
-    ...commonProps,
-    type,
-    external_references: externalReferences.length > 0 ? externalReferences : undefined,
-    enrichment: indicator.enrichment, // Keep full enrichment for downstream use
-  };
+    const typeSpecificInput = this.createTypeSpecificInput(type, baseInput, indicator, pattern);
 
-  // Type-specific STIX input
-  const typeSpecificInput = this.createTypeSpecificInput(type, baseInput, indicator, pattern);
+    const relationships = this.buildInitialRelationships(indicator, typeSpecificInput.id);
 
- 
-  const relationships = this.buildInitialRelationships(indicator, typeSpecificInput.id);
+    return {
+      type,
+      input: typeSpecificInput,
+      relationships,
+      enriched: indicator,
+    };
+  }
 
-  return {
-    type,
-    input: typeSpecificInput,
-    relationships,
-    enriched: indicator,
-  };
-}
-  
-
-  private createCommonProperties(indicator: GenericStixObject, config: FeedProviderConfig): Partial<CommonProperties> & { type: string } {
+  private createCommonProperties(
+    indicator: GenericStixObject,
+    config: FeedProviderConfig,
+  ): Partial<CommonProperties> & { type: string } {
     const now = new Date().toISOString();
     const tlpLevel = FeedUtils.determineTLPLevel(indicator);
     return {
-      type: 'indicator', // Default type, overridden later
+      type: 'indicator',
       spec_version: STIX_SPEC_VERSION,
       id: `${indicator.type || 'indicator'}--${uuidv4()}`,
       created_by_ref: this.defaultCreatedByRef,
@@ -443,7 +508,6 @@ export class FeedIngesterService implements OnModuleInit {
   private buildExternalReferences(indicator: GenericStixObject, config: FeedProviderConfig): ExternalReference[] {
     const refs: ExternalReference[] = [];
 
-    // Default reference from the feed provider
     refs.push({
       id: uuidv4(),
       source_name: config.name,
@@ -452,7 +516,6 @@ export class FeedIngesterService implements OnModuleInit {
       description: `Original ${config.name} indicator`,
     });
 
-    // Generic references from indicator.references
     if (Array.isArray(indicator.references) && indicator.references.length) {
       refs.push(
         ...indicator.references.map(ref => ({
@@ -463,15 +526,14 @@ export class FeedIngesterService implements OnModuleInit {
       );
     }
 
-    // Dynamic enrichment reference configuration
     const enrichmentReferenceMap: Record<
       string,
       {
         sourceName: string;
-        dataKey?: string; // Key to check for data existence (e.g., 'data', 'summary')
-        urlFn: (indicator: GenericStixObject, data: any) => string | undefined; // Dynamic URL builder
-        descriptionFn: (data: any) => string; // Dynamic description builder
-        externalIdFn?: (indicator: GenericStixObject) => string; // Optional external ID builder
+        dataKey?: string;
+        urlFn: (indicator: GenericStixObject, data: any) => string | undefined;
+        descriptionFn: (data: any) => string;
+        externalIdFn?: (indicator: GenericStixObject) => string;
       }
     > = {
       virustotal: {
@@ -480,7 +542,7 @@ export class FeedIngesterService implements OnModuleInit {
         urlFn: (indicator) =>
           `https://www.virustotal.com/gui/${indicator.type.includes('file') ? 'file' : 'ip-address'}/${indicator.indicator}`,
         descriptionFn: (data) => {
-          const stats = data.attributes.last_analysis_stats;
+          const stats = data?.attributes?.last_analysis_stats ?? { malicious: 0, undetected: 0, total: 0 };
           const total = stats.total ?? stats.malicious + (stats.undetected ?? 0);
           return `VirusTotal detection: ${stats.malicious}/${total}`;
         },
@@ -491,53 +553,51 @@ export class FeedIngesterService implements OnModuleInit {
         dataKey: 'data.totalReports',
         urlFn: (indicator) => `https://www.abuseipdb.com/check/${indicator.indicator}`,
         descriptionFn: (data) =>
-          `AbuseIPDB reports: ${data.totalReports}, Score: ${data.abuseConfidenceScore || 'N/A'}`,
+          `AbuseIPDB reports: ${data.totalReports ?? 0}, Score: ${data.abuseConfidenceScore ?? 'N/A'}`,
         externalIdFn: (indicator) => indicator.indicator,
       },
       threatfox: {
         sourceName: 'ThreatFox',
         dataKey: 'data',
         urlFn: (indicator) => `https://threatfox.abuse.ch/browse.php?search=${indicator.indicator}`,
-        descriptionFn: (data) => `ThreatFox IOCs: ${data.length}`,
+        descriptionFn: (data) => `ThreatFox IOCs: ${data?.length ?? 0}`,
         externalIdFn: (indicator) => indicator.indicator,
       },
       hybrid: {
         sourceName: 'Hybrid Analysis',
         dataKey: 'summary',
         urlFn: (indicator, data) =>
-          `https://www.hybrid-analysis.com/sample/${data.hashes?.sha256 || indicator.indicator}`,
+          `https://www.hybrid-analysis.com/sample/${data?.hashes?.sha256 || indicator.indicator}`,
         descriptionFn: (data) =>
-          `Hybrid Analysis: Threat Score ${data.summary.threat_score || 'N/A'}, Verdict: ${data.summary.verdict || 'N/A'}`,
+          `Hybrid Analysis: Threat Score ${data?.summary?.threat_score ?? 'N/A'}, Verdict: ${data?.summary?.verdict ?? 'N/A'}`,
         externalIdFn: (indicator) => indicator.indicator,
       },
       threatcrowd: {
         sourceName: 'ThreatCrowd',
         dataKey: 'hashes',
         urlFn: (indicator) => `https://www.threatcrowd.org/search.php?search=${indicator.indicator}`,
-        descriptionFn: (data) => `ThreatCrowd: ${data.hashes.length} related hashes`,
+        descriptionFn: (data) => `ThreatCrowd: ${data?.hashes?.length ?? 0} related hashes`,
         externalIdFn: (indicator) => indicator.indicator,
       },
       misp: {
         sourceName: 'MISP',
         dataKey: 'events',
-        urlFn: () => undefined, // MISP doesn’t provide a direct URL per event typically
-        descriptionFn: (data) => `MISP: ${data.events.length} related events`,
+        urlFn: () => undefined,
+        descriptionFn: (data) => `MISP: ${data?.events?.length ?? 0} related events`,
         externalIdFn: (indicator) => indicator.indicator,
       },
     };
 
-    // Process enrichment data dynamically
     if (indicator.enrichment) {
       Object.entries(indicator.enrichment).forEach(([source, enrichmentData]) => {
         const config = enrichmentReferenceMap[source];
         if (!config || !enrichmentData) return;
 
-        // Check if the required data exists
         let data = enrichmentData;
         if (config.dataKey) {
           const keys = config.dataKey.split('.');
           data = keys.reduce((obj, key) => obj?.[key], enrichmentData);
-          if (!data || (Array.isArray(data) && !data.length)) return; // Skip if no data or empty array
+          if (!data || (Array.isArray(data) && !data.length)) return;
         }
 
         refs.push({
@@ -553,7 +613,12 @@ export class FeedIngesterService implements OnModuleInit {
     return refs;
   }
 
-  private createTypeSpecificInput(type: StixType, baseInput: Partial<CommonProperties> & { type: string }, indicator: GenericStixObject, pattern: STIXPattern): StixCreateInput {
+  private createTypeSpecificInput(
+    type: StixType,
+    baseInput: Partial<CommonProperties> & { type: string },
+    indicator: GenericStixObject,
+    pattern: STIXPattern,
+  ): StixCreateInput {
     const extensions: Record<string, any> = {};
     if (indicator.enrichment) {
       Object.entries(indicator.enrichment).forEach(([key, value]) => {
@@ -581,10 +646,15 @@ export class FeedIngesterService implements OnModuleInit {
       case 'email-message':
         return { ...baseInput, type, subject: indicator.indicator, extensions } as CreateEmailMessageInput;
       case 'file':
-        const hashType = indicator.type.includes('md5') ? 'MD5' :
-                        indicator.type.includes('sha1') ? 'SHA-1' :
-                        indicator.type.includes('sha256') ? 'SHA-256' :
-                        indicator.type.includes('sha512') ? 'SHA-512' : 'SHA-256';
+        const hashType = indicator.type.includes('md5')
+          ? 'MD5'
+          : indicator.type.includes('sha1')
+            ? 'SHA-1'
+            : indicator.type.includes('sha256')
+              ? 'SHA-256'
+              : indicator.type.includes('sha512')
+                ? 'SHA-512'
+                : 'SHA-256';
         return {
           ...baseInput,
           type,
@@ -607,7 +677,9 @@ export class FeedIngesterService implements OnModuleInit {
         return {
           ...baseInput,
           type,
-          dst_ref: indicator.enrichment?.dns?.Answer?.[0]?.data ? `${indicator.enrichment.dns.Answer[0].type === 'A' ? 'ipv4-addr' : 'ipv6-addr'}--${uuidv4()}` : undefined,
+          dst_ref: indicator.enrichment?.dns?.Answer?.[0]?.data
+            ? `${indicator.enrichment.dns.Answer[0].type === 'A' ? 'ipv4-addr' : 'ipv6-addr'}--${uuidv4()}`
+            : undefined,
           extensions,
         } as CreateNetworkTrafficInput;
       case 'process':
@@ -678,7 +750,6 @@ export class FeedIngesterService implements OnModuleInit {
     const relationships: CreateRelationshipInput[] = [];
     const now = new Date().toISOString();
 
-    // STIX validation maps (copied from RelationshipService for standalone use, or inject if shared)
     const validRelationships = new Map<string, Set<string>>([
       ['attack-pattern', new Set(['delivers', 'targets', 'uses'])],
       ['campaign', new Set(['attributed-to', 'compromises', 'originates-from', 'targets', 'uses'])],
@@ -691,7 +762,7 @@ export class FeedIngesterService implements OnModuleInit {
       ['malware-analysis', new Set(['characterizes', 'analysis-of', 'static-analysis-of', 'dynamic-analysis-of'])],
       ['threat-actor', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'impersonates', 'located-at', 'targets', 'uses'])],
       ['tool', new Set(['delivers', 'drops', 'has', 'targets'])],
-      ['file', new Set(['drops', 'delivers', 'related-to'])], // Added for file type
+      ['file', new Set(['drops', 'delivers', 'related-to'])],
     ]);
 
     const validTargets = new Map<string, Set<string>>([
@@ -706,12 +777,11 @@ export class FeedIngesterService implements OnModuleInit {
       ['located-at', new Set(['location'])],
       ['indicates', new Set(['attack-pattern', 'campaign', 'infrastructure', 'intrusion-set', 'malware', 'threat-actor', 'tool'])],
       ['based-on', new Set(['observed-data'])],
-      ['communicates-with', new Set(['infrastructure', 'ipv4-addr', 'ipv6-addr'])], // Added for IPs
-      ['related-to', new Set(['file', 'indicator', 'malware'])], // Added for generic relations
-      ['resolves-to', new Set(['ipv4-addr', 'ipv6-addr'])], // Added for DNS
+      ['communicates-with', new Set(['infrastructure', 'ipv4-addr', 'ipv6-addr'])],
+      ['related-to', new Set(['file', 'indicator', 'malware'])],
+      ['resolves-to', new Set(['ipv4-addr', 'ipv6-addr'])],
     ]);
 
-    // Generic helper to add validated relationships
     const addRelationships = (
       refs: any[] | undefined,
       relationshipType: string,
@@ -745,40 +815,18 @@ export class FeedIngesterService implements OnModuleInit {
       );
     };
 
-    // Predefined indicator relationships
-    addRelationships(
-      indicator.relatedIndicators,
-      'related-to',
-      'indicator',
-      () => 'Related indicator',
-    );
-    addRelationships(
-      indicator.relatedFiles,
-      'related-to',
-      'file',
-      () => 'Related file',
-    );
-    addRelationships(
-      indicator.indicatorRelationships,
-      'based-on',
-      'indicator',
-      () => 'Based on indicator',
-    );
-    addRelationships(
-      indicator.relatedThreatActors,
-      'attributed-to',
-      'threat-actor',
-      () => 'Attributed to threat actor',
-    );
+    addRelationships(indicator.relatedIndicators, 'related-to', 'indicator', () => 'Related indicator');
+    addRelationships(indicator.relatedFiles, 'related-to', 'file', () => 'Related file');
+    addRelationships(indicator.indicatorRelationships, 'based-on', 'indicator', () => 'Based on indicator');
+    addRelationships(indicator.relatedThreatActors, 'attributed-to', 'threat-actor', () => 'Attributed to threat actor');
 
-    // Dynamic enrichment relationship configuration
     const enrichmentRelationshipMap: Record<
       string,
       {
         relationshipType: string;
         defaultTargetType: string;
         dataKey?: string;
-        targetTypeFn?: (item: any) => string; // Optional dynamic target type resolver
+        targetTypeFn?: (item: any) => string;
         descriptionFn: (item: any) => string;
       }
     > = {
@@ -816,7 +864,6 @@ export class FeedIngesterService implements OnModuleInit {
       },
     };
 
-    // Process enrichment data dynamically
     if (indicator.enrichment) {
       Object.entries(indicator.enrichment).forEach(([source, enrichmentData]) => {
         const config = enrichmentRelationshipMap[source];
@@ -824,7 +871,7 @@ export class FeedIngesterService implements OnModuleInit {
 
         let data = config.dataKey ? (enrichmentData as any)[config.dataKey] : enrichmentData;
         if (source === 'hybrid' && data) {
-          data = Object.entries(data); // Convert hashes to array of [key, value]
+          data = Object.entries(data);
         }
 
         if (Array.isArray(data) && data.length > 0) {
@@ -838,22 +885,40 @@ export class FeedIngesterService implements OnModuleInit {
 
     return relationships;
   }
+
   private async fetchStixObjects(config: FeedProviderConfig, retryCount: number): Promise<GenericStixObject[]> {
     const apiKey = process.env[config.apiKeyEnv];
     if (!apiKey) {
       throw new InternalServerErrorException(`${config.apiKeyEnv} not configured`);
     }
 
+    // Ensure a limiter exists, create one if missing
+    if (!this.limiters.has(config.id)) {
+      this.logger.warn(`No rate limiter found for ${config.id}, creating one with rateLimitDelay ${config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY}ms`);
+      this.limiters.set(
+        config.id,
+        new Bottleneck({
+          maxConcurrent: 1,
+          minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY,
+        }),
+      );
+    }
+
+    const limiter = this.limiters.get(config.id)!;
+
     try {
       const headers = config.headers ? this.interpolateHeaders(config.headers, apiKey) : {};
-      const response = await axios({
-        method: config.method || 'GET',
-        url: config.apiUrl,
-        headers,
-        params: config.params,
-        data: config.data,
-        timeout: config.timeout || DEFAULT_TIMEOUT,
-      });
+
+      const response = await limiter.schedule(() =>
+        axios({
+          method: config.method || 'GET',
+          url: config.apiUrl,
+          headers,
+          params: config.params,
+          data: config.data,
+          timeout: config.timeout || DEFAULT_TIMEOUT,
+        }),
+      );
 
       const data = config.responsePath ? this.getNestedProperty(response.data, config.responsePath) : response.data;
       if (!Array.isArray(data)) {
@@ -881,7 +946,7 @@ export class FeedIngesterService implements OnModuleInit {
       return this.handleFetchError(error as AxiosError, config, retryCount);
     }
   }
-  
+
   private isValidStixObject(obj: GenericStixObject): boolean {
     switch (obj.type) {
       case 'file':
@@ -900,9 +965,10 @@ export class FeedIngesterService implements OnModuleInit {
       case 'indicator':
         return !!obj.indicator;
       default:
-        return true; // Allow other types with minimal validation
+        return true;
     }
   }
+
   private interpolateHeaders(headers: Record<string, string>, apiKey: string): Record<string, string> {
     const result: Record<string, string> = {};
     for (const [key, value] of Object.entries(headers)) {
@@ -924,7 +990,10 @@ export class FeedIngesterService implements OnModuleInit {
     }
 
     const maxRetries = config.maxRetries || DEFAULT_MAX_RETRIES;
-    if ([429, 503].includes(error.response?.status) || ['ECONNREFUSED', 'ETIMEDOUT'].includes(error.code || '') && retryCount < maxRetries - 1) {
+    if (
+      ([429, 503].includes(error.response?.status) || ['ECONNREFUSED', 'ETIMEDOUT'].includes(error.code || '')) &&
+      retryCount < maxRetries
+    ) {
       const delay = Math.pow(2, retryCount) * (config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY);
       this.logger.warn(`Retrying ${config.name} after ${delay}ms (${retryCount + 1}/${maxRetries})`);
       await new Promise(resolve => setTimeout(resolve, delay));
@@ -933,7 +1002,7 @@ export class FeedIngesterService implements OnModuleInit {
 
     throw new InternalServerErrorException(`${config.name} API failed after ${retryCount + 1} attempts: ${message}`);
   }
-  
+
   private async createRelationships(storedObject: { id: string }, result: EnrichmentResult): Promise<void> {
     const relationships = result.relationships.map(rel => ({
       ...rel,
@@ -944,31 +1013,22 @@ export class FeedIngesterService implements OnModuleInit {
       await Promise.all(
         relationships.map(rel =>
           this.relationshipService.create(rel).catch(err => {
-            this.logger.warn(`Failed to create relationship: ${err.message}`);
+            this.logger.warn(`Failed to create relationship: ${err instanceof Error ? err.message : err}`);
           }),
         ),
       );
     }
   }
 
-
-
   private async storeStixObject(type: StixType, input: StixCreateInput, indicator: GenericStixObject): Promise<{ id: string }> {
     const service = this.serviceFactory.get(type) || this.indicatorService;
     try {
       const storedObject = await service.create(input as any);
-      this.logger.log(`Created ${type}: ${storedObject.id}`); // Simplified
+      this.logger.log(`Created ${type}: ${storedObject.id}`);
       return storedObject;
     } catch (error) {
-      this.logger.error(`Failed to store ${type}: ${error.message}`);
-      throw new InternalServerErrorException(`Failed to store STIX object: ${error.message}`);
+      this.logger.error(`Failed to store ${type}: ${error instanceof Error ? error.message : error}`);
+      throw new InternalServerErrorException(`Failed to store STIX object: ${error instanceof Error ? error.message : error}`);
     }
   }
-
-
-
-  
-
-
-  
 }

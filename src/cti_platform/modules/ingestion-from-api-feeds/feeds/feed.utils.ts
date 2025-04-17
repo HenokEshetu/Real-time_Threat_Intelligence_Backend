@@ -1,3 +1,4 @@
+import { parse } from 'tldts';
 import { GenericStixObject, StixType } from './feed.types';
 import {
   MITRE_MAPPING,
@@ -11,6 +12,7 @@ import {
 } from './feed.constants';
 import { STIXPattern, PatternType, KillChainPhase } from '../../../core/types/common-data-types';
 import { v4 as uuidv4 } from 'uuid';
+import * as net from 'net';
 
 export class FeedUtils {
   /**
@@ -19,50 +21,49 @@ export class FeedUtils {
    */
   static calculateConfidence(indicator: GenericStixObject): number {
     let confidence = DEFAULT_CONFIDENCE;
-
+  
     if (indicator.validated) confidence += 5;
     if (indicator.references?.length) confidence += Math.min(indicator.references.length * 2, 10);
-
+  
     const vtStats = indicator.enrichment?.virustotal?.data?.attributes?.last_analysis_stats;
     if (vtStats) {
-      const totalScans = vtStats.malicious + (vtStats.undetected ?? 0) + (vtStats.total ?? 0);
-      const detectionRate = totalScans > 0 ? vtStats.malicious / totalScans : 0;
+      const totalScans = (vtStats.malicious || 0) + (vtStats.undetected || 0) + (vtStats.total || 0);
+      const detectionRate = totalScans > 0 ? (vtStats.malicious || 0) / totalScans : 0;
       confidence += Math.round(detectionRate * 20);
     }
-
+  
     if (indicator.enrichment?.abuseipdb?.data?.totalReports) {
       confidence += Math.min(Math.floor(indicator.enrichment.abuseipdb.data.totalReports / 5), 15);
     }
-
+  
     if (indicator.enrichment?.threatfox?.data?.length) {
       confidence += Math.min(indicator.enrichment.threatfox.data.length * 3, 10);
     }
-
+  
     if (indicator.enrichment?.hybrid?.summary?.threat_score) {
       confidence += Math.min(Math.floor(indicator.enrichment.hybrid.summary.threat_score / 10), 15);
     }
-
+  
     if (indicator.enrichment?.threatcrowd?.hashes?.length) {
       confidence += Math.min(indicator.enrichment.threatcrowd.hashes.length * 2, 10);
     }
-
+  
     if (indicator.enrichment?.misp?.events?.length) {
       confidence += Math.min(indicator.enrichment.misp.events.length * 3, 12);
     }
-
+  
     if (indicator.reputation) {
       confidence += Math.min(Math.floor(indicator.reputation / 10), 10);
     }
-
+  
     if (indicator.created) {
       const ageDays = (Date.now() - new Date(indicator.created).getTime()) / (1000 * 60 * 60 * 24);
-      if (ageDays < 7) confidence += 5; // Fresher data boost
-      else if (ageDays > 90) confidence -= Math.min(Math.floor(ageDays / 30) * 3, 20); // Slower decay
+      if (ageDays < 7) confidence += 5;
+      else if (ageDays > 90) confidence -= Math.min(Math.floor(ageDays / 30) * 3, 20);
     }
-
+  
     return Math.max(0, Math.min(confidence, 100));
   }
-
   /**
    * Determines kill chain phases with improved logic using new enrichment data.
    */
@@ -111,24 +112,41 @@ export class FeedUtils {
   }
 
   /**
-   * Identifies STIX type with improved logic for all STIX 2.1 types.
+   * Identifies STIX type with improved validation using tldts for domains and strict hash checks.
    */
   static identifyStixType(obj: GenericStixObject): StixType {
-    // Check STIX-specific fields first
-    if (obj.hashes && Object.keys(obj.hashes).length > 0) return 'file';
-    if (obj.value) {
-      if (obj.value.match(/^https?:\/\//)) return 'url';
-      if (obj.value.match(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/) && !obj.value.includes('/')) return 'domain-name';
-      if (obj.value.match(/^\d+\.\d+\.\d+\.\d+$/)) return 'ipv4-addr';
-      if (obj.value.match(/^[0-9a-f:]+$/i) && obj.value.includes(':')) return 'ipv6-addr';
-      if (obj.value.match(/^[a-f0-9]{2}(:[a-f0-9]{2}){5}$/i)) return 'mac-address';
-      if (obj.value.match(/^[^@]+@[^@]+\.[^@]+$/)) return 'email-addr';
+    // Validate hashes for file indicators
+    if (obj.hashes && Object.keys(obj.hashes).length > 0) {
+      const validHash = Object.values(obj.hashes).every(hash =>
+        TYPE_PATTERNS.md5.test(hash) ||
+        TYPE_PATTERNS.sha1.test(hash) ||
+        TYPE_PATTERNS.sha256.test(hash) ||
+        TYPE_PATTERNS.sha512.test(hash)
+      );
+      return validHash ? 'file' : 'indicator';
     }
+
+    // Validate value-based indicators
+    if (obj.value) {
+      // URL: Use strict TYPE_PATTERNS check
+      if (TYPE_PATTERNS.url.test(obj.value)) return 'url';
+      // Domain: Use tldts for robust validation
+      const parsed = parse(obj.value);
+      if (parsed.domain && parsed.publicSuffix && !obj.value.includes('/')) return 'domain-name';
+      // IP addresses
+      if (net.isIP(obj.value)) return net.isIPv6(obj.value) ? 'ipv6-addr' : 'ipv4-addr';
+      if (TYPE_PATTERNS['ipv6-addr'].test(obj.value)) return 'ipv6-addr';
+      // MAC address
+      if (TYPE_PATTERNS['mac-address'].test(obj.value)) return 'mac-address';
+      // Email address
+      if (TYPE_PATTERNS['email-address'].test(obj.value)) return 'email-addr';
+    }
+
+    // Validate indicator field
     if (obj.indicator) {
-      // Handle indicator-specific patterns
       if (TYPE_PATTERNS['ipv4-addr'].test(obj.indicator)) return 'ipv4-addr';
       if (TYPE_PATTERNS['ipv6-addr'].test(obj.indicator)) return 'ipv6-addr';
-      if (TYPE_PATTERNS['url'].test(obj.indicator)) return 'url';
+      if (TYPE_PATTERNS.url.test(obj.indicator)) return 'url';
       if (TYPE_PATTERNS['email-address'].test(obj.indicator)) return 'email-addr';
       if (TYPE_PATTERNS['mac-address'].test(obj.indicator)) return 'mac-address';
       if (
@@ -137,9 +155,12 @@ export class FeedUtils {
         TYPE_PATTERNS.sha256.test(obj.indicator) ||
         TYPE_PATTERNS.sha512.test(obj.indicator)
       ) return 'file';
-      if (TYPE_PATTERNS['domain-name'].test(obj.indicator) && !obj.indicator.includes(' ')) return 'domain-name';
-      return 'indicator'; // Default for generic indicators
+      const parsed = parse(obj.indicator);
+      if (parsed.domain && parsed.publicSuffix && !obj.indicator.includes(' ')) return 'domain-name';
+      return 'indicator';
     }
+
+    // Named objects (malware, threat-actor, etc.)
     if (obj.name) {
       if (obj.labels?.includes('malicious') || obj.malwareTypes?.length) return 'malware';
       if (obj.threatActorTypes?.length || obj.roles?.length) return 'threat-actor';
@@ -154,20 +175,18 @@ export class FeedUtils {
   /**
    * Validates if a type is a valid STIX 2.1 type.
    */
-  /**
- * Validates if a type is a valid STIX 2.1 type.
- */
-static isValidStixType(type: string): boolean {
-  const validTypes: StixType[] = [
-    'artifact', 'autonomous-system', 'directory', 'domain-name', 'email-addr', 'email-message', 'file',
-    'ipv4-addr', 'ipv6-addr', 'mac-address', 'mutex', 'network-traffic', 'process', 'software', 'url',
-    'user-account', 'windows-registry-key', 'x509-certificate', 'attack-pattern', 'campaign',
-    'course-of-action', 'grouping', 'identity', 'incident', 'indicator', 'infrastructure', 'intrusion-set',
-    'location', 'malware', 'malware-analysis', 'note', 'observed-data', 'opinion', 'report', 'threat-actor',
-    'tool', 'vulnerability', 'sighting'
-  ];
-  return validTypes.includes(type as StixType);
-}
+  static isValidStixType(type: string): boolean {
+    const validTypes: StixType[] = [
+      'artifact', 'autonomous-system', 'directory', 'domain-name', 'email-addr', 'email-message', 'file',
+      'ipv4-addr', 'ipv6-addr', 'mac-address', 'mutex', 'network-traffic', 'process', 'software', 'url',
+      'user-account', 'windows-registry-key', 'x509-certificate', 'attack-pattern', 'campaign',
+      'course-of-action', 'grouping', 'identity', 'incident', 'indicator', 'infrastructure', 'intrusion-set',
+      'location', 'malware', 'malware-analysis', 'note', 'observed-data', 'opinion', 'report', 'threat-actor',
+      'tool', 'vulnerability', 'sighting'
+    ];
+    return validTypes.includes(type as StixType);
+  }
+
   /**
    * Builds a detailed description with new enrichment data (hybrid, threatcrowd, misp).
    */
