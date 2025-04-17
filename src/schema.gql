@@ -903,26 +903,13 @@ input CreateRelationshipInput {
 }
 
 input CreateReportInput {
-  Relationship: [RelationshipCommonInput!]
   authors: [String!]
   confidence: Float
-  created: String!
-  created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
-  extensions: JSONObject
-  external_references: [ExternalReferenceInput!]
-  id: ID!
   labels: [String!]
-  lang: String
-  modified: String!
   name: String!
-  object_refs: [String!]!
-  published: DateTime!
-  report_types: [String!]!
-  revoked: Boolean
-  spec_version: String!
-  type: String!
+  published: String
+  report_types: [String!]
 }
 
 input CreateSightingInput {
@@ -2017,7 +2004,6 @@ type Mutation {
   deleteIntrusionSet(id: String!): Boolean!
   deleteLocation(id: String!): Boolean!
   deleteMACAddress(id: String!): Boolean!
-  deleteMalware(id: String!): Boolean!
   deleteMalwareAnalysis(id: String!): Boolean!
   deleteMutex(id: String!): Boolean!
   deleteNetworkTraffic(id: String!): Boolean!
@@ -2038,6 +2024,7 @@ type Mutation {
   deleteX509Certificate(id: String!): Boolean!
   forgotPassword(input: forgotPasswordDto!): AuthResponse!
   login(input: LoginDto!): LoginResponse!
+  removeMalware(id: String!): Boolean!
   removeUser(id: ID!): Boolean!
   resetPassword(input: ResetPasswordDto!): AuthResponse!
   signOut(input: SignOutDto!): AuthResponse!
@@ -2373,6 +2360,7 @@ type Query {
   expandedRelatedObjects(objectId: String!): [StixRelationship!]
   file(id: String!): File
   filesByHash(hashValue: String!): [File!]!
+  getReport(id: String!): Report
   grouping(id: String!): Grouping
   identity(id: String!): Identity
   incident(id: String!): Incident
@@ -2396,7 +2384,6 @@ type Query {
   process(id: String!): Process
   relatedRelationships(objectId: String!): [StixRelationship!]!
   relationship(id: String!): StixRelationship
-  report(id: String!): Report
   searchArtifacts(filters: SearchArtifactInput, from: Int! = 0, size: Int! = 10): ArtifactSearchResult!
   searchAttackPatterns(filters: SearchAttackPatternInput, page: Int! = 1, pageSize: Int! = 10): AttackPatternSearchResult!
   searchAutonomousSystems(filters: SearchAutonomousSystemInput, from: Int! = 0, size: Int! = 10): AutonomousSystemSearchResult!
@@ -2418,8 +2405,8 @@ type Query {
   searchIntrusionSets(filters: SearchIntrusionSetInput, page: Int! = 1, pageSize: Int! = 10): IntrusionSetSearchResult!
   searchLocations(filters: SearchLocationInput, page: Int! = 1, pageSize: Int! = 10): LocationSearchResult!
   searchMACAddresses(filter: SearchMACAddressInput, from: Int! = 0, size: Int! = 10): MACAddressSearchResult!
-  searchMalware(filters: SearchMalwareInput, page: Int! = 1, pageSize: Int! = 10): MalwareSearchResult!
   searchMalwareAnalyses(filters: SearchMalwareAnalysisInput, page: Int! = 1, pageSize: Int! = 10): MalwareAnalysisSearchResult!
+  searchMalwareWithFilters(filters: SearchMalwareInput, page: Float! = 1, pageSize: Float! = 20): MalwareSearchResult!
   searchMutexes(filters: SearchMutexInput, from: Int! = 0, size: Int! = 10): MutexSearchResult!
   searchNetworkTraffic(filters: SearchNetworkTrafficInput, from: Int! = 0, size: Int! = 10): NetworkTrafficSearchResult!
   searchNotes(filters: SearchNoteInput, page: Int! = 1, pageSize: Int! = 10): NoteSearchResult!
@@ -2427,7 +2414,7 @@ type Query {
   searchOpinions(filters: SearchOpinionInput, fullTextSearch: String, page: Int! = 1, pageSize: Int! = 10, sortField: String, sortOrder: String! = "desc"): OpinionSearchResult!
   searchProcesses(filters: SearchProcessInput, from: Int! = 0, size: Int! = 10): ProcessSearchResult!
   searchRelationships(filters: SearchRelationshipInput, page: Int! = 1, pageSize: Int! = 10, sortField: String = "modified", sortOrder: String! = "desc"): StixRelationshipSearchResult!
-  searchReports(filters: SearchReportInput, page: Int! = 1, pageSize: Int! = 10): ReportSearchResult!
+  searchReports(filters: SearchReportInput, page: Int! = 1, pageSize: Int! = 10): [Report!]!
   searchSightings(filters: SearchSightingInput, page: Int! = 1, pageSize: Int! = 10): SightingSearchResult!
   searchSoftware(filters: SearchSoftwareInput, from: Int! = 0, size: Int! = 10): SoftwareSearchResult!
   searchThreatActors(filters: SearchThreatActorInput, page: Int! = 1, pageSize: Int! = 10): ThreatActorSearchResult!
@@ -2527,33 +2514,16 @@ type RelationshipCommonProperties {
 type Report {
   authors: [String!]
   confidence: Float
-  created: String!
-  created_by_ref: String
+  created: String
   description: String
-  enrichment: Enrichment
-  extensions: JSONObject
   external_references: [ExternalReference!]
-  id: ID!
+  id: String!
   labels: [String!]
-  lang: String
-  modified: String!
+  modified: String
   name: String!
-  object_marking_refs: [String!]
-  object_refs: [String!]!
-  published: DateTime!
-  relationship: [RelationshipCommonProperties!]
-  report_types: [String!]!
-  revoked: Boolean
-  spec_version: String!
-  type: String!
-}
-
-type ReportSearchResult {
-  page: Int!
-  pageSize: Int!
-  results: [Report!]!
-  total: Int!
-  totalPages: Int!
+  object_refs: [String!]
+  published: String
+  report_types: [String!]
 }
 
 input ResetPasswordDto {
@@ -3279,26 +3249,13 @@ input SearchRelationshipInput {
 }
 
 input SearchReportInput {
-  Relationship: [RelationshipCommonInput!]
   authors: [String!]
   confidence: Float
-  created: String
-  created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
-  extensions: JSONObject
-  external_references: [ExternalReferenceInput!]
-  id: ID
   labels: [String!]
-  lang: String
-  modified: String
   name: String
-  object_refs: [String!]
-  published: DateTime
+  published: String
   report_types: [String!]
-  revoked: Boolean
-  spec_version: String
-  type: String
 }
 
 type SearchResult {
@@ -4469,26 +4426,13 @@ input UpdateRelationshipInput {
 }
 
 input UpdateReportInput {
-  Relationship: [RelationshipCommonInput!]
   authors: [String!]
   confidence: Float
-  created: String!
-  created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
-  extensions: JSONObject
-  external_references: [ExternalReferenceInput!]
-  id: ID!
   labels: [String!]
-  lang: String
-  modified: String!
-  name: String!
-  object_refs: [String!]!
-  published: DateTime!
-  report_types: [String!]!
-  revoked: Boolean
-  spec_version: String!
-  type: String!
+  name: String
+  published: String
+  report_types: [String!]
 }
 
 input UpdateSightingInput {

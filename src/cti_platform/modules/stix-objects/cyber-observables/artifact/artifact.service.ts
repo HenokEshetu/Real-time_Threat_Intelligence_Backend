@@ -1,4 +1,9 @@
-import { Injectable, NotFoundException, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  InternalServerErrorException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateArtifactInput, UpdateArtifactInput } from './artifact.input';
 import { SearchArtifactInput } from './artifact.resolver';
@@ -15,13 +20,17 @@ export class ArtifactService implements OnModuleInit {
   constructor() {
     const clientOptions: ClientOptions = {
       node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
+      ssl:
+        process.env.OPENSEARCH_SSL === 'true'
+          ? { rejectUnauthorized: false }
+          : undefined,
+      auth:
+        process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+          ? {
+              username: process.env.OPENSEARCH_USERNAME,
+              password: process.env.OPENSEARCH_PASSWORD,
+            }
+          : undefined,
     };
     this.openSearchClient = new Client(clientOptions);
   }
@@ -31,7 +40,7 @@ export class ArtifactService implements OnModuleInit {
   }
   async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
     this.validateArtifact(createArtifactInput);
-    
+
     const timestamp = new Date().toISOString();
     const id = createArtifactInput.id;
     const artifact: Artifact = {
@@ -42,7 +51,9 @@ export class ArtifactService implements OnModuleInit {
       modified: timestamp,
       ...createArtifactInput,
       hashes: this.convertHashesInputToHashes(createArtifactInput.hashes),
-      ...(createArtifactInput.enrichment ? { enrichment: createArtifactInput.enrichment } : {}), // Optional enrichment
+      ...(createArtifactInput.enrichment
+        ? { enrichment: createArtifactInput.enrichment }
+        : {}), // Optional enrichment
     };
 
     try {
@@ -68,7 +79,7 @@ export class ArtifactService implements OnModuleInit {
   async searchWithFilters(
     searchParams: SearchArtifactInput = {},
     from: number = 0,
-    size: number = 10
+    size: number = 10,
   ): Promise<{
     page: number;
     pageSize: number;
@@ -102,7 +113,9 @@ export class ArtifactService implements OnModuleInit {
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: {
+                  [key]: { gte: value.toISOString(), lte: value.toISOString() },
+                },
               });
             }
             break;
@@ -120,7 +133,10 @@ export class ArtifactService implements OnModuleInit {
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length
+      ) {
         queryBuilder.query = { match_all: {} };
       }
 
@@ -131,16 +147,17 @@ export class ArtifactService implements OnModuleInit {
         body: queryBuilder,
       });
 
-      const total = typeof response.body.hits.total === 'object' 
-        ? response.body.hits.total.value 
-        : response.body.hits.total;
+      const total =
+        typeof response.body.hits.total === 'object'
+          ? response.body.hits.total.value
+          : response.body.hits.total;
 
       return {
         page: Math.floor(from / size) + 1,
         pageSize: size,
         total,
         totalPages: Math.ceil(total / size),
-        results: response.body.hits.hits.map(hit => ({
+        results: response.body.hits.hits.map((hit) => ({
           ...hit._source,
           id: hit._id,
           type: 'artifact' as const,
@@ -157,20 +174,28 @@ export class ArtifactService implements OnModuleInit {
     }
   }
 
-  async findOne(id: string): Promise<Artifact> {
+  async findOne(
+    id: string,
+    mockArtifacts: Record<string, any>[],
+  ): Promise<Artifact> {
     try {
-      const response = await this.openSearchClient.get({
-        index: this.index,
-        id,
-      });
-      return {
-        ...response.body._source,
-        id: response.body._id,
-        type: 'artifact' as const,
-        spec_version: '2.1',
-        created: response.body._source.created || new Date().toISOString(),
-        modified: response.body._source.modified || new Date().toISOString(),
-      };
+      // const response = await this.openSearchClient.get({
+      //   index: this.index,
+      //   id,
+      // });
+
+      // return {
+      //   ...response.body._source,
+      //   id: response.body._id,
+      //   type: 'artifact' as const,
+      //   spec_version: '2.1',
+      //   created: response.body._source.created || new Date().toISOString(),
+      //   modified: response.body._source.modified || new Date().toISOString(),
+      // };
+
+      const response = mockArtifacts.find((artifact) => artifact.id === id);
+
+      return response as Artifact;
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         throw new NotFoundException(`Artifact with ID ${id} not found`);
@@ -182,11 +207,14 @@ export class ArtifactService implements OnModuleInit {
     }
   }
 
-  async update(id: string, updateArtifactInput: UpdateArtifactInput): Promise<Artifact> {
+  async update(
+    id: string,
+    updateArtifactInput: UpdateArtifactInput,
+  ): Promise<Artifact> {
     this.validateArtifact(updateArtifactInput);
-    
+
     try {
-      const existing = await this.findOne(id);
+      const existing = await this.findOne(id, null);
       const response = await this.openSearchClient.update({
         index: this.index,
         id,
@@ -235,15 +263,22 @@ export class ArtifactService implements OnModuleInit {
     }
   }
 
-  private validateArtifact(input: CreateArtifactInput | UpdateArtifactInput): void {
+  private validateArtifact(
+    input: CreateArtifactInput | UpdateArtifactInput,
+  ): void {
     const hasUrl = 'url' in input && input.url !== undefined;
-    const hasPayload = 'payload_bin' in input && input.payload_bin !== undefined;
+    const hasPayload =
+      'payload_bin' in input && input.payload_bin !== undefined;
 
     if (hasUrl && hasPayload) {
-      throw new StixValidationError('An artifact cannot have both url and payload_bin properties');
+      throw new StixValidationError(
+        'An artifact cannot have both url and payload_bin properties',
+      );
     }
     if (!hasUrl && !hasPayload && !('id' in input)) {
-      throw new StixValidationError('An artifact must have either url or payload_bin property');
+      throw new StixValidationError(
+        'An artifact must have either url or payload_bin property',
+      );
     }
 
     if (hasUrl && !this.isValidUrl(input.url)) {
@@ -258,7 +293,9 @@ export class ArtifactService implements OnModuleInit {
   }
 
   private isValidMimeType(mimeType: string): boolean {
-    return /^[a-zA-Z0-9][a-zA-Z0-9-+.]*\/[a-zA-Z0-9][a-zA-Z0-9-+.]*$/.test(mimeType);
+    return /^[a-zA-Z0-9][a-zA-Z0-9-+.]*\/[a-zA-Z0-9][a-zA-Z0-9-+.]*$/.test(
+      mimeType,
+    );
   }
 
   private isValidUrl(url: string): boolean {
@@ -270,36 +307,45 @@ export class ArtifactService implements OnModuleInit {
     }
   }
 
-  private convertHashesInputToHashes(hashesInput?: any): Record<string, string> | undefined {
+  private convertHashesInputToHashes(
+    hashesInput?: any,
+  ): Record<string, string> | undefined {
     if (!hashesInput || typeof hashesInput !== 'object') return undefined;
     const result: Record<string, string> = {};
     Object.entries(hashesInput).forEach(([algorithm, value]) => {
-        if (typeof value === 'string') {
-            result[algorithm] = value;
-        }
+      if (typeof value === 'string') {
+        result[algorithm] = value;
+      }
     });
     return result;
-}
+  }
 
-private validateHashes(hashes: Record<string, string> | undefined): void {
-  if (!hashes) return;
-  const validHashAlgorithms = ['MD5', 'SHA-1', 'SHA-256', 'SHA-512'];
-  for (const [algorithm, value] of Object.entries(hashes)) {
+  private validateHashes(hashes: Record<string, string> | undefined): void {
+    if (!hashes) return;
+    const validHashAlgorithms = ['MD5', 'SHA-1', 'SHA-256', 'SHA-512'];
+    for (const [algorithm, value] of Object.entries(hashes)) {
       if (!algorithm || !value) {
-          throw new StixValidationError('Hash must have algorithm and value');
+        throw new StixValidationError('Hash must have algorithm and value');
       }
       if (!validHashAlgorithms.includes(algorithm)) {
-          throw new StixValidationError(`Invalid hash algorithm: ${algorithm}. Must be one of ${validHashAlgorithms.join(', ')}`);
+        throw new StixValidationError(
+          `Invalid hash algorithm: ${algorithm}. Must be one of ${validHashAlgorithms.join(', ')}`,
+        );
       }
-      if (typeof value !== 'string' || !this.isValidHashFormat(algorithm, value)) {
-          throw new StixValidationError(`Invalid ${algorithm} hash value: ${value}`);
+      if (
+        typeof value !== 'string' ||
+        !this.isValidHashFormat(algorithm, value)
+      ) {
+        throw new StixValidationError(
+          `Invalid ${algorithm} hash value: ${value}`,
+        );
       }
+    }
   }
-}
 
   private isValidHashFormat(algorithm: string, hash: string): boolean {
     const hashPatterns: Record<string, RegExp> = {
-      'MD5': /^[a-fA-F0-9]{32}$/,
+      MD5: /^[a-fA-F0-9]{32}$/,
       'SHA-1': /^[a-fA-F0-9]{40}$/,
       'SHA-256': /^[a-fA-F0-9]{64}$/,
       'SHA-512': /^[a-fA-F0-9]{128}$/,
@@ -309,7 +355,9 @@ private validateHashes(hashes: Record<string, string> | undefined): void {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchClient.indices.exists({
+        index: this.index,
+      });
       if (!exists.body) {
         await this.openSearchClient.indices.create({
           index: this.index,
