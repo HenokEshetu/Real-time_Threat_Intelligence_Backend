@@ -1,0 +1,96 @@
+# Complete frontend queries for artifacts
+
+# Query to search artifacts with filters and pagination
+query SearchArtifacts($filters: SearchArtifactInput, $from: Int = 0, $size: Int = 10) {
+  searchArtifacts(filters: $filters, from: $from, size: $size) {
+    page
+    pageSize
+    total
+    totalPages
+    results {
+      id
+      type
+      spec_version
+      created
+      modified
+      mime_type
+      url
+      payload_bin
+      hashes {
+        MD5
+        SHA-1
+        SHA-256
+        SHA-512
+      }
+      enrichment
+    }
+  }
+}
+
+# Query to get a single artifact by ID
+query GetArtifactByID($id: String!) {
+  artifactByID(id: $id) {
+    id
+    type
+    spec_version
+    created
+    modified
+    mime_type
+    url
+    payload_bin
+    hashes {
+      MD5
+      SHA-1
+      SHA-256
+      SHA-512
+    }
+    enrichment
+  }
+}
+
+# Mutation to create an artifact
+mutation CreateArtifact($input: CreateArtifactInput!) {
+  createArtifact(input: $input) {
+    id
+    type
+    spec_version
+    created
+    modified
+    mime_type
+    url
+    payload_bin
+    hashes {
+      MD5
+      SHA-1
+      SHA-256
+      SHA-512
+    }
+    enrichment
+  }
+}
+
+# Mutation to update an artifact
+mutation UpdateArtifact($id: String!, $input: UpdateArtifactInput!) {
+  updateArtifact(id: $id, input: $input) {
+    id
+    type
+    spec_version
+    created
+    modified
+    mime_type
+    url
+    payload_bin
+    hashes {
+      MD5
+      SHA-1
+      SHA-256
+      SHA-512
+    }
+    enrichment
+  }
+}
+
+# Mutation to delete an artifact
+mutation DeleteArtifact($id: String!) {
+  deleteArtifact(id: $id)
+}

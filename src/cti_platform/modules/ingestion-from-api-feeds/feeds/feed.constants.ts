@@ -1,14 +1,15 @@
 import { v4 as uuidv4 } from 'uuid';
+
 // Generic default values for feed processing
 export const DEFAULT_BATCH_SIZE = 50;
-export const DEFAULT_TIMEOUT = 30000; // 30 seconds
+export const DEFAULT_TIMEOUT = 5000; // 5 seconds for faster DNS/ThreatFox queries
 export const DEFAULT_RATE_LIMIT_DELAY = 1000; // 1 second
 export const DEFAULT_MAX_RETRIES = 3;
 export const DEFAULT_CONFIDENCE = 85; // Default confidence score for indicators
 export const STIX_SPEC_VERSION = '2.1'; // STIX specification version
 
-
-
+// Suspicious TLDs for warning (configurable)
+export const SUSPICIOUS_TLDS = ['ru', 'su', 'cn', 'xyz', 'top', 'info'];
 
 // Regular Expression Patterns for Indicator Validation
 export const TYPE_PATTERNS = {
@@ -16,44 +17,42 @@ export const TYPE_PATTERNS = {
   'artifact': /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/, // MD5, SHA-1, SHA-256, SHA-512
   'autonomous-system': /^\d+$/, // ASN number
   'directory': /.+/, // Any non-empty string (path)
-  'domain-name': /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}(?:\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61})*\.[a-zA-Z]{2,}$/,
-  'email-address': /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, 
+  'domain-name': /^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}(?:\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61})*\.[a-zA-Z]{2,}$/, // Note: Relies on tldts in FeedUtils
+  'email-address': /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
   'email-message': /.+/, // Any non-empty string (message ID or header)
   'file': /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/, // MD5, SHA-1, SHA-256, SHA-512
-  'ipv4-addr': /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/, 
-  'ipv6-addr': /^([0-9a-fA-F]{0,4}:){7}[0-9a-fA-F]{0,4}$/, // IPv6 (unchanged)
-  'mac-address': /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/, // MAC (updated from 'mac')
+  'ipv4-addr': /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
+  'ipv6-addr': /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^::[0-9a-fA-F]{1,4}$|^[0-9a-fA-F]{1,4}::$|^[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::$/, // Supports compressed IPv6
+  'mac-address': /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/,
   'mutex': /.+/, // Any non-empty string (mutex name)
-  'network-traffic': /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|([0-9a-fA-F]{0,4}:){7}[0-9a-fA-F]{0,4}$/, // IPv4 or IPv6
+  'network-traffic': /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)|(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$/,
   'process': /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/, // MD5, SHA-1, SHA-256, SHA-512
   'software': /.+/, // Any non-empty string (software name)
-  'url': /^(http|https):\/\/[^\s/$.?#].[^\s]*$/,
+  'url': /^(https?):\/\/([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}(:\d+)?([/][^\s]*)?$/, // Stricter URL pattern
   'user-account': /.+/, // Any non-empty string (account ID)
   'windows-registry-key': /.+/, // Any non-empty string (registry key)
-  'x509-certificate': /^[a-fA-F0-9:]+$/, // Serial number (hex with colons)
-
+  'x509-certificate': /^[a-fA-F0-9:]+$/,
   // STIX 2.1 SDO Patterns
-  'attack-pattern': /.+/, // Any non-empty string (name)
-  'campaign': /.+/, // Any non-empty string (name)
-  'course-of-action': /.+/, // Any non-empty string (name)
-  'identity': /.+/, // Any non-empty string (name)
-  'indicator': /.+/, // Any non-empty string (pattern)
-  'intrusion-set': /.+/, // Any non-empty string (name)
-  'malware': /.+/, // Any non-empty string (name)
-  'threat-actor': /.+/, // Any non-empty string (name)
-  'tool': /.+/, // Any non-empty string (name)
-  'vulnerability': /^CVE-\d{4}-\d{4,}$/, // CVE format
-
+  'attack-pattern': /.+/,
+  'campaign': /.+/,
+  'course-of-action': /.+/,
+  'identity': /.+/,
+  'indicator': /.+/,
+  'intrusion-set': /.+/,
+  'malware': /.+/,
+  'threat-actor': /.+/,
+  'tool': /.+/,
+  'vulnerability': /^CVE-\d{4}-\d{4,}$/,
   // OTX-Specific Patterns (kept for compatibility)
-  'ipv4': /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/, // Alias for ipv4-addr
-  'ipv6': /^([0-9a-fA-F]{0,4}:){7}[0-9a-fA-F]{0,4}$/, // Alias for ipv6-addr
-  'email': /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/, // Alias for email-address
-  'mac': /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/, // Alias for mac-address
-  'md5': /^[a-fA-F0-9]{32}$/, // Specific MD5
-  'sha1': /^[a-fA-F0-9]{40}$/, // Specific SHA-1
-  'sha256': /^[a-fA-F0-9]{64}$/, // Specific SHA-256
-  'sha512': /^[a-fA-F0-9]{128}$/, // Added for SHA-512
-  'domain': /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.(?:[A-Za-z]{2,}|xn--[A-Za-z0-9]+)$/, // Alias for domain-name
+  'ipv4': /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/,
+  'ipv6': /^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::$|^::[0-9a-fA-F]{1,4}$|^[0-9a-fA-F]{1,4}::$|^[0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}::$/,
+  'email': /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
+  'mac': /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/,
+  'md5': /^[a-fA-F0-9]{32}$/,
+  'sha1': /^[a-fA-F0-9]{40}$/,
+  'sha256': /^[a-fA-F0-9]{64}$/,
+  'sha512': /^[a-fA-F0-9]{128}$/,
+  'domain': /^(?!-)[A-Za-z0-9-]{1,63}(?<!-)\.(?:[A-Za-z]{2,}|xn--[A-Za-z0-9]+)$/,
 };
 
 // MITRE ATT&CK Kill Chain Mappings
@@ -237,7 +236,7 @@ export const TLP_MARKINGS: Record<string, { id: string; definition: { tlp: strin
   },
 };
 
-// STIX-specific Kill Chain Definitions (optional, for reference)
+// STIX-specific Kill Chain Definitions
 export const STIX_KILL_CHAINS = {
   MITRE_ATTACK: 'mitre-attack',
   LOCKHEED_CYBER_KILL_CHAIN: 'lockheed-martin-cyber-kill-chain',

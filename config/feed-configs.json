@@ -1,10 +1,9 @@
 [
-  
   {
     "id": "hybrid-analysis",
     "name": "Hybrid Analysis",
     "apiUrl": "https://www.hybrid-analysis.com/api/v2/feed/latest",
-    "apiKeyEnv": "HYBRID_ANALYSIS_API_KEY",
+    "apiKeyEnv": "HYBRID_API_KEY",
     "headers": { "api-key": "${apiKey}" },
     "method": "GET",
     "responsePath": "data",
@@ -13,9 +12,8 @@
     "rateLimitDelay": 1000,
     "maxRetries": 3,
     "schedule": "*/1 * * * *",
-    "indicatorMapper": "function (raw) { const hash = raw.sha256 || raw.md5 || raw.external_id; const baseObj = { id: `file--${hash || uuidv4()}`, type: 'file', spec_version: '2.1', created: raw.submission_time || new Date().toISOString(), modified: raw.submission_time || new Date().toISOString(), labels: raw.verdict ? [String(raw.verdict)] : (raw.threat_level ? [String(raw.threat_level)] : ['hybrid-analysis']), description: raw.file_type || raw.type || 'Unknown data', external_references: raw.sha256 || raw.md5 || raw.external_id ? [{ source_name: 'Hybrid Analysis', external_id: hash, url: `https://www.hybrid-analysis.com/api/v2/feed/latest/${hash}`, description: 'Original Hybrid Analysis indicator' }] : [] }; if (hash) { return { ...baseObj, hashes: { ...(raw.sha256 && { 'SHA-256': raw.sha256 }), ...(raw.md5 && { 'MD5': raw.md5 }), ...(raw.external_id && !raw.sha256 && !raw.md5 && { 'SHA-256': raw.external_id }) }, size: raw.size, mime_type: raw.file_type, name: raw.submit_name }; } else if (raw.ip && raw.ip.match(/^\\d+\\.\\d+\\.\\d+\\.\\d+$/)) { return { ...baseObj, type: 'ipv4-addr', value: raw.ip }; } else if (raw.submit_name && raw.submit_name.match(/^https?:\\/\\//)) { return { ...baseObj, type: 'url', value: raw.submit_name }; } else if (raw.submit_name && raw.submit_name.match(/^[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$/)) { return { ...baseObj, type: 'domain-name', value: raw.submit_name }; } else if (raw.email && raw.email.match(/^[^@]+@[^@]+\\.[^@]+$/)) { return { ...baseObj, type: 'email-address', value: raw.email }; } else if (raw.mac && raw.mac.match(/^[a-f0-9]{2}(:[a-f0-9]{2}){5}$/i)) { return { ...baseObj, type: 'mac-address', value: raw.mac }; } else if (raw.verdict === 'malicious' && raw.threat_name) { return { ...baseObj, type: 'malware', name: raw.threat_name, malwareTypes: raw.malware_family ? [raw.malware_family] : [] }; } return { ...baseObj, type: 'observed-data' }; }"
+    "indicatorMapper": "hybridAnalysis"
   },
-  
   {
     "id": "AlienVault-OTX",
     "name": "AlienVault",
@@ -33,9 +31,6 @@
     "rateLimitDelay": 2000,
     "maxRetries": 3,
     "schedule": "*/1 * * * *",
-    "indicatorMapper": "function (raw) { const { v4: uuidv4 } = require('uuid'); try { const typeMap = { 'IPv4': 'ipv4-addr', 'IPv6': 'ipv6-addr', 'domain': 'domain-name', 'hostname': 'domain-name', 'URL': 'url', 'FileHash-MD5': 'file', 'FileHash-SHA1': 'file', 'FileHash-SHA256': 'file', 'CVE': 'indicator', 'YARA': 'indicator' }; const stixType = typeMap[raw.type] || 'observed-data'; const hashTypes = { 'FileHash-MD5': 'MD5', 'FileHash-SHA1': 'SHA-1', 'FileHash-SHA256': 'SHA-256' }; const baseObj = { id: `${stixType}--${raw.indicator || uuidv4()}`, type: stixType, spec_version: '2.1', created: raw.created || new Date().toISOString(), modified: raw.modified || new Date().toISOString(), labels: ['alienvault-otx', ...(raw.pulse_info?.tags || raw.tags || [])], description: raw.description || raw.pulse_info?.name || raw.name || 'AlienVault OTX indicator', external_references: raw.pulse_info?.id || raw.pulse_id ? [{ source_name: 'AlienVault OTX', external_id: raw.indicator, url: `https://otx.alienvault.com/pulse/${raw.pulse_info?.id || raw.pulse_id}`, description: 'OTX pulse indicator' }] : [] }; switch (stixType) { case 'ipv4-addr': case 'ipv6-addr': case 'domain-name': case 'url': return { ...baseObj, value: raw.indicator }; case 'file': return { ...baseObj, hashes: { [hashTypes[raw.type]]: raw.indicator } }; case 'indicator': return { ...baseObj, indicator: raw.indicator, pattern: `[${raw.type.toLowerCase()}='${raw.indicator}']`, pattern_type: 'stix' }; default: return { ...baseObj, object_refs: [`${raw.type.toLowerCase()}--${uuidv4()}`], number_observed: 1 }; } } catch (e) { console.error(`Mapper error: ${e.message}`); return null; } }"
+    "indicatorMapper": "alienVaultOTX"
   }
-
-
-  
 ]

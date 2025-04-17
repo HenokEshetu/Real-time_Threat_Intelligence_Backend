@@ -57,10 +57,10 @@ export interface FeedProviderConfig {
   rateLimitDelay?: number;
   maxRetries?: number;
   schedule?: string;
-  indicatorMapper: (raw: any) => GenericStixObject;
+  indicatorMapper: (raw: any) => GenericStixObject | null; // Allow null for invalid mappings
 }
 
-// Enrichment data structure (unchanged)
+// Enrichment data structure
 export interface EnrichmentData {
   geo?: {
     country_name: string;
@@ -183,9 +183,7 @@ export interface GenericStixObject extends Partial<CommonProperties> {
   labels?: string[];
   sensitivity?: 'low' | 'medium' | 'high' | 'critical';
   sharing?: 'public' | 'community' | 'limited' | 'restricted';
-
-  // STIX-specific fields
-  hashes?: Record<string, string>; // For 'file' (e.g., { 'SHA-256': '...', 'MD5': '...' })
+  hashes?: Record<'MD5' | 'SHA-1' | 'SHA-256' | 'SHA-512', string>; // Restrict hash types
   malwareTypes?: string[]; // For 'malware'
   threatActorTypes?: string[]; // For 'threat-actor'
   aliases?: string[];
@@ -194,18 +192,15 @@ export interface GenericStixObject extends Partial<CommonProperties> {
   resourceLevel?: 'individual' | 'group' | 'organization' | 'government' | 'unknown';
   malwareCapabilities?: string[];
   architectureExecutionEnvs?: string[];
-
-  // Relationships to other STIX objects
   relatedIndicators?: string[];
   relatedFiles?: string[];
   indicatorRelationships?: string[];
   relatedThreatActors?: string[];
-
-  // Enrichment data
+  validationErrors?: string[]; // Track validation issues (e.g., "invalid TLD")
   enrichment?: EnrichmentData;
 }
 
-// TLP Marking Definition (unchanged)
+// TLP Marking Definition
 export interface TLPMarkingDefinition extends MarkingDefinition {
   definition_type: 'tlp';
   definition: {
