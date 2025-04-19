@@ -1,6 +1,8 @@
+// src/services/lookup.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { Client } from '@opensearch-project/opensearch';
 import { ConfigService } from '@nestjs/config';
+import { createClient, RedisClientType } from 'redis';
 
 const FIELD_TYPES = ['string', 'number', 'boolean'] as const;
 type FieldType = typeof FIELD_TYPES[number];
@@ -91,6 +93,9 @@ const SEARCH_FIELDS: Record<string, { fields: string[]; type: FieldType }> = {
 export class LookupService {
   private readonly logger = new Logger(LookupService.name);
   private readonly openSearchClient: Client;
+  private readonly redisClient: RedisClientType;
+  private readonly debugLogging: boolean = process.env.DEBUG_LOGGING === 'true';
+  private readonly cacheTtl = 3600; // 1 hour
 
   constructor(private readonly configService: ConfigService) {
     this.openSearchClient = new Client({
@@ -100,75 +105,171 @@ export class LookupService {
         password: this.configService.get<string>('OPENSEARCH_PASSWORD', 'admin'),
       },
     });
+    this.redisClient = createClient({
+      url: this.configService.get<string>('REDIS_URL', 'redis://localhost:6379'),
+    });
+    this.redisClient.on('error', (err) => this.logger.error(`Redis error`, { error: err.message }));
+    this.redisClient.connect().catch((err) => this.logger.error(`Redis connection failed`, { error: err.message }));
   }
 
   private isCompatible(value: string, type: FieldType): boolean {
-    if (!value || value.trim() === '') return false; // Explicitly reject empty values
+    if (!value || value.trim() === '') return false;
     if (type === 'string') return true;
     if (type === 'number') return !isNaN(Number(value)) && value.trim() !== '';
     if (type === 'boolean') return value.toLowerCase() === 'true' || value.toLowerCase() === 'false';
     return false;
   }
 
-  async findByValue(value: string, type?: string): Promise<any | null> {
-    if (!value || value.trim() === '') {
-      this.logger.warn(`Skipping search: No valid value provided for lookup`);
+  private async getFromCache<T>(key: string): Promise<T | null> {
+    try {
+      const cached = await this.redisClient.get(key);
+      return cached ? JSON.parse(cached) : null;
+    } catch (error) {
+      this.logger.warn(`Failed to get cache for key "${key}"`, { error: error instanceof Error ? error.message : error });
       return null;
     }
-  
+  }
+
+  private async setCache(key: string, value: any, ttl: number): Promise<void> {
     try {
-      const indexesToSearch = type && STIX_INDEXES[type]
-        ? [STIX_INDEXES[type]]
-        : Object.values(STIX_INDEXES);
-  
-      this.logger.debug(`Searching for value "${value}" in indexes: ${indexesToSearch.join(', ')}`);
-  
+      await this.redisClient.setEx(key, ttl, JSON.stringify(value));
+    } catch (error) {
+      this.logger.warn(`Failed to set cache for key "${key}"`, { error: error instanceof Error ? error.message : error });
+    }
+  }
+
+  async findByValue(value: string, type?: string): Promise<any | null> {
+    if (!value || value.trim() === '') {
+      this.logger.warn(`Skipping search due to empty or invalid value`, { value });
+      return null;
+    }
+
+    const cacheKey = `lookup:${type || 'all'}:${value}`;
+    const cached = await this.getFromCache<any>(cacheKey);
+    if (cached) {
+      if (this.debugLogging) {
+        this.logger.debug(`Cache hit for "${value}"`, { value, type, cacheKey });
+      }
+      return cached.result || null;
+    }
+
+    try {
+      const indexesToSearch = type && STIX_INDEXES[type] ? [STIX_INDEXES[type]] : Object.values(STIX_INDEXES);
+      const context = { value, type, indexes: indexesToSearch.length };
+      const startTime = Date.now();
+
+      if (this.debugLogging) {
+        this.logger.debug(`Searching ${indexesToSearch.length} indexes`, context);
+      }
+
       const searchPromises = indexesToSearch.map(async (index) => {
-        const stixType = Object.keys(STIX_INDEXES).find(key => STIX_INDEXES[key] === index);
-        const fieldConfig = stixType ? SEARCH_FIELDS[stixType] : { fields: ['value', 'pattern'], type: 'string' as const };
-  
-        const compatibleFields = fieldConfig.fields.filter(field => {
+        const stixType = Object.keys(STIX_INDEXES).find((key) => STIX_INDEXES[key] === index);
+        const fieldConfig = stixType
+          ? SEARCH_FIELDS[stixType]
+          : { fields: ['value', 'pattern'], type: 'string' as const };
+
+        const compatibleFields = fieldConfig.fields.filter((field) => {
           if (field === 'command_line' && stixType === 'process') return true;
           return this.isCompatible(value, fieldConfig.type);
         });
-  
+
         if (compatibleFields.length === 0) {
-          this.logger.debug(`Skipping index "${index}" - no compatible fields for value "${value}"`);
+          if (this.debugLogging) {
+            this.logger.debug(`Skipping index "${index}": no compatible fields`, {
+              value,
+              index,
+              fieldType: fieldConfig.type,
+            });
+          }
           return null;
         }
-  
+
         try {
           const result = await this.openSearchClient.search({
             index,
             body: {
               query: {
                 bool: {
-                  should: compatibleFields.map(field => ({ match: { [field]: value } })),
+                  should: compatibleFields.map((field) => ({
+                    term: { [field]: value }, // Use term for exact matches
+                  })),
                   minimum_should_match: 1,
                 },
               },
+              size: 10, // Limit to 10 hits to avoid excessive results
             },
           });
-  
+
           const hits = result.body.hits.hits;
-          if (hits.length > 0) {
-            this.logger.debug(`Found match in index "${index}" for value "${value}"`);
-            return hits[0]._source;
+          if (hits.length > 0 && hits[0]._source) {
+            if (this.debugLogging) {
+              this.logger.debug(`Hit in index "${index}"`, { value, index, matchId: hits[0]._id });
+            }
+            return { index, source: hits[0]._source, id: hits[0]._id };
           }
           return null;
         } catch (error) {
-          this.logger.warn(`Error searching index "${index}" for value "${value}": ${error instanceof Error ? error.message : error}`);
+          this.logger.warn(`Failed to search index "${index}"`, {
+            value,
+            index,
+            error: error instanceof Error ? error.message : error,
+          });
           return null;
         }
       });
-  
+
       const results = await Promise.all(searchPromises);
-      const found = results.find(result => result !== null);
-  
-      return found || null;
+      const matches = results.filter((result) => result !== null && result.source) as {
+        index: string;
+        source: any;
+        id: string;
+      }[];
+
+      const queryTime = Date.now() - startTime;
+      if (this.debugLogging) {
+        this.logger.debug(
+          `Search completed: ${matches.length} matches in ${indexesToSearch.length} indexes (${queryTime}ms)`,
+          { ...context, matches: matches.length, queryTime },
+        );
+      }
+
+      // Deduplicate matches by id
+      const uniqueMatches = Array.from(
+        new Map(matches.map((match) => [match.source.id, match])).values(),
+      );
+
+      const found = uniqueMatches[0];
+      if (found) {
+        this.logger.log(`Found match for "${value}" in index "${found.index}"`, {
+          value,
+          index: found.index,
+          matchId: found.id,
+          match: {
+            id: found.source.id,
+            pattern: found.source.pattern,
+            type: found.source.type,
+          },
+        });
+        await this.setCache(cacheKey, { result: found.source }, this.cacheTtl);
+        return found.source;
+      }
+
+      if (this.debugLogging) {
+        this.logger.debug(`No valid matches found for "${value}"`, context);
+      }
+      await this.setCache(cacheKey, { result: null }, this.cacheTtl);
+      return null;
     } catch (error) {
-      this.logger.error(`Failed to search for value "${value}": ${error instanceof Error ? error.stack : error}`);
+      this.logger.error(`Search failed for "${value}"`, {
+        value,
+        type,
+        error: error instanceof Error ? error.message : error,
+      });
       throw error;
     }
+  }
+
+  async onModuleDestroy() {
+    await this.redisClient.quit();
   }
 }

@@ -1,218 +1,25 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit, InternalServerErrorException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
+import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import Bottleneck from 'bottleneck';
 import { createClient } from 'redis';
-import { GenericStixObject } from '../ingestion-from-api-feeds/feeds/feed.types';
+import { GenericStixObject, EnrichmentData } from '../ingestion-from-api-feeds/feeds/feed.types';
 import { TYPE_PATTERNS } from '../ingestion-from-api-feeds/feeds/feed.constants';
-import { AxiosRequestConfig, AxiosError } from 'axios';
 import { parse } from 'tldts';
-import { isIP, isPrivate } from 'ip';
+import { isPrivate } from 'ip';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import CircuitBreaker from 'opossum';
 import * as Joi from 'joi';
+import { EnrichmentConfig, EnrichmentTaskConfig } from 'config/enrichment-config.interface';
+import { enrichmentConfig as staticEnrichmentConfig, conciseResponseFields } from 'config/enrichment.config';
 
-interface ApiConfig {
-  url: string;
-  apiKeyEnv?: string;
-  requiredKey?: boolean;
-  rateLimit: { maxRequests: number; perMilliseconds: number };
-  headers?: Record<string, string>;
-  params?: Record<string, any>;
-  method?: 'get' | 'post';
-  data?: any;
-  timeout?: number;
-  retryPolicy?: RetryPolicy;
-}
-
-interface RetryPolicy {
-  maxRetries: number;
-  baseDelay: number;
-  maxDelay: number;
-}
-
-interface EnrichmentResult {
-  geo?: GeoEnrichment;
-  whois?: WhoisEnrichment;
-  virustotal?: VirusTotalEnrichment;
-  abuseipdb?: AbuseIPDBEnrichment;
-  shodan?: ShodanEnrichment;
-  threatfox?: ThreatFoxEnrichment;
-  dns?: DNSEnrichment;
-  ssl?: SSLEnrichment;
-  asn?: ASNEnrichment;
-  hybrid?: HybridAnalysisEnrichment;
-  threatcrowd?: ThreatCrowdEnrichment;
-  misp?: MISPEnrichment;
-}
-
-
-
-// Detailed response interfaces for each enrichment service
-interface GeoEnrichment {
-  country_name: string;  // Changed from 'country' to 'country_name'
-  country_code?: string; // Changed from 'countryCode' to 'country_code'
-  region?: string;
-  regionName?: string;
-  city?: string;
-  zip?: string;
-  lat?: number;
-  lon?: number;
-  timezone?: string;
-  isp?: string;
-  org?: string;
-  as?: string;
-  query: string;
-}
-
-interface WhoisEnrichment {
-  WhoisRecord?: {
-    registrarName?: string;
-    createdDate?: string;
-    updatedDate?: string;
-    expiresDate?: string;
-    domainName?: string;
-    [key: string]: any;
-  };
-  [key: string]: any;
-}
-
-interface VirusTotalEnrichment {
-  data?: {
-    attributes?: {
-      last_analysis_stats?: {
-        malicious: number;
-        suspicious: number;
-        undetected: number;
-        harmless: number;
-        timeout: number;
-      };
-      names?: string[];
-      reputation?: number;
-      [key: string]: any;
-    };
-    [key: string]: any;
-  };
-  [key: string]: any;
-}
-
-interface AbuseIPDBEnrichment {
-  data?: {
-    ipAddress: string;
-    isPublic: boolean;
-    ipVersion: number;
-    isWhitelisted?: boolean;
-    abuseConfidenceScore: number;
-    countryCode?: string;
-    usageType?: string;
-    isp?: string;
-    domain?: string;
-    hostnames?: string[];
-    totalReports: number;
-    numDistinctUsers: number;
-    lastReportedAt?: string;
-    [key: string]: any;
-  };
-}
-
-interface ShodanEnrichment {
-  ip: string;
-  ports: number[];
-  hostnames?: string[];
-  domains?: string[];
-  os?: string;
-  isp?: string;
-  [key: string]: any;
-}
-interface ThreatFoxEnrichment {
-  query_status: string;
-  data?: Array<{
-    ioc_value: string;    
-    ioc_type: string;     
-    malware: string;
-    confidence_level?: number;
-    first_seen?: string;  
-    
-    id?: string;
-    malware_alias?: string[];
-    malware_printable?: string;
-    last_seen_utc?: string;
-    reference?: string[];
-    tags?: string[];
-    [key: string]: any;
-  }>;
-}
-interface DNSEnrichment {
-  Status: number;
-  Answer?: Array<{
-    data: string;
-    type: string; // Change from number to string
-    TTL?: number; // Make optional to match EnrichmentData
-  }>;
-  Question?: Array<{
-    name: string;
-    type: number;
-  }>;
-  [key: string]: any; // Keep for flexibility
-}
-
-interface SSLEnrichment {
-  host: string;
-  port: number;
-  protocol: string;
-  grade?: string;
-  serverSignature?: string;
-  [key: string]: any;
-}
-
-interface ASNEnrichment {
-  ip: string;
-  asn: string;
-  org: string;
-  [key: string]: any;
-}
-
-interface HybridAnalysisEnrichment {
-  result?: {
-    verdict?: string;
-    threat_score?: number;
-    analysis_start_time?: string;
-    [key: string]: any;
-  };
-  [key: string]: any;
-}
-
-interface ThreatCrowdEnrichment {
-  response_code: string;
-  hashes?: string[];
-  ips?: string[];
-  [key: string]: any;
-}
-
-interface MISPEnrichment {
-  response?: Array<{
-    Event?: {
-      id: string;
-      info?: string;
-      tags?: string[];
-      [key: string]: any;
-    };
-    Attribute?: {
-      id: string;
-      type: string;
-      value: string;
-      [key: string]: any;
-    };
-    [key: string]: any;
-  }>;
-  [key: string]: any;
+interface EnrichmentOptions {
+  services?: (keyof EnrichmentData)[];
 }
 
 interface EnrichmentTask {
   service: string;
   fetchFn: (value: string) => Promise<any>;
-  field: keyof EnrichmentResult;
+  field: keyof EnrichmentData;
   validator?: (value: string) => boolean;
   schema?: Joi.ObjectSchema;
   priority?: number;
@@ -221,691 +28,148 @@ interface EnrichmentTask {
 @Injectable()
 export class EnrichmentService implements OnModuleInit {
   private readonly logger = new Logger(EnrichmentService.name);
+  private readonly debugLogging: boolean = process.env.DEBUG_LOGGING === 'true';
   private readonly apiKeys: Map<string, string> = new Map();
   private readonly limiters: Map<string, Bottleneck> = new Map();
-  private readonly circuitBreakers: Map<string, CircuitBreaker> = new Map();
   private redisClient: ReturnType<typeof createClient>;
   private readonly defaultCacheTtl = 3600; // 1 hour
+  private readonly defaultTimeout = 20000;
+  private readonly defaultMaxRetries = 3;
 
-  private readonly apiConfigs: Record<string, ApiConfig> = {
-    whois: {
-      url: 'https://www.whoisxmlapi.com/whoisserver/WhoisService',
-      apiKeyEnv: 'WHOIS_API_KEY',
-      requiredKey: true,
-      rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
-      params: { outputFormat: 'JSON' },
-      timeout: 120000,
-    },
-    geo: {
-      url: 'http://ip-api.com/json',
-      apiKeyEnv: 'GEO_API_KEY',
-      rateLimit: { maxRequests: 45, perMilliseconds: 60000 },
-    },
-    virustotal: {
-      url: 'https://www.virustotal.com/api/v3',
-      apiKeyEnv: 'VIRUSTOTAL_API_KEY',
-      requiredKey: true,
-      rateLimit: { maxRequests: 4, perMilliseconds: 60000 },
-      headers: { 'x-apikey': '${apiKey}' },
-    },
-    abuseipdb: {
-      url: 'https://api.abuseipdb.com/api/v2/check',
-      apiKeyEnv: 'ABUSEIPDB_API_KEY',
-      requiredKey: true,
-      rateLimit: { maxRequests: 30, perMilliseconds: 60000 },
-      headers: { Key: '${apiKey}' },
-      params: { maxAgeInDays: 90 },
-    },
-    shodan: {
-      url: 'https://api.shodan.io',
-      apiKeyEnv: 'SHODAN_API_KEY',
-      requiredKey: true,
-      rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
-      params: { key: '${apiKey}' },
-    },
-    threatfox: {
-      url: 'https://threatfox-api.abuse.ch/api/v1',
-      apiKeyEnv: 'THREATFOX_API_KEY',
-      rateLimit: { maxRequests: 60, perMilliseconds: 60000 },
-      method: 'post',
-      headers: { 'Content-Type': 'application/json' },
-    },
-    hybrid: {
-      url: 'https://www.hybrid-analysis.com/api/v2',
-      apiKeyEnv: 'HYBRID_API_KEY',
-      requiredKey: true,
-      rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
-      headers: { 'api-key': '${apiKey}' },
-    },
-    dns: {
-      url: 'https://dns.google/resolve',
-      apiKeyEnv: 'DNS_API_KEY',
-      rateLimit: { maxRequests: 50, perMilliseconds: 60000 },
-    },
-    ssl: {
-      url: 'https://api.ssllabs.com/api/v3/analyze',
-      apiKeyEnv: undefined,
-      rateLimit: { maxRequests: 25, perMilliseconds: 60000 },
-      params: { all: 'done' },
-    },
-    asn: {
-      url: 'https://ipinfo.io',
-      apiKeyEnv: 'IPINFO_API_KEY',
-      requiredKey: true,
-      rateLimit: { maxRequests: 50, perMilliseconds: 60000 },
-      headers: { Authorization: 'Bearer ${apiKey}' },
-    },
-    threatcrowd: {
-      url: 'https://www.threatcrowd.org/searchApi/v2',
-      apiKeyEnv: 'THREATCROWD_API_KEY',
-      rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
-    },
-    misp: {
-      url: 'https://your-misp-instance/api',
-      apiKeyEnv: 'MISP_API_KEY',
-      requiredKey: true,
-      rateLimit: { maxRequests: 20, perMilliseconds: 60000 },
-      headers: { Authorization: '${apiKey}', Accept: 'application/json' },
-    },
+  private readonly fetchFunctions: Record<string, (value: string) => Promise<any>> = {
+    fetchWhoisData: this.fetchWhoisData.bind(this),
+    fetchGeoData: this.fetchGeoData.bind(this),
+    fetchVirusTotalData: this.fetchVirusTotalData.bind(this),
+    fetchVirusTotalIpData: this.fetchVirusTotalIpData.bind(this),
+    fetchVirusTotalDomainData: this.fetchVirusTotalDomainData.bind(this),
+    fetchVirusTotalUrlData: this.fetchVirusTotalUrlData.bind(this),
+    fetchAbuseIPDBData: this.fetchAbuseIPDBData.bind(this),
+    fetchShodanData: this.fetchShodanData.bind(this),
+    fetchThreatFoxData: this.fetchThreatFoxData.bind(this),
+    fetchDNSData: this.fetchDNSData.bind(this),
+    fetchDNSDataFromUrl: this.fetchDNSDataFromUrl.bind(this),
+    fetchSSLData: this.fetchSSLData.bind(this),
+    fetchASNData: this.fetchASNData.bind(this),
+    fetchASNDataFromNumber: this.fetchASNDataFromNumber.bind(this),
+    fetchHybridAnalysisData: this.fetchHybridAnalysisData.bind(this),
+    fetchThreatCrowdMutexData: this.fetchThreatCrowdMutexData.bind(this),
+    fetchMispData: this.fetchMispData.bind(this),
   };
 
-  private readonly enrichmentSchemas: Partial<Record<keyof EnrichmentResult, Joi.ObjectSchema>> = {
+  private readonly validationSchemas: Record<string, Joi.ObjectSchema> = {
     geo: Joi.object({
-      country: Joi.string().required(),
-      countryCode: Joi.string().length(2),
-      region: Joi.string(),
-      regionName: Joi.string(),
       country_name: Joi.string().required(),
-    country_code: Joi.string().length(2),
-      city: Joi.string(),
-      zip: Joi.string(),
-      lat: Joi.number(),
-      lon: Joi.number(),
-      timezone: Joi.string(),
-      isp: Joi.string(),
-      org: Joi.string(),
-      as: Joi.string(),
-      query: Joi.string().required(),
-    }).unknown(true),
-
+      country_code: Joi.string().required(),
+      city: Joi.string().required(),
+      lat: Joi.number().required(),
+      lon: Joi.number().required(),
+    }),
     whois: Joi.object({
-      WhoisRecord: Joi.object({
-        registrarName: Joi.string(),
-        createdDate: Joi.string(),
-        updatedDate: Joi.string(),
-        expiresDate: Joi.string(),
-        domainName: Joi.string(),
-      }).unknown(true),
-    }).unknown(true),
-
+      domainName: Joi.string().required(),
+      registrarName: Joi.string().required(),
+      createdDate: Joi.string().isoDate().required(),
+      expiresDate: Joi.string().isoDate().required(),
+    }),
     virustotal: Joi.object({
       data: Joi.object({
         attributes: Joi.object({
           last_analysis_stats: Joi.object({
-            malicious: Joi.number().default(0),
-            suspicious: Joi.number().default(0),
-            undetected: Joi.number().default(0),
-            harmless: Joi.number().default(0),
-            timeout: Joi.number().default(0),
-          }).default(),
-          names: Joi.array().items(Joi.string()).default([]),
-          reputation: Joi.number(),
-        }).unknown(true),
-      }).unknown(true),
+            malicious: Joi.number().required(),
+            undetected: Joi.number().required(),
+            harmless: Joi.number().required(),
+            suspicious: Joi.number().required(),
+          }).required(),
+          reputation: Joi.number().required(),
+        }).required(),
+      }).required(),
     }),
-
     abuseipdb: Joi.object({
       data: Joi.object({
-        ipAddress: Joi.string().required(),
-        isPublic: Joi.boolean().required(),
-        ipVersion: Joi.number().required(),
-        isWhitelisted: Joi.boolean(),
         abuseConfidenceScore: Joi.number().required(),
-        countryCode: Joi.string().length(2),
-        usageType: Joi.string(),
-        isp: Joi.string(),
-        domain: Joi.string(),
-        hostnames: Joi.array().items(Joi.string()),
+        countryCode: Joi.string().required(),
         totalReports: Joi.number().required(),
-        numDistinctUsers: Joi.number().required(),
-        lastReportedAt: Joi.string(),
-      }).unknown(true),
+      }).required(),
     }),
-
     shodan: Joi.object({
       ip: Joi.string().required(),
-      ports: Joi.array().items(Joi.number()).required(),
-      hostnames: Joi.array().items(Joi.string()),
-      domains: Joi.array().items(Joi.string()),
-      os: Joi.string(),
-      isp: Joi.string(),
-    }).unknown(true),
-
+      org: Joi.string().required(),
+      os: Joi.string().allow(null).required(),
+    }),
     threatfox: Joi.object({
       query_status: Joi.string().required(),
-      data: Joi.array().items(
-        Joi.object({
-          ioc_value: Joi.string().required(),
-          ioc_type: Joi.string().required(),
-          malware: Joi.string().required(),
-          confidence_level: Joi.number(),
-          first_seen: Joi.string(),
-          // Optional fields
-          id: Joi.string(),
-          malware_alias: Joi.array().items(Joi.string()),
-          malware_printable: Joi.string(),
-          last_seen_utc: Joi.string(),
-          reference: Joi.array().items(Joi.string()),
-          tags: Joi.array().items(Joi.string()),
-        }).unknown(true)
-      ),
-    }),
-
+      data: Joi.object({
+        threat_type: Joi.string().allow('').required(),
+        malware: Joi.string().allow('').required(),
+      }).required(),
+    }).unknown(true),
     dns: Joi.object({
       Status: Joi.number().required(),
       Answer: Joi.array().items(
         Joi.object({
           data: Joi.string().required(),
-          type: Joi.string().required(), // Change to string
-          TTL: Joi.number(),
+          type: Joi.string().required(),
+          TTL: Joi.number().required(),
         })
-      ),
-      Question: Joi.array().items(
-        Joi.object({
-          name: Joi.string().required(),
-          type: Joi.number().required(),
-        })
-      ),
+      ).required(), // Enforce array, inherently allows empty arrays
     }).unknown(true),
-
     ssl: Joi.object({
       host: Joi.string().required(),
-      port: Joi.number().required(),
-      protocol: Joi.string().required(),
-      grade: Joi.string(),
-      serverSignature: Joi.string(),
+      endpoints: Joi.array().items(
+        Joi.object({
+          serverName: Joi.string().required(),
+          grade: Joi.string().optional(), 
+        }),
+      ).required(),
     }).unknown(true),
-
     asn: Joi.object({
-      ip: Joi.string().required(),
       asn: Joi.string().required(),
       org: Joi.string().required(),
-    }).unknown(true),
-
+      ip: Joi.string().optional(),
+    }),
     hybrid: Joi.object({
       result: Joi.object({
-        verdict: Joi.string(),
-        threat_score: Joi.number(),
-        analysis_start_time: Joi.string(),
-      }).unknown(true),
-    }).unknown(true),
-
+        verdict: Joi.string().required(),
+        threat_score: Joi.number().required(),
+        submissions: Joi.number().required(),
+      }).required(),
+    }),
     threatcrowd: Joi.object({
       response_code: Joi.string().required(),
-      hashes: Joi.array().items(Joi.string()),
-      ips: Joi.array().items(Joi.string()),
-    }).unknown(true),
-
+      hashes: Joi.array().items(Joi.string()).required(),
+      domains: Joi.array().items(Joi.string()).required(),
+    }),
     misp: Joi.object({
-      response: Joi.array().items(
-        Joi.object({
-          Event: Joi.object({
-            id: Joi.string().required(),
-            info: Joi.string(),
-            tags: Joi.array().items(Joi.string()),
-          }).unknown(true),
-          Attribute: Joi.object({
-            id: Joi.string().required(),
-            type: Joi.string().required(),
+      response: Joi.object({
+        Attribute: Joi.array().items(
+          Joi.object({
             value: Joi.string().required(),
-          }).unknown(true),
-        }).unknown(true)
-      ),
-    }).unknown(true),
-  };
-
-  private readonly enrichmentRegistry: Record<string, EnrichmentTask[]> = {
-    artifact: [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: (hash) => /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/.test(hash),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-      {
-        service: 'hybrid',
-        fetchFn: this.fetchHybridAnalysisData,
-        field: 'hybrid',
-        validator: (hash) => /^[a-fA-F0-9]{64}$/.test(hash),
-        schema: this.enrichmentSchemas.hybrid,
-      },
-    ],
-     'autonomous-system': [
-      {
-        service: 'asn',
-        fetchFn: this.fetchASNDataFromNumber,
-        field: 'asn',
-        validator: (asn) => /^\d+$/.test(asn),
-      },
-    ],
-    directory: [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: (path) => typeof path === 'string' && path.length > 0,
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    'domain-name': [
-      {
-        service: 'whois',
-        fetchFn: this.fetchWhoisData,
-        field: 'whois',
-        validator: TYPE_PATTERNS['domain-name'].test.bind(TYPE_PATTERNS['domain-name']),
-      },
-      {
-        service: 'dns',
-        fetchFn: this.fetchDNSData,
-        field: 'dns',
-        validator: TYPE_PATTERNS['domain-name'].test.bind(TYPE_PATTERNS['domain-name']),
-        schema: this.enrichmentSchemas.dns,
-      },
-      {
-        service: 'ssl',
-        fetchFn: this.fetchSSLData,
-        field: 'ssl',
-        validator: TYPE_PATTERNS['domain-name'].test.bind(TYPE_PATTERNS['domain-name']),
-      },
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalDomainData,
-        field: 'virustotal',
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    'email-address': [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: TYPE_PATTERNS['email-address'].test.bind(TYPE_PATTERNS['email-address']),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    'email-message': [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: (id) => typeof id === 'string' && id.length > 0,
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    file: [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: (hash) => /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/.test(hash),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-      {
-        service: 'threatfox',
-        fetchFn: this.fetchThreatFoxData,
-        field: 'threatfox',
-        validator: (hash) => /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/.test(hash),
-      },
-      {
-        service: 'hybrid',
-        fetchFn: this.fetchHybridAnalysisData,
-        field: 'hybrid',
-        validator: (hash) => /^[a-fA-F0-9]{64}$/.test(hash),
-      },
-    ],
-    'ipv4-addr': [
-      {
-        service: 'geo',
-        fetchFn: this.fetchGeoData,
-        field: 'geo',
-        validator: TYPE_PATTERNS['ipv4-addr'].test.bind(TYPE_PATTERNS['ipv4-addr']),
-      },
-      {
-        service: 'abuseipdb',
-        fetchFn: this.fetchAbuseIPDBData,
-        field: 'abuseipdb',
-        validator: TYPE_PATTERNS['ipv4-addr'].test.bind(TYPE_PATTERNS['ipv4-addr']),
-        schema: this.enrichmentSchemas.abuseipdb,
-      },
-      {
-        service: 'shodan',
-        fetchFn: this.fetchShodanData,
-        field: 'shodan',
-        validator: TYPE_PATTERNS['ipv4-addr'].test.bind(TYPE_PATTERNS['ipv4-addr']),
-      },
-      {
-        service: 'asn',
-        fetchFn: this.fetchASNData,
-        field: 'asn',
-        validator: TYPE_PATTERNS['ipv4-addr'].test.bind(TYPE_PATTERNS['ipv4-addr']),
-      },
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalIpData,
-        field: 'virustotal',
-        validator: TYPE_PATTERNS['ipv4-addr'].test.bind(TYPE_PATTERNS['ipv4-addr']),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    'ipv6-addr': [
-      {
-        service: 'geo',
-        fetchFn: this.fetchGeoData,
-        field: 'geo',
-        validator: TYPE_PATTERNS['ipv6-addr'].test.bind(TYPE_PATTERNS['ipv6-addr']),
-      },
-      {
-        service: 'abuseipdb',
-        fetchFn: this.fetchAbuseIPDBData,
-        field: 'abuseipdb',
-        validator: TYPE_PATTERNS['ipv6-addr'].test.bind(TYPE_PATTERNS['ipv6-addr']),
-        schema: this.enrichmentSchemas.abuseipdb,
-      },
-      {
-        service: 'asn',
-        fetchFn: this.fetchASNData,
-        field: 'asn',
-        validator: TYPE_PATTERNS['ipv6-addr'].test.bind(TYPE_PATTERNS['ipv6-addr']),
-      },
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalIpData,
-        field: 'virustotal',
-        validator: TYPE_PATTERNS['ipv6-addr'].test.bind(TYPE_PATTERNS['ipv6-addr']),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    'mac-address': [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: TYPE_PATTERNS['mac-address'].test.bind(TYPE_PATTERNS['mac-address']),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    mutex: [
-      {
-        service: 'threatcrowd',
-        fetchFn: this.fetchThreatCrowdMutexData,
-        field: 'threatcrowd',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    'network-traffic': [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalIpData,
-        field: 'virustotal',
-        validator: (ip) => TYPE_PATTERNS['ipv4-addr'].test(ip) || TYPE_PATTERNS['ipv6-addr'].test(ip),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    process: [
-      {
-        service: 'hybrid',
-        fetchFn: this.fetchHybridAnalysisData,
-        field: 'hybrid',
-        validator: (hash) => /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/.test(hash),
-      },
-    ],
-    software: [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-
-    url: [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalUrlData,
-        field: 'virustotal',
-        validator: TYPE_PATTERNS['url'].test.bind(TYPE_PATTERNS['url']),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-      {
-        service: 'dns',
-        fetchFn: this.fetchDNSDataFromUrl,
-        field: 'dns',
-        validator: TYPE_PATTERNS['url'].test.bind(TYPE_PATTERNS['url']),
-        schema: this.enrichmentSchemas.dns,
-      },
-    ],
-    'user-account': [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: (account) => typeof account === 'string' && account.length > 0,
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    'windows-registry-key': [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: (key) => typeof key === 'string' && key.startsWith('HKEY_'),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    'x509-certificate': [
-      {
-        service: 'virustotal',
-        fetchFn: this.fetchVirusTotalData,
-        field: 'virustotal',
-        validator: (serial) => /^[a-fA-F0-9:]+$/.test(serial),
-        schema: this.enrichmentSchemas.virustotal,
-      },
-    ],
-    'attack-pattern': [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    campaign: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    'course-of-action': [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    grouping: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    identity: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    incident: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    indicator: [
-      {
-        service: 'threatfox',
-        fetchFn: this.fetchThreatFoxData,
-        field: 'threatfox',
-        validator: (pattern) => typeof pattern === 'string' && pattern.length > 0,
-      },
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (pattern) => typeof pattern === 'string' && pattern.length > 0,
-      },
-    ],
-    infrastructure: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    'intrusion-set': [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    location: [
-      {
-        service: 'geo',
-        fetchFn: this.fetchGeoData,
-        field: 'geo',
-        validator: (ip) => TYPE_PATTERNS['ipv4-addr'].test(ip) || TYPE_PATTERNS['ipv6-addr'].test(ip),
-      },
-    ],
-    malware: [
-      {
-        service: 'threatfox',
-        fetchFn: this.fetchThreatFoxData,
-        field: 'threatfox',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    'malware-analysis': [
-      {
-        service: 'hybrid',
-        fetchFn: this.fetchHybridAnalysisData,
-        field: 'hybrid',
-        validator: (hash) => /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/.test(hash),
-      },
-    ],
-    note: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (content) => typeof content === 'string' && content.length > 0,
-      },
-    ],
-    'observed-data': [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (value) => typeof value === 'string' && value.length > 0,
-      },
-    ],
-    opinion: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (value) => typeof value === 'string' && value.length > 0,
-      },
-    ],
-    report: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    'threat-actor': [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    tool: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (name) => typeof name === 'string' && name.length > 0,
-      },
-    ],
-    vulnerability: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (cve) => /^CVE-\d{4}-\d{4,}$/.test(cve),
-      },
-    ],
-    sighting: [
-      {
-        service: 'misp',
-        fetchFn: this.fetchMispData,
-        field: 'misp',
-        validator: (value) => typeof value === 'string' && value.length > 0,
-      },
-    ],
+            type: Joi.string().required(),
+            category: Joi.string().required(),
+          }),
+        ).required(),
+      }).required(),
+    }),
   };
 
   constructor(
     private readonly configService: ConfigService,
-    private readonly httpService: HttpService,
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async onModuleInit() {
     await this.initializeRedis();
-    this.initializeApiServices();
-    this.initializeCircuitBreakers();
+    await this.initializeApiServices();
   }
 
+
+  
   private async initializeRedis() {
     this.redisClient = createClient({
       url: this.configService.get<string>('REDIS_URL'),
       socket: {
         reconnectStrategy: (retries) => {
           if (retries > 5) {
-            this.logger.error('Redis connection failed after 5 retries');
+            this.logger.error('Redis connection failed after 5 retries', { retries });
             return new Error('Max retries reached');
           }
           return Math.min(retries * 100, 5000);
@@ -914,48 +178,35 @@ export class EnrichmentService implements OnModuleInit {
     });
 
     this.redisClient.on('error', (err) => {
-      this.logger.error('Redis error:', err);
+      this.logger.error('Redis error', { error: err.message });
     });
 
     await this.redisClient.connect();
   }
 
-  private initializeApiServices() {
-    for (const [service, config] of Object.entries(this.apiConfigs)) {
-      const apiKey = config.apiKeyEnv ? this.configService.get<string>(config.apiKeyEnv) : undefined;
-      if (apiKey) {
-        this.apiKeys.set(service, apiKey);
-        this.logger.debug(`API key loaded for ${service}`);
-      } else if (config.requiredKey) {
-        this.logger.warn(`Missing required API key for ${service} (${config.apiKeyEnv})`);
+  private async initializeApiServices() {
+    const enrichmentConfig = this.configService.get<EnrichmentConfig>('enrichmentConfig') || staticEnrichmentConfig;
+    for (const [service, config] of Object.entries(enrichmentConfig.apiConfigs)) {
+      const apiKey = process.env[config.apiKeyEnv || ''];
+      if (config.apiKeyEnv) {
+        if (apiKey) {
+          this.apiKeys.set(service, apiKey);
+          this.logger.log(`API key loaded for ${service}`, { service, apiKey: '[set]' });
+        } else if (config.requiredKey) {
+          this.logger.warn(`API key missing for ${service} (required)`, { service });
+        } else {
+          this.logger.log(`API key not set for ${service} (optional)`, { service });
+        }
       }
-
-      this.limiters.set(
-        service,
-        new Bottleneck({
-          maxConcurrent: config.rateLimit.maxRequests,
-          minTime: config.rateLimit.perMilliseconds / config.rateLimit.maxRequests,
-          reservoir: config.rateLimit.maxRequests,
-          reservoirRefreshAmount: config.rateLimit.maxRequests,
-          reservoirRefreshInterval: config.rateLimit.perMilliseconds,
-        }),
-      );
-    }
-  }
-
-  private initializeCircuitBreakers() {
-    for (const [service, config] of Object.entries(this.apiConfigs)) {
-      this.circuitBreakers.set(
-        service,
-        new CircuitBreaker(
-          async (fn: () => Promise<any>) => fn(),
-          {
-            timeout: config.timeout || 10000,
-            errorThresholdPercentage: 50,
-            resetTimeout: 30000,
-          }
-        )
-      );
+      if (config.rateLimit) {
+        this.limiters.set(
+          service,
+          new Bottleneck({
+            maxConcurrent: 1,
+            minTime: config.rateLimit.perMilliseconds / config.rateLimit.maxRequests,
+          }),
+        );
+      }
     }
   }
 
@@ -969,7 +220,7 @@ export class EnrichmentService implements OnModuleInit {
       'filehash-sha1': 'file',
       'filehash-sha256': 'file',
       'filehash-sha512': 'file',
-      email: 'email-address',
+      email: 'email-addr',
       hostname: 'domain-name',
       ipv4: 'ipv4-addr',
       ipv6: 'ipv6-addr',
@@ -978,57 +229,116 @@ export class EnrichmentService implements OnModuleInit {
     };
     return typeMap[type.toLowerCase()] || type.toLowerCase().replace('filehash-', 'file');
   }
-  async enrichIndicator(indicator: GenericStixObject): Promise<GenericStixObject & { enrichment: EnrichmentResult }> {
+
+  private filterConciseResponse(service: string, data: any): any {
+    const fields = conciseResponseFields[service] || [];
+    if (!fields.length) {
+      return data;
+    }
+
+    const result: any = {};
+    for (const field of fields) {
+      const fieldParts = field.split('.');
+      let value = data;
+      let target = result;
+
+      for (let i = 0; i < fieldParts.length; i++) {
+        const part = fieldParts[i];
+        if (i === fieldParts.length - 1) {
+          if (value && value[part] !== undefined) {
+            target[part] = value[part];
+          }
+        } else {
+          value = value ? value[part] : undefined;
+          target[part] = target[part] || {};
+          target = target[part];
+        }
+      }
+    }
+
+    return Object.keys(result).length > 0 ? result : data;
+  }
+
+  async enrichIndicator(
+    indicator: GenericStixObject,
+    options: EnrichmentOptions = {},
+  ): Promise<GenericStixObject & { enrichment: Partial<EnrichmentData> }> {
     const primaryValue = this.getPrimaryValue(indicator);
     const cacheKey = `enrich:${indicator.type}:${primaryValue}`;
+    const context = {
+      value: primaryValue,
+      type: indicator.type,
+      sourceConfigId: indicator.sourceConfigId,
+    };
 
     try {
-      // Check cache first
-      const cached = await this.getFromCache<EnrichmentResult>(cacheKey);
+      const cached = await this.getFromCache<EnrichmentData>(cacheKey);
       if (cached) {
+        if (this.debugLogging) {
+          this.logger.debug(`Cache hit for ${indicator.type}`, context);
+        }
         this.eventEmitter.emit('enrichment.cache.hit', { type: indicator.type, value: primaryValue });
-        return { ...indicator, enrichment: cached };
+        const filteredCached = options.services ? this.filterEnrichmentResults(cached, options.services) : cached;
+        return { ...indicator, enrichment: filteredCached };
       }
 
-      // Skip private/local resources
       if (this.shouldSkipEnrichment(indicator, primaryValue)) {
-        await this.setCache(cacheKey, {}); 
+        await this.setCache(cacheKey, {});
         return { ...indicator, enrichment: {} };
       }
 
       const typeKey = this.determineTypeKey(indicator, primaryValue);
-      const tasks = this.getValidTasks(typeKey, primaryValue);
+      const tasks = this.getValidTasks(typeKey, primaryValue, options.services);
 
       if (!tasks.length) {
-        this.logger.warn(`No enrichment tasks for ${typeKey}`);
-        await this.setCache(cacheKey, {}); 
+        this.logger.warn(`No enrichment tasks available for ${typeKey}`, context);
+        await this.setCache(cacheKey, {});
         return { ...indicator, enrichment: {} };
       }
 
-      // Execute tasks in parallel with priority consideration
-      const enrichment = await this.executeEnrichmentTasks(tasks, primaryValue);
-      
-      // Cache the result
-      await this.setCache(cacheKey, enrichment);
-      
-      this.eventEmitter.emit('enrichment.completed', {
-        type: indicator.type,
-        value: primaryValue,
-        services: Object.keys(enrichment)
-      });
+      const enrichment = await this.executeEnrichmentTasks(tasks, primaryValue, context);
+      const filteredEnrichment = options.services ? this.filterEnrichmentResults(enrichment, options.services) : enrichment;
+      await this.setCache(cacheKey, filteredEnrichment);
 
-      return { ...indicator, enrichment };
+      if (Object.keys(filteredEnrichment).length > 0) {
+        this.logger.log(`Enriched ${indicator.type}: ${Object.keys(filteredEnrichment).length} services`, {
+          ...context,
+          services: Object.keys(filteredEnrichment),
+        });
+        this.eventEmitter.emit('enrichment.completed', {
+          type: indicator.type,
+          value: primaryValue,
+          services: Object.keys(filteredEnrichment),
+        });
+      } else if (this.debugLogging) {
+        this.logger.debug(`No enrichment data for ${indicator.type}`, context);
+      }
+
+      return { ...indicator, enrichment: filteredEnrichment };
     } catch (error) {
-      this.logger.error(`Failed to enrich indicator ${indicator.type}:${primaryValue}`, error);
+      this.logger.error(`Failed to enrich ${indicator.type}`, { ...context, error: error instanceof Error ? error.message : error });
       this.eventEmitter.emit('enrichment.failed', {
         type: indicator.type,
         value: primaryValue,
-        error: error.message
+        error: error instanceof Error ? error.message : error,
       });
       return { ...indicator, enrichment: {} };
     }
-}
+  }
 
+  private filterEnrichmentResults(
+    enrichment: EnrichmentData,
+    services: (keyof EnrichmentData)[],
+  ): Partial<EnrichmentData> {
+    const filtered: Partial<EnrichmentData> = {};
+    for (const service of services) {
+      if (enrichment[service] !== undefined) {
+        // Explicitly assign to the correct field with type safety
+        (filtered as Record<keyof EnrichmentData, EnrichmentData[keyof EnrichmentData]>)[service] = enrichment[service];
+      }
+    }
+    return filtered;
+  }
   private getPrimaryValue(indicator: GenericStixObject): string {
     if (indicator.type === 'file' || this.normalizeType(indicator.type) === 'file') {
       return (
@@ -1047,23 +357,59 @@ export class EnrichmentService implements OnModuleInit {
   }
 
   private shouldSkipEnrichment(indicator: GenericStixObject, value: string): boolean {
-    // Skip private/local IPs
-    if ((indicator.type === 'ipv4-addr' || indicator.type === 'ipv6-addr') && isIP(value) && isPrivate(value)) {
+    try {
+      if (indicator.type === 'ipv4-addr' || indicator.type === 'ipv6-addr') {
+        const isValidIP = indicator.type === 'ipv4-addr'
+          ? TYPE_PATTERNS['ipv4-addr'].test(value)
+          : TYPE_PATTERNS['ipv6-addr'].test(value);
+        
+        if (!isValidIP) {
+          this.logger.warn(`Invalid IP format for ${indicator.type}`, {
+            id: indicator.id,
+            type: indicator.type,
+            value,
+            sourceConfigId: indicator.sourceConfigId,
+          });
+          return true;
+        }
+
+        if (isPrivate(value)) {
+          if (this.debugLogging) {
+            this.logger.debug(`Skipping private IP for ${indicator.type}`, {
+              id: indicator.id,
+              type: indicator.type,
+              value,
+              sourceConfigId: indicator.sourceConfigId,
+            });
+          }
+          return true;
+        }
+      }
+      
+      if (indicator.type === 'domain-name' && ['localhost', '127.0.0.1'].includes(value.toLowerCase())) {
+        return true;
+      }
+      
+      if (!value) {
+        this.logger.warn(`No value for ${indicator.type}`, {
+          id: indicator.id,
+          type: indicator.type,
+          sourceConfigId: indicator.sourceConfigId,
+        });
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      this.logger.error(`Error checking if enrichment should be skipped for ${indicator.type}`, {
+        id: indicator.id,
+        type: indicator.type,
+        value,
+        sourceConfigId: indicator.sourceConfigId,
+        error: error instanceof Error ? error.message : error,
+      });
       return true;
     }
-
-    // Skip localhost domains
-    if (indicator.type === 'domain-name' && ['localhost', '127.0.0.1'].includes(value.toLowerCase())) {
-      return true;
-    }
-
-    // Skip empty values
-    if (!value) {
-      this.logger.warn(`No value for ${indicator.type} (id: ${indicator.id})`);
-      return true;
-    }
-
-    return false;
   }
 
   private determineTypeKey(indicator: GenericStixObject, primaryValue: string): string {
@@ -1074,97 +420,135 @@ export class EnrichmentService implements OnModuleInit {
     return typeKey;
   }
 
-  private getValidTasks(typeKey: string, primaryValue: string): EnrichmentTask[] {
-    const tasks = this.enrichmentRegistry[typeKey] || [];
-    return tasks
-      .filter(task => {
-        // Skip if service requires API key but none is configured
-        if (this.apiConfigs[task.service]?.requiredKey && !this.apiKeys.has(task.service)) {
+  private getValidTasks(
+    typeKey: string,
+    primaryValue: string,
+    services?: (keyof EnrichmentData)[],
+  ): EnrichmentTask[] {
+    const config = this.configService.get<EnrichmentConfig>('enrichmentConfig') || staticEnrichmentConfig;
+    let tasksConfig = config.enrichmentRegistry[typeKey] || [];
+
+    if (services && services.length > 0) {
+      tasksConfig = tasksConfig.filter((task: EnrichmentTaskConfig) => services.includes(task.field as keyof EnrichmentData));
+    }
+
+    return tasksConfig
+      .filter((task: EnrichmentTaskConfig) => {
+        if (config.apiConfigs[task.service]?.requiredKey && !this.apiKeys.has(task.service)) {
           return false;
         }
-        // Skip if validator fails
-        if (task.validator && !task.validator(primaryValue)) {
-          return false;
+        if (task.validator) {
+          const validatorFn = this.getValidator(task.validator);
+          if (!validatorFn(primaryValue)) {
+            return false;
+          }
         }
         return true;
       })
+      .map((task: EnrichmentTaskConfig) => ({
+        service: task.service,
+        fetchFn: this.fetchFunctions[task.fetchFn] || (() => Promise.reject(new Error(`Unknown fetch function: ${task.fetchFn}`))),
+        field: task.field as keyof EnrichmentData,
+        validator: task.validator ? this.getValidator(task.validator) : undefined,
+        schema: this.validationSchemas[task.service] || undefined,
+        priority: task.priority,
+      }))
       .sort((a, b) => (b.priority || 0) - (a.priority || 0));
   }
 
-  private async executeEnrichmentTasks(tasks: EnrichmentTask[], primaryValue: string): Promise<EnrichmentResult> {
+  private getValidator(validator: string): (value: string) => boolean {
+    if (validator in TYPE_PATTERNS) {
+      return TYPE_PATTERNS[validator].test.bind(TYPE_PATTERNS[validator]);
+    }
+    try {
+      const regex = new RegExp(validator);
+      return (value: string) => regex.test(value);
+    } catch {
+      this.logger.warn(`Invalid validator regex: ${validator}`, { validator });
+      return () => true;
+    }
+  }
+
+  private async executeEnrichmentTasks(tasks: EnrichmentTask[], primaryValue: string, context: { value: string; type: string; sourceConfigId?: string }): Promise<EnrichmentData> {
     const results = await Promise.allSettled(
-      tasks.map(task => this.executeSingleTask(task, primaryValue))
+      tasks.map((task) => this.executeSingleTask(task, primaryValue, context)),
     );
 
-    const enrichment: EnrichmentResult = {};
+    const enrichment: EnrichmentData = {};
     results.forEach((result, index) => {
       if (result.status === 'fulfilled' && result.value) {
         enrichment[tasks[index].field] = result.value;
+      } else if (result.status === 'rejected' && this.debugLogging) {
+        this.logger.debug(`Task failed for ${tasks[index].service}`, {
+          ...context,
+          service: tasks[index].service,
+          error: result.reason instanceof Error ? result.reason.message : result.reason,
+        });
       }
     });
     return enrichment;
   }
 
-  private async executeSingleTask(task: EnrichmentTask, value: string): Promise<any> {
+  private async executeSingleTask(
+    task: EnrichmentTask,
+    value: string,
+    context: { value: string; type: string; sourceConfigId?: string },
+  ): Promise<any> {
     const taskCacheKey = `task:${task.service}:${value}`;
     try {
-      // Check cache first
       const cached = await this.getFromCache(taskCacheKey);
-      if (cached) return cached;
+      if (cached) {
+        if (this.debugLogging) {
+          this.logger.debug(`Task cache hit for ${task.service}`, { ...context, service: task.service });
+        }
+        return cached;
+      }
 
       const limiter = this.limiters.get(task.service);
       if (!limiter) {
-        this.logger.warn(`No rate limiter for ${task.service}`);
-        return null;
+        throw new Error(`No rate limiter for ${task.service}`);
       }
 
-      const circuitBreaker = this.circuitBreakers.get(task.service);
-      if (!circuitBreaker) {
-        this.logger.warn(`No circuit breaker for ${task.service}`);
-        return null;
-      }
-
-      // Execute with circuit breaker protection
-      const result = await circuitBreaker.fire(() =>
-        limiter.schedule(() => task.fetchFn.call(this, value))
-      );
+      const result = await limiter.schedule(() => task.fetchFn.call(this, value));
 
       if (result) {
-        // Validate and normalize response
-        const validatedResult = task.schema 
-          ? this.validateAndNormalizeResponse(result, task.schema) 
+        const validatedResult = task.schema
+          ? this.validateAndNormalizeResponse(result, task.schema, task.service)
           : result;
-        
+
         if (validatedResult) {
-          await this.setCache(taskCacheKey, validatedResult, this.getCacheTtlForService(task.service));
-          return validatedResult;
+          const conciseResult = this.filterConciseResponse(task.service, validatedResult);
+          await this.setCache(taskCacheKey, conciseResult, this.getCacheTtlForService(task.service));
+          return conciseResult;
         }
       }
       return null;
     } catch (error) {
-      this.handleTaskError(task.service, value, error);
+      this.handleTaskError(task.service, value, error, context);
       return null;
     }
   }
 
-  private validateAndNormalizeResponse(data: any, schema: Joi.ObjectSchema): any {
+  private validateAndNormalizeResponse(data: any, schema: Joi.ObjectSchema, service: string): any {
     const { error, value } = schema.validate(data, { stripUnknown: true });
     if (error) {
-      this.logger.warn(`Response validation failed: ${error.message}`);
+      this.logger.warn(`Response validation failed for ${service}`, {
+        error: error.message,
+        response: JSON.stringify(data, null, 2),
+        service,
+      });
       return null;
     }
     return value;
   }
-
   private getCacheTtlForService(service: string): number {
-    // Implement service-specific cache TTLs if needed
     switch (service) {
       case 'geo':
-        return 86400; // 24 hours for geo data
+        return 86400;
       case 'whois':
-        return 604800; // 1 week for whois data
+        return 604800;
       case 'dns':
-        return 43200; // 12 hours for DNS records
+        return 43200;
       default:
         return this.defaultCacheTtl;
     }
@@ -1175,7 +559,7 @@ export class EnrichmentService implements OnModuleInit {
       const cached = await this.redisClient.get(key);
       return cached ? JSON.parse(cached) : null;
     } catch (error) {
-      this.logger.error(`Cache read error for key ${key}`, error);
+      this.logger.error(`Cache read error`, { key, error: error instanceof Error ? error.message : error });
       return null;
     }
   }
@@ -1185,329 +569,691 @@ export class EnrichmentService implements OnModuleInit {
       await this.redisClient.set(
         key,
         JSON.stringify(value),
-        { EX: ttl || this.defaultCacheTtl }
+        { EX: ttl || this.defaultCacheTtl },
       );
     } catch (error) {
-      this.logger.error(`Cache write error for key ${key}`, error);
+      this.logger.error(`Cache write error`, { key, error: error instanceof Error ? error.message : error });
     }
   }
 
-  private handleTaskError(service: string, value: string, error: any): void {
+  private handleTaskError(service: string, value: string, error: any, context: { value: string; type: string; sourceConfigId?: string }): void {
     const axiosError = error as AxiosError;
     const status = axiosError.response?.status;
-    const errorMessage = status 
-      ? `API error (${status}): ${axiosError.message}`
-      : `Network error: ${axiosError.message}`;
+    let errorMessage: string;
+    if (status) {
+      errorMessage = `API error (${status}): ${axiosError.message}`;
+    } else if (axiosError.code === 'ECONNABORTED') {
+      errorMessage = `Network error: Timed out after ${axiosError.config?.timeout || this.defaultTimeout}ms`;
+    } else {
+      errorMessage = `Network error: ${axiosError.message}`;
+    }
 
-    this.logger.error(`Enrichment task failed`, {
+    this.logger.error(`Enrichment failed for ${service}`, {
+      ...context,
       service,
-      value,
       error: errorMessage,
     });
 
     this.eventEmitter.emit('enrichment.error', {
       service,
       value,
-      error: errorMessage
+      error: errorMessage,
     });
   }
 
-  
-  private async fetchApi(
+  private interpolateHeaders(headers: Record<string, string>, apiKey: string): Record<string, string> {
+    const result: Record<string, string> = {};
+    for (const [key, value] of Object.entries(headers)) {
+      result[key] = value.replace('${apiKey}', apiKey);
+    }
+    return result;
+  }
+
+  async fetchApi(
     service: string,
     endpoint: string,
     config: AxiosRequestConfig = {},
-    retryCount = 0
+    retryCount = 0,
   ): Promise<any> {
-    const apiConfig = this.apiConfigs[service];
+    const enrichmentConfig = this.configService.get<EnrichmentConfig>('enrichmentConfig') || staticEnrichmentConfig;
+    const apiConfig = enrichmentConfig.apiConfigs[service];
     if (!apiConfig) {
       throw new Error(`Unknown service: ${service}`);
     }
-
+  
     const apiKey = this.apiKeys.get(service);
-    const baseUrl = apiConfig.url.replace(/\/$/, '');
+    if (apiConfig.requiredKey && !apiKey) {
+      this.logger.warn(`Skipping ${service} enrichment: API key is missing`, { service });
+      throw new Error(`Missing ${service} API key`);
+    }
+  
+    const baseUrl = config.baseURL || apiConfig.url.replace(/\/$/, '');
     const url = endpoint ? `${baseUrl}/${endpoint.replace(/^\//, '')}` : baseUrl;
-    
-    // Replace API key placeholders in headers and params
+  
     const headers = {
-      ...Object.fromEntries(
-        Object.entries(apiConfig.headers || {}).map(([k, v]) => 
-          [k, v.replace('${apiKey}', apiKey || '')]
-        )
-      ),
+      ...this.interpolateHeaders(apiConfig.headers || {}, apiKey || ''),
       ...(config.headers || {}),
-      'User-Agent': 'CyberThreatIntelPlatform/1.0'
+      'User-Agent': 'CyberThreatIntelPlatform/1.0',
     };
-
+  
     const params = {
       ...Object.fromEntries(
-        Object.entries(apiConfig.params || {}).map(([k, v]) => 
-          [k, typeof v === 'string' ? v.replace('${apiKey}', apiKey || '') : v]
-        )
+        Object.entries(apiConfig.params || {}).map(([k, v]) => [
+          k,
+          typeof v === 'string' ? v.replace('${apiKey}', apiKey || '') : v,
+        ]),
       ),
-      ...(config.params || {})
+      ...(config.params || {}),
     };
-
+  
+    // Ensure config.data is preserved
+    const data = config.data !== undefined ? config.data : apiConfig.data;
     const requestConfig: AxiosRequestConfig = {
       method: config.method || apiConfig.method || 'get',
       url,
       headers,
       params,
-      data: config.data || apiConfig.data,
-      timeout: apiConfig.timeout || 15000,
+      data: data ? (typeof data === 'string' ? data : JSON.stringify(data)) : undefined,
+      timeout: apiConfig.timeout || this.defaultTimeout,
     };
-
+  
+    if (this.debugLogging) {
+      this.logger.debug(`Fetching API for ${service}`, {
+        service,
+        baseURL: baseUrl,
+        url: requestConfig.url,
+        method: requestConfig.method,
+        headers: { ...requestConfig.headers, 'x-apikey': '[redacted]' },
+        params: requestConfig.params,
+        data: requestConfig.data || 'none',
+      });
+    }
+  
     try {
-      const response = await firstValueFrom(this.httpService.request(requestConfig));
+      const response = await axios(requestConfig);
+      if (this.debugLogging && service === 'virustotal') {
+        this.logger.debug(`VirusTotal API response`, {
+          service,
+          baseURL: baseUrl,
+          url: requestConfig.url,
+          status: response.status,
+          data: JSON.stringify(response.data, null, 2).substring(0, 500),
+        });
+      }
       return response.data;
     } catch (error) {
       const axiosError = error as AxiosError;
-      
-      // Don't retry for client errors (except 429)
-      if (axiosError.response?.status && 
-          axiosError.response.status >= 400 && 
-          axiosError.response.status < 500 &&
-          axiosError.response.status !== 429) {
-        throw axiosError;
+      if (axiosError.response?.status === 403) {
+        this.logger.error(`Invalid API credentials for ${service}`, {
+          service,
+          baseURL: baseUrl,
+          error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
+        });
+        throw new InternalServerErrorException(`Invalid ${service} API credentials`);
       }
-
-      // Implement retry logic
-      const retryPolicy = apiConfig.retryPolicy || {
-        maxRetries: 3,
-        baseDelay: 1000,
-        maxDelay: 10000
-      };
-
-      if (retryCount < retryPolicy.maxRetries) {
-        const delay = Math.min(
-          retryPolicy.baseDelay * Math.pow(2, retryCount) + Math.random() * 1000,
-          retryPolicy.maxDelay
-        );
+      if (service === 'virustotal' && axiosError.response?.status === 404) {
+        this.logger.warn(`VirusTotal resource not found`, {
+          service,
+          baseURL: baseUrl,
+          url: requestConfig.url,
+          error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
+        });
+        return null;
+      }
+  
+      const maxRetries = apiConfig.retryPolicy?.maxRetries || this.defaultMaxRetries;
+      if (
+        ([429, 502, 503].includes(axiosError.response?.status || 0) ||
+          ['ECONNREFUSED', 'ETIMEDOUT'].includes(axiosError.code || '')) &&
+        retryCount < maxRetries
+      ) {
+        const delay = Math.pow(2, retryCount) * (apiConfig.retryPolicy?.baseDelay || 1000);
+        if (this.debugLogging) {
+          this.logger.debug(`Retrying ${service} after ${delay}ms`, {
+            service,
+            baseURL: baseUrl,
+            endpoint,
+            retryCount: retryCount + 1,
+          });
+        }
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.fetchApi(service, endpoint, config, retryCount + 1);
       }
-
+  
+      const message = axiosError.response?.data
+        ? JSON.stringify(axiosError.response.data, null, 2)
+        : axiosError.message;
+      this.logger.error(`API failed for ${service} after ${retryCount + 1} attempts`, {
+        service,
+        baseURL: baseUrl,
+        url: requestConfig.url,
+        error: message.substring(0, 500),
+      });
       throw axiosError;
     }
   }
-
-  // Service-specific fetch methods
-  async fetchWhoisData(domain: string): Promise<WhoisEnrichment> {
+  async fetchWhoisData(domain: string): Promise<any> {
     if (!TYPE_PATTERNS['domain-name'].test(domain)) {
       throw new Error(`Invalid domain format: ${domain}`);
     }
-
-    const response = await this.fetchApi('whois', '', {
-      params: { domainName: domain }
-    });
-
-    if (!response || response.ErrorMessage) {
-      throw new Error(response?.ErrorMessage || 'Invalid WHOIS response');
+    const response = await this.fetchApi('whois', '', { params: { domainName: domain } });
+    if (!response || !response.WhoisRecord) {
+      throw new Error(response?.ErrorMessage?.msg || 'Invalid WHOIS response');
     }
-
-    return response;
+    return {
+      domainName: response.WhoisRecord.domainName,
+      registrarName: response.WhoisRecord.registrarName,
+      createdDate: response.WhoisRecord.createdDate,
+      expiresDate: response.WhoisRecord.expiresDate,
+    };
   }
-  async fetchGeoData(ip: string): Promise<GeoEnrichment> {
+
+  async fetchGeoData(ip: string): Promise<any> {
     if (!TYPE_PATTERNS['ipv4-addr'].test(ip) && !TYPE_PATTERNS['ipv6-addr'].test(ip)) {
       throw new Error(`Invalid IP format: ${ip}`);
     }
-  
     const response = await this.fetchApi('geo', `/${ip}`, {
-      params: { fields: 'country,countryCode,region,regionName,city,zip,lat,lon,timezone,isp,org,as,query' }
+      params: { fields: 'country,countryCode,city,lat,lon' },
     });
-  
     if (!response || !response.country) {
       throw new Error('Invalid GeoIP response');
     }
-  
     return {
       country_name: response.country,
       country_code: response.countryCode,
-      region: response.region,
-      regionName: response.regionName,
       city: response.city,
-      zip: response.zip,
       lat: response.lat,
       lon: response.lon,
-      timezone: response.timezone,
-      isp: response.isp,
-      org: response.org,
-      as: response.as,
-      query: response.query,
     };
   }
-  async fetchVirusTotalData(hash: string): Promise<VirusTotalEnrichment> {
+
+  async fetchVirusTotalData(hash: string): Promise<any> {
     if (!/^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/.test(hash)) {
       throw new Error(`Invalid hash format: ${hash}`);
     }
-
-    const response = await this.fetchApi('virustotal', `/files/${hash}`);
-    
-    if (!response || !response.data) {
-      throw new Error('Invalid VirusTotal response');
+    const context = { service: 'virustotal', hash };
+    const cacheKey = `task:virustotal:${hash}`;
+    if (this.debugLogging) {
+      this.logger.debug(`Fetching VirusTotal file data`, { ...context });
     }
-
-    return response;
+    try {
+      const cached = await this.getFromCache<any>(cacheKey);
+      if (cached) {
+        if (this.debugLogging) {
+          this.logger.debug(`Cache hit for VirusTotal file data`, {
+            ...context,
+            cacheKey,
+            response: JSON.stringify(cached, null, 2).substring(0, 500),
+          });
+        }
+        return cached;
+      }
+  
+      const response = await this.fetchApi('virustotal', `/files/${hash}`);
+      if (!response || !response.data) {
+        this.logger.warn(`Invalid VirusTotal file response`, {
+          ...context,
+          response: JSON.stringify(response, null, 2).substring(0, 500),
+        });
+        const defaultResponse = {
+          data: {
+            attributes: {
+              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
+              reputation: 0,
+            },
+          },
+        };
+        await this.setCache(cacheKey, defaultResponse, 3600);
+        return defaultResponse;
+      }
+  
+      const result = {
+        data: {
+          attributes: {
+            last_analysis_stats: response.data.attributes.last_analysis_stats,
+            reputation: response.data.attributes.reputation || 0,
+          },
+        },
+      };
+      await this.setCache(cacheKey, result, 86400);
+      return result;
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 404) {
+        this.logger.warn(`File not found in VirusTotal`, {
+          ...context,
+          error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
+        });
+        const defaultResponse = {
+          data: {
+            attributes: {
+              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
+              reputation: 0,
+            },
+          },
+        };
+        await this.setCache(cacheKey, defaultResponse, 3600);
+        return defaultResponse;
+      }
+      this.logger.error(`VirusTotal file request failed`, {
+        ...context,
+        error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
+      });
+      throw error;
+    }
   }
-
-  async fetchVirusTotalIpData(ip: string): Promise<VirusTotalEnrichment> {
+  async fetchVirusTotalIpData(ip: string): Promise<any> {
     if (!TYPE_PATTERNS['ipv4-addr'].test(ip) && !TYPE_PATTERNS['ipv6-addr'].test(ip)) {
       throw new Error(`Invalid IP format: ${ip}`);
     }
-
     const response = await this.fetchApi('virustotal', `/ip_addresses/${ip}`);
-    
     if (!response || !response.data) {
       throw new Error('Invalid VirusTotal response');
     }
-
-    return response;
+    return {
+      data: {
+        attributes: {
+          last_analysis_stats: response.data.attributes.last_analysis_stats,
+          reputation: response.data.attributes.reputation || 0,
+        },
+      },
+    };
   }
 
-  async fetchVirusTotalDomainData(domain: string): Promise<VirusTotalEnrichment> {
+  async fetchVirusTotalDomainData(domain: string): Promise<any> {
     if (!TYPE_PATTERNS['domain-name'].test(domain)) {
       throw new Error(`Invalid domain format: ${domain}`);
     }
-
     const response = await this.fetchApi('virustotal', `/domains/${domain}`);
-    
     if (!response || !response.data) {
       throw new Error('Invalid VirusTotal response');
     }
-
-    return response;
+    return {
+      data: {
+        attributes: {
+          last_analysis_stats: response.data.attributes.last_analysis_stats,
+          reputation: response.data.attributes.reputation || 0,
+        },
+      },
+    };
   }
 
-  async fetchVirusTotalUrlData(url: string): Promise<VirusTotalEnrichment> {
+ 
+
+  async fetchVirusTotalUrlData(url: string): Promise<any> {
     if (!TYPE_PATTERNS['url'].test(url)) {
       throw new Error(`Invalid URL format: ${url}`);
     }
-
-    // Step 1: Submit URL for analysis
-    const initialResponse = await this.fetchApi('virustotal', '/urls', {
-      method: 'post',
-      data: { url }
-    });
-
-    const analysisId = initialResponse?.data?.id;
-    if (!analysisId) {
-      throw new Error('Failed to get analysis ID from VirusTotal');
+    const context = { service: 'virustotal', url };
+    const apiKey = this.apiKeys.get('virustotal');
+    if (!apiKey) {
+      this.logger.warn(`Skipping VirusTotal URL enrichment: API key missing`, context);
+      return {
+        data: {
+          attributes: {
+            last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
+            reputation: 0,
+          },
+        },
+      };
     }
-
-    // Step 2: Poll for analysis results
-    const maxAttempts = 5;
-    const delayMs = 5000;
-
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      
+  
+    try {
+      let encodedUrl: string;
       try {
-        const result = await this.fetchApi('virustotal', `/analyses/${analysisId}`);
-        if (result?.data?.attributes?.status === 'completed') {
-          return result;
-        }
+        encodedUrl = encodeURIComponent(url);
       } catch (error) {
-        this.logger.warn(`VirusTotal analysis poll attempt ${attempt + 1} failed`, error);
+        this.logger.warn(`Failed to encode URL for VirusTotal`, {
+          ...context,
+          error: error instanceof Error ? error.message : error,
+        });
+        return {
+          data: {
+            attributes: {
+              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
+              reputation: 0,
+            },
+          },
+        };
       }
+  
+      const payload = { url: encodedUrl };
+      const requestConfig: AxiosRequestConfig = {
+        method: 'post',
+        url: 'https://www.virustotal.com/api/v3/urls',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-apikey': apiKey,
+          'User-Agent': 'CyberThreatIntelPlatform/1.0',
+        },
+        data: JSON.stringify(payload), // Explicit JSON serialization
+        timeout: 30000,
+      };
+  
+      if (this.debugLogging) {
+        this.logger.debug(`Sending VirusTotal URL request`, {
+          ...context,
+          requestConfig: {
+            url: requestConfig.url,
+            method: requestConfig.method,
+            headers: { ...requestConfig.headers, 'x-apikey': '[redacted]' },
+            data: requestConfig.data,
+          },
+        });
+      }
+  
+      const initialResponse = await axios(requestConfig).then((res) => res.data).catch((error) => {
+        throw error;
+      });
+  
+      if (!initialResponse?.data?.id) {
+        this.logger.warn(`Invalid VirusTotal URL response`, {
+          ...context,
+          response: JSON.stringify(initialResponse, null, 2).substring(0, 500),
+        });
+        return {
+          data: {
+            attributes: {
+              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
+              reputation: 0,
+            },
+          },
+        };
+      }
+  
+      const analysisId = initialResponse.data.id;
+      const maxAttempts = 3;
+      const delayMs = 5000;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        try {
+          const response = await this.fetchApi('virustotal', `/analyses/${analysisId}`);
+          if (!response?.data) {
+            this.logger.warn(`Invalid VirusTotal analysis response`, {
+              ...context,
+              analysisId,
+              attempt: attempt + 1,
+              response: JSON.stringify(response, null, 2).substring(0, 500),
+            });
+            continue;
+          }
+          if (response.data.attributes?.status === 'completed') {
+            if (this.debugLogging) {
+              this.logger.debug(`VirusTotal URL analysis succeeded`, {
+                ...context,
+                attempt: attempt + 1,
+                analysisId,
+              });
+            }
+            return {
+              data: {
+                attributes: {
+                  last_analysis_stats: response.data.attributes.stats || {
+                    malicious: 0,
+                    undetected: 0,
+                    harmless: 0,
+                    suspicious: 0,
+                  },
+                  reputation: 0,
+                },
+              },
+            };
+          }
+        } catch (error) {
+          this.logger.debug(`VirusTotal analysis poll attempt ${attempt + 1} failed`, {
+            ...context,
+            attempt: attempt + 1,
+            analysisId,
+            error: error instanceof Error ? error.message : error,
+          });
+        }
+      }
+      this.logger.warn(`VirusTotal URL analysis timed out`, { ...context, analysisId });
+      return {
+        data: {
+          attributes: {
+            last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
+            reputation: 0,
+          },
+        },
+      };
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 400) {
+        this.logger.warn(`VirusTotal URL request failed with Bad Request`, {
+          ...context,
+          error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
+        });
+        return {
+          data: {
+            attributes: {
+              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
+              reputation: 0,
+            },
+          },
+        };
+      }
+      this.logger.error(`VirusTotal URL request failed`, {
+        ...context,
+        error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
+      });
+      throw error;
     }
-
-    throw new Error(`VirusTotal URL analysis timed out after ${maxAttempts * delayMs / 1000} seconds`);
   }
-
-  async fetchAbuseIPDBData(ip: string): Promise<AbuseIPDBEnrichment> {
+  async fetchAbuseIPDBData(ip: string): Promise<any> {
     if (!TYPE_PATTERNS['ipv4-addr'].test(ip) && !TYPE_PATTERNS['ipv6-addr'].test(ip)) {
       throw new Error(`Invalid IP format: ${ip}`);
     }
-
     const response = await this.fetchApi('abuseipdb', '', {
-      params: { ipAddress: ip, maxAgeInDays: 90 }
+      params: { ipAddress: ip, maxAgeInDays: 90 },
     });
-
     if (!response || !response.data) {
       throw new Error('Invalid AbuseIPDB response');
     }
-
-    return response;
+    return {
+      data: {
+        abuseConfidenceScore: response.data.abuseConfidenceScore,
+        countryCode: response.data.countryCode,
+        totalReports: response.data.totalReports,
+      },
+    };
   }
 
-  async fetchShodanData(ip: string): Promise<ShodanEnrichment> {
+  async fetchShodanData(ip: string): Promise<any> {
     if (!TYPE_PATTERNS['ipv4-addr'].test(ip)) {
       throw new Error(`Invalid IP format: ${ip}`);
     }
-
-    const response = await this.fetchApi('shodan', '/shodan/host', {
-      params: { ip }
-    });
-
-    if (!response) {
-      throw new Error('Invalid Shodan response');
+    const apiKey = this.apiKeys.get('shodan');
+    if (!apiKey) {
+      this.logger.warn(`Skipping Shodan enrichment for IP ${ip}: API key is missing`, { service: 'shodan' });
+      throw new Error('Missing Shodan API key');
     }
-
-    return response;
+    const cacheKey = `shodan:${ip}`;
+    const cached = await this.getFromCache<any>(cacheKey);
+    if (cached) {
+      if (cached.error) {
+        this.logger.warn(`Cached Shodan error for IP ${ip}`, { service: 'shodan', error: cached.error });
+        throw new Error(`Cached Shodan error: ${cached.error}`);
+      }
+      return cached;
+    }
+    try {
+      const response = await this.fetchApi('shodan', `/shodan/host/${ip}`);
+      if (!response || !response.ip) {
+        throw new Error('Invalid Shodan response');
+      }
+      const result = {
+        ip: response.ip_str,
+        org: response.org || 'Unknown',
+        os: response.os || null,
+      };
+      await this.setCache(cacheKey, result, this.defaultCacheTtl);
+      return result;
+    } catch (error) {
+      if (error instanceof AxiosError && error.response?.status === 403) {
+        const errorMsg = error.response?.data?.error || 'Invalid or unauthorized Shodan API credentials';
+        this.logger.error(`Shodan API error for IP ${ip}`, { service: 'shodan', error: errorMsg });
+        await this.setCache(cacheKey, { error: errorMsg }, 3600);
+        throw new Error(`Shodan API error: ${errorMsg}`);
+      }
+      throw error;
+    }
   }
 
-  async fetchThreatFoxData(ioc: string): Promise<ThreatFoxEnrichment> {
+  async fetchThreatFoxData(ioc: string): Promise<any> {
     if (!ioc || typeof ioc !== 'string') {
       throw new Error('Invalid IOC value');
     }
-  
-    const response = await this.fetchApi('threatfox', '', {
-      method: 'post',
-      data: { query: 'search_ioc', search_term: ioc }
-    });
-  
-    if (!response || response.query_status !== 'ok') {
-      throw new Error(response?.query_status || 'Invalid ThreatFox response');
+    const context = { service: 'threatfox', ioc };
+    try {
+      const response = await this.fetchApi('threatfox', '/', {
+        method: 'post',
+        data: { query: 'search_ioc', search_term: ioc },
+      });
+      if (!response || !response.query_status) {
+        return {
+          query_status: 'no_result',
+          data: {
+            threat_type: '',
+            malware: '',
+          },
+        };
+      }
+      return {
+        query_status: response.query_status,
+        data: response.data?.length > 0
+          ? {
+              threat_type: response.data[0].threat_type || '',
+              malware: response.data[0].malware || '',
+            }
+          : {
+              threat_type: '',
+              malware: '',
+            },
+      };
+    } catch (error) {
+      this.logger.error(`ThreatFox fetch failed`, {
+        ...context,
+        error: error instanceof Error ? error.message : error,
+      });
+      return {
+        query_status: 'no_result',
+        data: {
+          threat_type: '',
+          malware: '',
+        },
+      };
     }
-  
-    // Transform the response to match our interface
-    if (response.data) {
-      response.data = response.data.map(item => ({
-        ioc_value: item.ioc,
-        ioc_type: item.threat_type,
-        malware: item.malware,
-        confidence_level: item.confidence_level,
-        first_seen: item.first_seen_utc,
-        // Preserve other fields
-        id: item.id,
-        malware_alias: item.malware_alias,
-        malware_printable: item.malware_printable,
-        last_seen_utc: item.last_seen_utc,
-        reference: item.reference,
-        tags: item.tags,
-      }));
-    }
-  
-    return response;
   }
 
-  async fetchDNSData(domain: string): Promise<DNSEnrichment> {
+  async clearCacheForDomain(domain: string): Promise<void> {
+    const cacheKey = `dns:${domain}`;
+    try {
+      await this.redisClient.del(cacheKey);
+      this.logger.debug(`Cleared DNS cache for ${domain}`, { cacheKey });
+    } catch (error) {
+      this.logger.error(`Failed to clear DNS cache for ${domain}`, {
+        cacheKey,
+        error: error instanceof Error ? error.message : error,
+      });
+    }
+  }
+
+  async fetchDNSData(domain: string): Promise<any> {
     if (!TYPE_PATTERNS['domain-name'].test(domain)) {
       throw new Error(`Invalid domain format: ${domain}`);
     }
-  
     const parsed = parse(domain);
     if (!parsed.domain) {
       throw new Error(`Invalid domain: ${domain}`);
     }
-  
     const cacheKey = `dns:${parsed.domain}`;
-    const cached = await this.getFromCache<DNSEnrichment>(cacheKey);
+    const context = { service: 'dns', domain: parsed.domain };
+  
+    const cached = await this.getFromCache<any>(cacheKey);
     if (cached) {
-      return cached;
+      if (!cached.Answer || !Array.isArray(cached.Answer)) {
+        this.logger.warn(`Invalid cached DNS data for ${parsed.domain}`, {
+          ...context,
+          cacheKey,
+          cached: JSON.stringify(cached, null, 2).substring(0, 500),
+        });
+        await this.redisClient.del(cacheKey);
+      } else {
+        if (this.debugLogging) {
+          this.logger.debug(`Cache hit for DNS data: ${parsed.domain}`, {
+            ...context,
+            cacheKey,
+            answerCount: cached.Answer.length,
+            status: cached.Status,
+          });
+        }
+        return cached;
+      }
     }
   
     const recordTypes = ['A', 'AAAA', 'CNAME', 'MX', 'NS', 'TXT'];
-    const responses = await Promise.all(
-      recordTypes.map(type =>
+    let responses = await Promise.all(
+      recordTypes.map((type) =>
         this.fetchApi('dns', '', {
+          method: 'get',
           params: { name: parsed.domain, type },
+          headers: { 'Accept': 'application/dns-json' },
           timeout: 30000,
-        })
-      )
+        }).catch((error) => {
+          this.logger.warn(`DNS query failed for ${parsed.domain} (${type})`, {
+            ...context,
+            error: error instanceof Error ? error.message : error,
+          });
+          return null;
+        }),
+      ),
     );
   
-    // Map DNS type numbers to strings
+    let allFailed = responses.every((res) => !res || res.Status !== 0 || (!res.Answer && !res.Authority));
+    if (allFailed) {
+      this.logger.warn(`All DNS queries failed for ${parsed.domain}, trying Google DNS fallback`, context);
+      responses = await Promise.all(
+        recordTypes.map((type) =>
+          this.fetchApi('dns', '', {
+            method: 'get',
+            params: { name: parsed.domain, type },
+            headers: { 'Accept': 'application/dns-json' },
+            baseURL: 'https://dns.google/resolve',
+            timeout: 30000,
+          }).catch((error) => {
+            this.logger.warn(`Google DNS query failed for ${parsed.domain} (${type})`, {
+              ...context,
+              error: error instanceof Error ? error.message : error,
+            });
+            return null;
+          }),
+        ),
+      );
+    }
+  
+    allFailed = responses.every((res) => !res || res.Status !== 0 || (!res.Answer && !res.Authority));
+    if (allFailed) {
+      this.logger.warn(`Google DNS queries failed for ${parsed.domain}, trying Cloudflare DNS fallback`, context);
+      responses = await Promise.all(
+        recordTypes.map((type) =>
+          this.fetchApi('dns', '', {
+            method: 'get',
+            params: { name: parsed.domain, type },
+            headers: { 'Accept': 'application/dns-json' },
+            baseURL: 'https://cloudflare-dns.com/dns-query',
+            timeout: 30000,
+          }).catch((error) => {
+            this.logger.warn(`Cloudflare DNS query failed for ${parsed.domain} (${type})`, {
+              ...context,
+              error: error instanceof Error ? error.message : error,
+            });
+            return null;
+          }),
+        ),
+      );
+    }
+  
     const typeMap: Record<number, string> = {
       1: 'A',
       5: 'CNAME',
@@ -1515,182 +1261,235 @@ export class EnrichmentService implements OnModuleInit {
       2: 'NS',
       16: 'TXT',
       28: 'AAAA',
-      // Add more mappings as needed
+      6: 'SOA',
     };
   
-    const answers = responses
-      .filter(res => res?.Status === 0 && res?.Answer)
-      .flatMap(res => res.Answer)
-      .filter(answer => answer.data && typeof answer.data === 'string')
-      .map(answer => ({
-        data: answer.data,
-        type: typeMap[answer.type] || answer.type.toString(), // Convert number to string
-        TTL: answer.TTL,
-      }));
+    let answers: any[] = [];
+    responses.forEach((res, index) => {
+      if (res?.Status === 0) {
+        if (Array.isArray(res?.Answer)) {
+          answers.push(
+            ...res.Answer.filter((answer: any) => answer?.data && typeof answer.data === 'string').map(
+              (answer: any) => ({
+                data: answer.data,
+                type: typeMap[answer.type] || answer.type.toString(),
+                TTL: answer.TTL || 0,
+              }),
+            ),
+          );
+        }
+        if (Array.isArray(res?.Authority)) {
+          answers.push(
+            ...res.Authority.filter((auth: any) => auth?.data && typeof auth.data === 'string').map(
+              (auth: any) => ({
+                data: auth.data,
+                type: typeMap[auth.type] || auth.type.toString(),
+                TTL: auth.TTL || 0,
+              }),
+            ),
+          );
+        }
+        if (!res.Answer && !res.Authority) {
+          this.logger.warn(`Unexpected DNS Answer format for ${parsed.domain} (${recordTypes[index]})`, {
+            ...context,
+            response: JSON.stringify(res, null, 2).substring(0, 500),
+          });
+        }
+      } else if (res) {
+        this.logger.warn(`DNS query returned non-zero status for ${parsed.domain} (${recordTypes[index]})`, {
+          ...context,
+          status: res.Status,
+          response: JSON.stringify(res, null, 2).substring(0, 500),
+        });
+      }
+    });
   
-    const questions = responses
-      .filter(res => res?.Question)
-      .flatMap(res => res.Question)
-      .map(question => ({
-        name: question.name,
-        type: question.type,
-      }));
+    const result = {
+      Status: answers.length > 0 ? 0 : 2,
+      Answer: answers,
+    };
   
-    if (answers.length === 0) {
-      await this.setCache(cacheKey, { Status: 2 }, 3600); // Cache negative result
-      throw new Error('No DNS records found');
+    const { error } = this.validationSchemas.dns.validate(result, { stripUnknown: true });
+    if (error) {
+      this.logger.warn(`DNS result validation failed for ${parsed.domain}`, {
+        ...context,
+        error: error.message,
+        result: JSON.stringify(result, null, 2).substring(0, 500),
+      });
+      return { Status: 2, Answer: [] };
     }
   
-    const result: DNSEnrichment = {
-      Status: 0,
-      Answer: answers,
-      Question: questions.length > 0 ? questions : undefined,
-    };
-  
-    await this.setCache(cacheKey, result, 86400);
+    await this.setCache(cacheKey, result, result.Status === 0 ? 86400 : 3600);
+    if (this.debugLogging) {
+      this.logger.debug(`Cached DNS data for ${parsed.domain}`, {
+        ...context,
+        answerCount: answers.length,
+        status: result.Status,
+        cacheKey,
+      });
+    }
     return result;
   }
-
-  async fetchDNSDataFromUrl(url: string): Promise<DNSEnrichment> {
+  async fetchDNSDataFromUrl(url: string): Promise<any> {
     if (!TYPE_PATTERNS['url'].test(url)) {
       throw new Error(`Invalid URL format: ${url}`);
     }
-  
     const parsed = parse(url);
-    const domain = parsed.domain || url.split('/')[2];
+    const domain = parsed.domain;
     if (!domain || !TYPE_PATTERNS['domain-name'].test(domain)) {
-      throw new Error(`Could not extract domain from URL: ${url}`);
+      throw new Error(`Could not extract valid domain from URL: ${url}`);
     }
-  
     return this.fetchDNSData(domain);
   }
-  async fetchSSLData(domain: string): Promise<SSLEnrichment> {
+
+  async fetchSSLData(domain: string): Promise<any> {
     if (!TYPE_PATTERNS['domain-name'].test(domain)) {
       throw new Error(`Invalid domain format: ${domain}`);
     }
-
     const parsed = parse(domain);
-    if (!parsed.domain) {
-      throw new Error(`Invalid domain: ${domain}`);
+    if (!parsed.domain || !parsed.isIcann || parsed.subdomain?.split('.').length > 2) {
+      throw new Error(`Invalid or overly nested domain: ${domain}`);
     }
-
     const cacheKey = `ssl:${parsed.domain}`;
-    const cached = await this.getFromCache<SSLEnrichment>(cacheKey);
+    const context = { value: domain, service: 'ssl' };
+    const cached = await this.getFromCache<any>(cacheKey);
     if (cached) {
       return cached;
     }
-
-    // Start SSL analysis
     const startResponse = await this.fetchApi('ssl', '', {
-      params: { host: parsed.domain, startNew: 'on', all: 'done' }
+      params: { host: parsed.domain, startNew: 'on', all: 'done' },
     });
-
     if (!startResponse || startResponse.status === 'ERROR') {
+      const errorMsg = startResponse?.message || 'Failed to start SSL analysis';
       await this.setCache(cacheKey, { host: parsed.domain, status: 'ERROR' }, 3600);
-      throw new Error('Failed to start SSL analysis');
+      throw new Error(errorMsg);
     }
-
-    // Poll for results
-    const maxAttempts = 10;
-    const delayMs = 10000;
-
+    const maxAttempts = 3;
+    const delayMs = 5000;
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      await new Promise(resolve => setTimeout(resolve, delayMs));
-      
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
       try {
         const result = await this.fetchApi('ssl', '', {
-          params: { host: parsed.domain }
+          params: { host: parsed.domain },
         });
-
         if (result.status === 'READY') {
-          await this.setCache(cacheKey, result, 86400);
-          return result;
+          if (this.debugLogging) {
+            this.logger.debug(`SSL analysis succeeded`, { ...context, attempt: attempt + 1 });
+          }
+          const formattedResult = {
+            host: parsed.domain,
+            endpoints: result.endpoints.map((e: any) => ({
+              serverName: e.serverName || parsed.domain,
+              grade: e.grade || 'N/A', // Default to 'N/A' if grade is missing
+              statusMessage: e.statusMessage || 'Unknown', // Include status for debugging
+            })),
+          };
+          await this.setCache(cacheKey, formattedResult, 86400);
+          return formattedResult;
         }
         if (result.status === 'ERROR') {
-          throw new Error('SSL analysis failed');
+          const errorMsg = result.message || 'Unknown error';
+          throw new Error(`SSL analysis failed: ${errorMsg}`);
         }
       } catch (error) {
-        this.logger.warn(`SSL analysis poll attempt ${attempt + 1} failed`, error);
+        if (attempt === maxAttempts - 1) {
+          const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+          throw new Error(`SSL analysis failed after ${maxAttempts} attempts: ${errorMsg}`);
+        }
       }
     }
-
     throw new Error(`SSL analysis timed out after ${maxAttempts * delayMs / 1000} seconds`);
   }
+  
 
-  async fetchASNData(ip: string): Promise<ASNEnrichment> {
+  async fetchASNData(ip: string): Promise<any> {
     if (!TYPE_PATTERNS['ipv4-addr'].test(ip) && !TYPE_PATTERNS['ipv6-addr'].test(ip)) {
       throw new Error(`Invalid IP format: ${ip}`);
     }
-
-    const response = await this.fetchApi('asn', `/${ip}/json`);
-    
-    if (!response || !response.asn) {
+    const response = await this.fetchApi('asn', `/${ip}`);
+    if (!response || !response.ip) {
       throw new Error('Invalid ASN response');
     }
-
-    return response;
+    return {
+      ip: response.ip,
+      asn: response.org ? `AS${response.org.match(/^AS(\d+)/)?.[1] || 'Unknown'}` : 'Unknown',
+      org: response.org || 'Unknown',
+    };
   }
 
-  async fetchASNDataFromNumber(asn: string): Promise<ASNEnrichment> {
+  async fetchASNDataFromNumber(asn: string): Promise<any> {
     if (!/^AS?\d+$/i.test(asn)) {
       throw new Error(`Invalid ASN format: ${asn}`);
     }
-
     const cleanAsn = asn.replace(/^AS/i, '');
-    const response = await this.fetchApi('asn', `/AS${cleanAsn}/json`);
-    
-    if (!response || !response.asn) {
+    const response = await this.fetchApi('asn', `/asn/AS${cleanAsn}`);
+    if (!response || !response.data || !response.data.asn) {
       throw new Error('Invalid ASN response');
     }
-
-    return response;
+    return {
+      asn: response.data.asn || `AS${cleanAsn}`,
+      org: response.data.org || 'Unknown',
+    };
   }
 
-  async fetchHybridAnalysisData(hash: string): Promise<HybridAnalysisEnrichment> {
+  async fetchHybridAnalysisData(hash: string): Promise<any> {
     if (!/^[a-fA-F0-9]{64}$/.test(hash)) {
       throw new Error(`Invalid SHA-256 hash format: ${hash}`);
     }
-
     const response = await this.fetchApi('hybrid', `/overview/${hash}`);
-    
     if (!response || !response.result) {
       throw new Error('Invalid Hybrid Analysis response');
     }
-
-    return response;
+    return {
+      result: {
+        verdict: response.result.verdict || 'unknown',
+        threat_score: response.result.threat_score || 0,
+        submissions: response.result.submissions || 0,
+      },
+    };
   }
 
-  async fetchThreatCrowdMutexData(mutex: string): Promise<ThreatCrowdEnrichment> {
+  async fetchThreatCrowdMutexData(mutex: string): Promise<any> {
     if (!mutex || typeof mutex !== 'string') {
       throw new Error('Invalid mutex value');
     }
-
     const response = await this.fetchApi('threatcrowd', '/mutex/report', {
-      params: { resource: mutex }
+      params: { resource: mutex },
     });
-
     if (!response || response.response_code !== '200') {
-      throw new Error(response?.response_code || 'Invalid ThreatCrowd response');
+      return {
+        response_code: response?.response_code || '0',
+        hashes: [],
+        domains: [],
+      };
     }
-
-    return response;
+    return {
+      response_code: response.response_code,
+      hashes: response.hashes || [],
+      domains: response.domains || [],
+    };
   }
 
-  async fetchMispData(value: string): Promise<MISPEnrichment> {
+  async fetchMispData(value: string): Promise<any> {
     if (!value || typeof value !== 'string') {
       throw new Error('Invalid search value');
     }
-
     const response = await this.fetchApi('misp', '/attributes/restSearch', {
       method: 'post',
-      data: { value, type: 'all', includeContext: true }
+      data: { value, type: 'all', includeContext: true },
     });
-
     if (!response || !response.response) {
-      throw new Error('Invalid MISP response');
+      return {
+        response: {
+          Attribute: [],
+        },
+      };
     }
-
-    return response;
+    return {
+      response: {
+        Attribute: response.response.Attribute || [],
+      },
+    };
   }
 
   async onModuleDestroy() {

@@ -1,5 +1,6 @@
 import { parse } from 'tldts';
 import { GenericStixObject, StixType } from './feed.types';
+import { Logger } from '@nestjs/common';
 import {
   MITRE_MAPPING,
   LOCKHEED_MAPPING,
@@ -17,55 +18,79 @@ import * as net from 'net';
 export class FeedUtils {
   /**
    * Calculates a confidence score (0-100) for an indicator based on multiple factors.
-   * Enhanced with new enrichment sources (hybrid, threatcrowd, misp) and SHA-512 support.
+   * Updated to use concise EnrichmentData fields from EnrichmentService.
    */
   static calculateConfidence(indicator: GenericStixObject): number {
+    const logger = new Logger('FeedUtils');
+
+    // Assume DEFAULT_CONFIDENCE is 90; adjust in feed.constants if needed
     let confidence = DEFAULT_CONFIDENCE;
-  
-    if (indicator.validated) confidence += 5;
-    if (indicator.references?.length) confidence += Math.min(indicator.references.length * 2, 10);
-  
-    const vtStats = indicator.enrichment?.virustotal?.data?.attributes?.last_analysis_stats;
-    if (vtStats) {
-      const totalScans = (vtStats.malicious || 0) + (vtStats.undetected || 0) + (vtStats.total || 0);
-      const detectionRate = totalScans > 0 ? (vtStats.malicious || 0) / totalScans : 0;
-      confidence += Math.round(detectionRate * 20);
+    const contributions: Record<string, number> = { base: DEFAULT_CONFIDENCE };
+
+    // Basic checks
+    if (indicator.validated === true) {
+      confidence += 5;
+      contributions.validated = 5;
     }
-  
-    if (indicator.enrichment?.abuseipdb?.data?.totalReports) {
-      confidence += Math.min(Math.floor(indicator.enrichment.abuseipdb.data.totalReports / 5), 15);
+
+    if (Array.isArray(indicator.references) && indicator.references.length > 0) {
+      const refScore = Math.min(indicator.references.length * 2, 10);
+      confidence += refScore;
+      contributions.references = refScore;
     }
-  
-    if (indicator.enrichment?.threatfox?.data?.length) {
-      confidence += Math.min(indicator.enrichment.threatfox.data.length * 3, 10);
+
+    // Simplified enrichment checks
+    if (indicator.enrichment && typeof indicator.enrichment === 'object') {
+      const vtStats = indicator.enrichment.virustotal?.data?.attributes?.last_analysis_stats;
+      if (vtStats && typeof vtStats === 'object') {
+        const totalScans = (vtStats.malicious || 0) + (vtStats.undetected || 0) + (vtStats.harmless || 0) + (vtStats.suspicious || 0);
+        const detectionRate = totalScans > 0 ? vtStats.malicious / totalScans : 0;
+        const vtScore = Math.round(detectionRate * 20);
+        confidence += vtScore;
+        contributions.virustotal = vtScore;
+      }
+
+      if (indicator.enrichment.abuseipdb?.data?.totalReports > 0) {
+        const abuseScore = Math.min(Math.floor(indicator.enrichment.abuseipdb.data.totalReports / 5), 10);
+        confidence += abuseScore;
+        contributions.abuseipdb = abuseScore;
+      }
+
+      if (indicator.enrichment.threatfox?.data?.malware) {
+        confidence += 5;
+        contributions.threatfox = 5;
+      }
+    } else {
+      confidence -= 5;
+      contributions.noEnrichment = -5;
     }
-  
-    if (indicator.enrichment?.hybrid?.summary?.threat_score) {
-      confidence += Math.min(Math.floor(indicator.enrichment.hybrid.summary.threat_score / 10), 15);
+
+    // Age check
+    if (indicator.created && typeof indicator.created === 'string') {
+      try {
+        const createdDate = new Date(indicator.created);
+        if (isNaN(createdDate.getTime())) throw new Error('Invalid date');
+        const ageDays = (Date.now() - createdDate.getTime()) / (1000 * 60 * 60 * 24);
+        if (ageDays < 7) {
+          confidence += 5;
+          contributions.recent = 5;
+        } else if (ageDays > 30) {
+          const penalty = Math.min(Math.floor(ageDays / 30) * 5, 15);
+          confidence -= penalty;
+          contributions.agePenalty = -penalty;
+        }
+      } catch (error) {
+        logger.warn('Invalid created date', { created: indicator.created, error: error.message });
+      }
     }
-  
-    if (indicator.enrichment?.threatcrowd?.hashes?.length) {
-      confidence += Math.min(indicator.enrichment.threatcrowd.hashes.length * 2, 10);
-    }
-  
-    if (indicator.enrichment?.misp?.events?.length) {
-      confidence += Math.min(indicator.enrichment.misp.events.length * 3, 12);
-    }
-  
-    if (indicator.reputation) {
-      confidence += Math.min(Math.floor(indicator.reputation / 10), 10);
-    }
-  
-    if (indicator.created) {
-      const ageDays = (Date.now() - new Date(indicator.created).getTime()) / (1000 * 60 * 60 * 24);
-      if (ageDays < 7) confidence += 5;
-      else if (ageDays > 90) confidence -= Math.min(Math.floor(ageDays / 30) * 3, 20);
-    }
-  
-    return Math.max(0, Math.min(confidence, 100));
+
+    // Final score
+    const finalConfidence = Math.max(0, Math.min(confidence, 100));
+    return finalConfidence;
   }
+
   /**
-   * Determines kill chain phases with improved logic using new enrichment data.
+   * Determines kill chain phases using concise EnrichmentData.
    */
   static determineKillChainPhases(indicator: GenericStixObject): KillChainPhase[] {
     const phases: KillChainPhase[] = [];
@@ -84,7 +109,7 @@ export class FeedUtils {
       if (mapping.condition(type, desc)) addPhase('lockheed-martin-cyber-kill-chain', mapping.phase);
     });
 
-    // Enhanced with new enrichment data
+    // Updated for concise enrichment data
     if (indicator.enrichment?.virustotal?.data?.attributes?.last_analysis_stats?.malicious > 0) {
       addPhase('mitre-attack', 'execution');
     }
@@ -94,14 +119,14 @@ export class FeedUtils {
     if (indicator.enrichment?.abuseipdb?.data?.totalReports > 10) {
       addPhase('lockheed-martin-cyber-kill-chain', 'actions-on-objectives');
     }
-    if (indicator.enrichment?.hybrid?.summary?.verdict === 'malicious') {
-      addPhase('mitre-attack', 'execution'); // Malware execution
+    if (indicator.enrichment?.hybrid?.result?.verdict === 'malicious') {
+      addPhase('mitre-attack', 'execution');
     }
-    if (indicator.enrichment?.threatcrowd?.ips?.length) {
-      addPhase('mitre-attack', 'lateral-movement'); // IP-based lateral movement
+    if (indicator.enrichment?.threatcrowd?.domains?.length) {
+      addPhase('mitre-attack', 'command-and-control'); // Domains suggest C2
     }
-    if (indicator.enrichment?.misp?.events?.some(e => e.Event?.tags?.includes('malware'))) {
-      addPhase('mitre-attack', 'execution'); // MISP malware tag
+    if (indicator.enrichment?.misp?.response?.Attribute?.some(a => a.category === 'malware')) {
+      addPhase('mitre-attack', 'execution');
     }
 
     return [...new Set(phases.map(p => `${p.kill_chain_name}:${p.phase_name}`))].map((unique, idx) => ({
@@ -111,61 +136,138 @@ export class FeedUtils {
     }));
   }
 
-  /**
-   * Identifies STIX type with improved validation using tldts for domains and strict hash checks.
-   */
   static identifyStixType(obj: GenericStixObject): StixType {
+    const logger = new Logger('FeedUtils');
+
+    // Hash patterns for file indicators
+    const hashPatterns = {
+      md5: /^[a-fA-F0-9]{32}$/,
+      sha1: /^[a-fA-F0-9]{40}$/,
+      sha256: /^[a-fA-F0-9]{64}$/,
+      sha512: /^[a-fA-F0-9]{128}$/,
+    };
+
     // Validate hashes for file indicators
     if (obj.hashes && Object.keys(obj.hashes).length > 0) {
       const validHash = Object.values(obj.hashes).every(hash =>
-        TYPE_PATTERNS.md5.test(hash) ||
-        TYPE_PATTERNS.sha1.test(hash) ||
-        TYPE_PATTERNS.sha256.test(hash) ||
-        TYPE_PATTERNS.sha512.test(hash)
+        hashPatterns.md5.test(hash) ||
+        hashPatterns.sha1.test(hash) ||
+        hashPatterns.sha256.test(hash) ||
+        hashPatterns.sha512.test(hash)
       );
       return validHash ? 'file' : 'indicator';
     }
 
     // Validate value-based indicators
     if (obj.value) {
-      // URL: Use strict TYPE_PATTERNS check
-      if (TYPE_PATTERNS.url.test(obj.value)) return 'url';
+      // Hash check for raw values
+      if (
+        hashPatterns.md5.test(obj.value) ||
+        hashPatterns.sha1.test(obj.value) ||
+        hashPatterns.sha256.test(obj.value) ||
+        hashPatterns.sha512.test(obj.value)
+      ) {
+        return 'file';
+      }
+
       // Domain: Use tldts for robust validation
       const parsed = parse(obj.value);
-      if (parsed.domain && parsed.publicSuffix && !obj.value.includes('/')) return 'domain-name';
+      if (parsed.domain && parsed.publicSuffix && !obj.value.includes(' ')) {
+        return 'domain-name';
+      }
+
+      // URL: Require protocol and path/query
+      const urlPattern = /^(https?:\/\/)[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/;
+      if (
+        urlPattern.test(obj.value) ||
+        (TYPE_PATTERNS.url.test(obj.value) && /^(https?:\/\/)/.test(obj.value)) ||
+        (obj.value.includes('/') && obj.value.includes('?'))
+      ) {
+        return 'url';
+      }
+
       // IP addresses
-      if (net.isIP(obj.value)) return net.isIPv6(obj.value) ? 'ipv6-addr' : 'ipv4-addr';
-      if (TYPE_PATTERNS['ipv6-addr'].test(obj.value)) return 'ipv6-addr';
+      if (net.isIP(obj.value)) {
+        return net.isIPv6(obj.value) ? 'ipv6-addr' : 'ipv4-addr';
+      }
+      if (TYPE_PATTERNS['ipv6-addr'].test(obj.value)) {
+        return 'ipv6-addr';
+      }
+
       // MAC address
-      if (TYPE_PATTERNS['mac-address'].test(obj.value)) return 'mac-address';
+      if (TYPE_PATTERNS['mac-address'].test(obj.value)) {
+        return 'mac-address';
+      }
+
       // Email address
-      if (TYPE_PATTERNS['email-address'].test(obj.value)) return 'email-addr';
+      if (TYPE_PATTERNS['email-address'].test(obj.value)) {
+        return 'email-addr';
+      }
     }
 
     // Validate indicator field
     if (obj.indicator) {
-      if (TYPE_PATTERNS['ipv4-addr'].test(obj.indicator)) return 'ipv4-addr';
-      if (TYPE_PATTERNS['ipv6-addr'].test(obj.indicator)) return 'ipv6-addr';
-      if (TYPE_PATTERNS.url.test(obj.indicator)) return 'url';
-      if (TYPE_PATTERNS['email-address'].test(obj.indicator)) return 'email-addr';
-      if (TYPE_PATTERNS['mac-address'].test(obj.indicator)) return 'mac-address';
+      // Hash check for raw indicators
       if (
-        TYPE_PATTERNS.md5.test(obj.indicator) ||
-        TYPE_PATTERNS.sha1.test(obj.indicator) ||
-        TYPE_PATTERNS.sha256.test(obj.indicator) ||
-        TYPE_PATTERNS.sha512.test(obj.indicator)
-      ) return 'file';
+        hashPatterns.md5.test(obj.indicator) ||
+        hashPatterns.sha1.test(obj.indicator) ||
+        hashPatterns.sha256.test(obj.indicator) ||
+        hashPatterns.sha512.test(obj.indicator)
+      ) {
+        return 'file';
+      }
+
+      // Domain: Use tldts to validate
       const parsed = parse(obj.indicator);
-      if (parsed.domain && parsed.publicSuffix && !obj.indicator.includes(' ')) return 'domain-name';
+      if (parsed.domain && parsed.publicSuffix && !obj.indicator.includes(' ')) {
+        return 'domain-name';
+      }
+
+      // URL: Require protocol and path/query
+      const urlPattern = /^(https?:\/\/)[a-zA-F0-9.-]+\.[a-zA-Z]{2,}(\/.*)?$/;
+      if (
+        urlPattern.test(obj.indicator) ||
+        (TYPE_PATTERNS.url.test(obj.indicator) && /^(https?:\/\/)/.test(obj.indicator)) ||
+        (obj.indicator.includes('/') && obj.indicator.includes('?'))
+      ) {
+        return 'url';
+      }
+
+      // IP addresses
+      if (TYPE_PATTERNS['ipv4-addr'].test(obj.indicator)) {
+        return 'ipv4-addr';
+      }
+      if (TYPE_PATTERNS['ipv6-addr'].test(obj.indicator)) {
+        return 'ipv6-addr';
+      }
+
+      // Email address
+      if (TYPE_PATTERNS['email-address'].test(obj.indicator)) {
+        return 'email-addr';
+      }
+
+      // MAC address
+      if (TYPE_PATTERNS['mac-address'].test(obj.indicator)) {
+        return 'mac-address';
+      }
+
       return 'indicator';
     }
 
     // Named objects (malware, threat-actor, etc.)
     if (obj.name) {
-      if (obj.labels?.includes('malicious') || obj.malwareTypes?.length) return 'malware';
-      if (obj.threatActorTypes?.length || obj.roles?.length) return 'threat-actor';
-      if (obj.labels?.includes('campaign')) return 'campaign';
-      if (obj.labels?.includes('tool')) return 'tool';
+      if (obj.labels?.includes('malicious') || obj.malwareTypes?.length) {
+        return 'malware';
+      }
+      if (obj.threatActorTypes?.length || obj.roles?.length) {
+        return 'threat-actor';
+      }
+      if (obj.labels?.includes('campaign')) {
+        return 'campaign';
+      }
+      if (obj.labels?.includes('tool')) {
+        return 'tool';
+      }
     }
 
     // Fallback to provided type or 'observed-data'
@@ -188,7 +290,7 @@ export class FeedUtils {
   }
 
   /**
-   * Builds a detailed description with new enrichment data (hybrid, threatcrowd, misp).
+   * Builds a detailed description using concise EnrichmentData.
    */
   static buildDescription(indicator: GenericStixObject): string {
     const parts: string[] = [
@@ -204,17 +306,19 @@ export class FeedUtils {
       const enrichmentParts: string[] = [];
       if (indicator.enrichment.geo?.country_name) {
         enrichmentParts.push(
-          `- **Geolocation:** ${indicator.enrichment.geo.country_name} (Lat: ${indicator.enrichment.geo.lat || 'N/A'}, Lon: ${indicator.enrichment.geo.lon || 'N/A'})`,
+          `- **Geolocation:** ${indicator.enrichment.geo.country_name} (${indicator.enrichment.geo.country_code}), City: ${indicator.enrichment.geo.city || 'N/A'}`,
         );
       }
-      if (indicator.enrichment.whois?.WhoisRecord) {
-        const { registrarName, createdDate } = indicator.enrichment.whois.WhoisRecord;
-        enrichmentParts.push(`- **Whois:** Registrar: ${registrarName || 'N/A'}, Created: ${createdDate || 'N/A'}`);
+      if (indicator.enrichment.whois?.domainName) {
+        enrichmentParts.push(
+          `- **Whois:** Domain: ${indicator.enrichment.whois.domainName}, Registrar: ${indicator.enrichment.whois.registrarName || 'N/A'}, Created: ${indicator.enrichment.whois.createdDate || 'N/A'}`,
+        );
       }
       if (indicator.enrichment.virustotal?.data?.attributes?.last_analysis_stats) {
         const stats = indicator.enrichment.virustotal.data.attributes.last_analysis_stats;
+        const total = stats.malicious + stats.undetected + stats.harmless + stats.suspicious;
         enrichmentParts.push(
-          `- **VirusTotal:** ${stats.malicious}/${stats.total ?? stats.malicious + (stats.undetected ?? 0)} malicious scans`,
+          `- **VirusTotal:** ${stats.malicious}/${total} malicious scans, Reputation: ${indicator.enrichment.virustotal.data.attributes.reputation || 'N/A'}`,
         );
       }
       if (indicator.enrichment.abuseipdb?.data) {
@@ -222,44 +326,44 @@ export class FeedUtils {
           `- **AbuseIPDB:** ${indicator.enrichment.abuseipdb.data.totalReports || 0} reports, Score: ${indicator.enrichment.abuseipdb.data.abuseConfidenceScore || 'N/A'}`,
         );
       }
-      if (indicator.enrichment.shodan?.hostnames?.length) {
+      if (indicator.enrichment.shodan?.ip) {
         enrichmentParts.push(
-          `- **Shodan:** Hostnames: ${indicator.enrichment.shodan.hostnames.join(', ')}, Ports: ${indicator.enrichment.shodan.ports?.join(', ') || 'N/A'}`,
+          `- **Shodan:** IP: ${indicator.enrichment.shodan.ip}, Org: ${indicator.enrichment.shodan.org || 'N/A'}, OS: ${indicator.enrichment.shodan.os || 'N/A'}`,
         );
       }
-      if (indicator.enrichment.threatfox?.data?.length) {
+      if (indicator.enrichment.threatfox?.data) {
         enrichmentParts.push(
-          `- **ThreatFox:** ${indicator.enrichment.threatfox.data.length} IOCs, Malware: ${indicator.enrichment.threatfox.data[0]?.malware || 'N/A'}`,
+          `- **ThreatFox:** Type: ${indicator.enrichment.threatfox.data.threat_type || 'N/A'}, Malware: ${indicator.enrichment.threatfox.data.malware || 'N/A'}`,
         );
       }
       if (indicator.enrichment.dns?.Answer?.length) {
         enrichmentParts.push(
-          `- **DNS:** ${indicator.enrichment.dns.Answer.map((a: any) => `${a.type}: ${a.data}`).join(', ')}`,
+          `- **DNS:** ${indicator.enrichment.dns.Answer.map(a => `${a.type}: ${a.data} (TTL: ${a.TTL})`).join(', ')}`,
         );
       }
       if (indicator.enrichment.ssl?.endpoints?.length) {
         enrichmentParts.push(
-          `- **SSL:** Grade: ${indicator.enrichment.ssl.endpoints[0].grade || 'N/A'}, Protocols: ${indicator.enrichment.ssl.endpoints[0].protocols?.map((p: any) => p.name).join(', ') || 'N/A'}`,
+          `- **SSL:** Grade: ${indicator.enrichment.ssl.endpoints[0].grade || 'N/A'}, Server: ${indicator.enrichment.ssl.endpoints[0].serverName || 'N/A'}`,
         );
       }
-      if (indicator.enrichment.asn) {
+      if (indicator.enrichment.asn?.asn) {
         enrichmentParts.push(
-          `- **ASN:** ${indicator.enrichment.asn.asn || 'N/A'} (${indicator.enrichment.asn.org || 'Unknown'})`,
+          `- **ASN:** ${indicator.enrichment.asn.asn} (${indicator.enrichment.asn.org || 'Unknown'})`,
         );
       }
-      if (indicator.enrichment.hybrid?.summary) {
+      if (indicator.enrichment.hybrid?.result) {
         enrichmentParts.push(
-          `- **Hybrid Analysis:** Threat Score: ${indicator.enrichment.hybrid.summary.threat_score || 'N/A'}, Verdict: ${indicator.enrichment.hybrid.summary.verdict || 'N/A'}`,
+          `- **Hybrid Analysis:** Verdict: ${indicator.enrichment.hybrid.result.verdict || 'N/A'}, Score: ${indicator.enrichment.hybrid.result.threat_score || 'N/A'}, Submissions: ${indicator.enrichment.hybrid.result.submissions || 0}`,
         );
       }
-      if (indicator.enrichment.threatcrowd) {
+      if (indicator.enrichment.threatcrowd?.hashes?.length || indicator.enrichment.threatcrowd?.domains?.length) {
         enrichmentParts.push(
-          `- **ThreatCrowd:** Hashes: ${indicator.enrichment.threatcrowd.hashes?.length || 0}, IPs: ${indicator.enrichment.threatcrowd.ips?.length || 0}`,
+          `- **ThreatCrowd:** Hashes: ${indicator.enrichment.threatcrowd.hashes?.length || 0}, Domains: ${indicator.enrichment.threatcrowd.domains?.length || 0}`,
         );
       }
-      if (indicator.enrichment.misp?.events?.length) {
+      if (indicator.enrichment.misp?.response?.Attribute?.length) {
         enrichmentParts.push(
-          `- **MISP:** Events: ${indicator.enrichment.misp.events.length}, Tags: ${indicator.enrichment.misp.events[0]?.Event?.tags?.join(', ') || 'N/A'}`,
+          `- **MISP:** Attributes: ${indicator.enrichment.misp.response.Attribute.length}, First: ${indicator.enrichment.misp.response.Attribute[0]?.type || 'N/A'} (${indicator.enrichment.misp.response.Attribute[0]?.value || 'N/A'})`,
         );
       }
       if (enrichmentParts.length) parts.push(`**Enrichment Data:**\n${enrichmentParts.join('\n')}`);
@@ -272,7 +376,7 @@ export class FeedUtils {
   }
 
   /**
-   * Creates a complex STIX pattern with new enrichment data.
+   * Creates STIX pattern using concise EnrichmentData.
    */
   static createStixPattern(indicator: GenericStixObject): STIXPattern {
     const primaryValue = indicator.indicator || indicator.value || indicator.name || Object.values(indicator.hashes || {})[0];
@@ -283,34 +387,37 @@ export class FeedUtils {
     const escapeValue = (val: string) => val.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
 
     const stixType = this.identifyStixType(indicator);
-    const patternKey = this.getPatternKey(stixType);
-    let pattern = `[${patternKey} = '${escapeValue(primaryValue)}']`;
+    let patternKey = this.getPatternKey(stixType);
+    let pattern;
+
+    // Handle file hashes
+    if (stixType === 'file') {
+      const hashPatterns = {
+        md5: /^[a-fA-F0-9]{32}$/,
+        sha1: /^[a-fA-F0-9]{40}$/,
+        sha256: /^[a-fA-F0-9]{64}$/,
+        sha512: /^[a-fA-F0-9]{128}$/,
+      };
+      let hashType = 'MD5';
+      if (hashPatterns.sha1.test(primaryValue)) hashType = 'SHA-1';
+      else if (hashPatterns.sha256.test(primaryValue)) hashType = 'SHA-256';
+      else if (hashPatterns.sha512.test(primaryValue)) hashType = 'SHA-512';
+      pattern = `[file:hashes.'${hashType}' = '${escapeValue(primaryValue)}']`;
+    } else {
+      pattern = `[${patternKey} = '${escapeValue(primaryValue)}']`;
+    }
 
     // Add enrichment-based conditions
     if (stixType === 'domain-name' && indicator.enrichment?.dns?.Answer?.length) {
-      const dnsValues = indicator.enrichment.dns.Answer.map((a: any) => escapeValue(a.data));
+      const dnsValues = indicator.enrichment.dns.Answer.map(a => escapeValue(a.data));
       pattern += ` AND [domain-name:resolves_to_refs.value IN (${dnsValues.map(v => `'${v}'`).join(', ')})]`;
     }
     if ((stixType === 'ipv4-addr' || stixType === 'ipv6-addr') && indicator.enrichment?.asn?.asn) {
       pattern += ` AND [autonomous-system:number = '${escapeValue(indicator.enrichment.asn.asn)}']`;
     }
-    if (stixType === 'file' && indicator.enrichment?.virustotal?.data?.attributes?.names?.length) {
-      const fileNames = indicator.enrichment.virustotal.data.attributes.names.map(escapeValue);
-      pattern += ` AND [file:name IN (${fileNames.map(n => `'${n}'`).join(', ')})]`;
-    }
-    if (stixType === 'file' && indicator.enrichment?.hybrid?.hashes) {
-      const hashes = Object.entries(indicator.enrichment.hybrid.hashes)
-        .filter(([_, value]) => value)
-        .map(([type, value]) => `${type.toUpperCase()} = '${escapeValue(value as string)}'`);
-      if (hashes.length) pattern += ` AND [file:hashes.(${hashes.join(' OR ')})]`;
-    }
-    if (stixType === 'mutex' && indicator.enrichment?.threatcrowd?.hashes?.length) {
-      const relatedHashes = indicator.enrichment.threatcrowd.hashes.map(escapeValue);
-      pattern += ` AND [file:hashes.'SHA-256' IN (${relatedHashes.map(h => `'${h}'`).join(', ')})]`;
-    }
-    if (stixType === 'malware' && indicator.enrichment?.misp?.events?.length) {
-      const mispTags = indicator.enrichment.misp.events.flatMap(e => e.Event?.tags || []).map(escapeValue);
-      if (mispTags.length) pattern += ` AND [malware:labels IN (${mispTags.map(t => `'${t}'`).join(', ')})]`;
+    if (stixType === 'malware' && indicator.enrichment?.misp?.response?.Attribute?.length) {
+      const mispTypes = indicator.enrichment.misp.response.Attribute.filter(a => a.category === 'malware').map(a => escapeValue(a.type));
+      if (mispTypes.length) pattern += ` AND [malware:labels IN (${mispTypes.map(t => `'${t}'`).join(', ')})]`;
     }
 
     return {

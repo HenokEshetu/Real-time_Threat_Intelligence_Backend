@@ -79,6 +79,7 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
         'FileHash-SHA256': 'file',
         CVE: 'indicator',
         YARA: 'indicator',
+        email: 'email-addr',
       };
       const stixType = (typeMap[raw.type] || 'observed-data') as StixType;
       const hashTypes: Record<string, string> = {
@@ -86,8 +87,16 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
         'FileHash-SHA1': 'SHA-1',
         'FileHash-SHA256': 'SHA-256',
       };
+  
+      // Determine the value field
+      const value = raw.indicator || raw.value || raw.ioc || raw.address || raw.domain;
+      if (!value && (stixType === 'ipv4-addr' || stixType === 'domain-name' || stixType === 'url')) {
+        console.warn(`Missing value for ${stixType} in AlienVault OTX data: ${JSON.stringify(raw)}`);
+        return null;
+      }
+  
       const baseObj: GenericStixObject = {
-        id: `${stixType}--${raw.indicator || uuidv4()}`,
+        id: `${stixType}--${value || uuidv4()}`,
         type: stixType,
         spec_version: '2.1',
         created: raw.created || new Date().toISOString(),
@@ -99,38 +108,40 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
               {
                 id: uuidv4(),
                 source_name: 'AlienVault OTX',
-                external_id: raw.indicator,
+                external_id: value || raw.indicator,
                 url: `https://otx.alienvault.com/pulse/${raw.pulse_info?.id || raw.pulse_id}`,
                 description: 'OTX pulse indicator',
               },
             ]
           : [],
       };
-
+  
       switch (stixType) {
         case 'ipv4-addr':
         case 'ipv6-addr':
         case 'domain-name':
         case 'url':
-          return { ...baseObj, value: raw.indicator };
+          return { ...baseObj, value, indicator: value }; // Set both value and indicator
         case 'file':
           return {
             ...baseObj,
             hashes: {
-              [hashTypes[raw.type]]: raw.indicator,
-              MD5: raw.type === 'FileHash-MD5' ? raw.indicator : '',
-              'SHA-1': raw.type === 'FileHash-SHA1' ? raw.indicator : '',
-              'SHA-256': raw.type === 'FileHash-SHA256' ? raw.indicator : '',
+              [hashTypes[raw.type]]: value,
+              MD5: raw.type === 'FileHash-MD5' ? value : '',
+              'SHA-1': raw.type === 'FileHash-SHA1' ? value : '',
+              'SHA-256': raw.type === 'FileHash-SHA256' ? value : '',
               'SHA-512': '',
             },
           };
         case 'indicator':
           return {
             ...baseObj,
-            indicator: raw.indicator,
-            pattern: `[${raw.type.toLowerCase()}='${raw.indicator}']`,
+            indicator: value,
+            pattern: `[${raw.type.toLowerCase()}='${value}']`,
             pattern_type: 'stix',
           };
+          case 'email-addr': 
+          return { ...baseObj, value, indicator: value };
         default:
           return {
             ...baseObj,
@@ -139,7 +150,7 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
           };
       }
     } catch (e) {
-      console.error(`Mapper error: ${(e as Error).message}`);
+      console.error(`Mapper error: ${(e as Error).message}`, { raw: JSON.stringify(raw) });
       return null;
     }
   },

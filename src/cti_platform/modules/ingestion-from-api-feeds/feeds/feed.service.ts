@@ -82,6 +82,7 @@ import { CreateRelationshipInput } from '../../stix-objects/relationships/relati
 import { CreateBundleInput } from '../../stix-objects/bundle/bundle.input';
 import { CreateX509CertificateInput } from '../../stix-objects/cyber-observables/x.509-certificate/x509-certificate.input';
 
+import * as Joi from 'joi';
 
 import { Injectable, InternalServerErrorException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectQueue, Process, Processor } from '@nestjs/bull';
@@ -102,13 +103,24 @@ import {
   STIX_SPEC_VERSION,
 } from './feed.constants';
 
+type EnrichmentServiceKey =
+  | 'geo'
+  | 'whois'
+  | 'virustotal'
+  | 'abuseipdb'
+  | 'shodan'
+  | 'threatfox'
+  | 'dns'
+  | 'ssl'
+  | 'asn'
+  | 'hybrid'
+  | 'threatcrowd'
+  | 'misp';
 
-// Define a generic StixService interface
 interface StixService<T> {
   create(input: T): Promise<{ id: string; [key: string]: any }>;
 }
 
-// Union of all Create*Input types
 type StixCreateInput =
   | CreateArtifactInput
   | CreateAutonomousSystemInput
@@ -164,9 +176,25 @@ export class FeedIngesterService implements OnModuleInit {
   private readonly logger = new Logger(FeedIngesterService.name);
   private readonly defaultCreatedByRef: string;
   private readonly concurrency: number = parseInt(process.env.FEED_CONCURRENCY || '10', 10);
-  private readonly defaultSchedule: string = process.env.FEED_SCHEDULE || '*/2 * * * *'; // Default: every 2 minutes
+  private readonly defaultSchedule: string = process.env.FEED_SCHEDULE || '*/2 * * * *';
   private readonly defaultTimeout: number = parseInt(process.env.FEED_TIMEOUT || `${DEFAULT_TIMEOUT}`, 10);
-  private readonly limiters: Map<string, Bottleneck> = new Map(); // Store limiters per feed
+  private readonly limiters: Map<string, Bottleneck> = new Map();
+  private readonly debugLogging: boolean = process.env.DEBUG_LOGGING === 'true';
+
+  private readonly stixTypeToServices: Record<string, string[]> = {
+    'ipv4-addr': ['geo', 'virustotal', 'abuseipdb', 'shodan', 'threatfox', 'asn', 'threatcrowd', 'misp'],
+    'ipv6-addr': ['geo', 'virustotal', 'abuseipdb', 'threatfox', 'asn', 'threatcrowd', 'misp'],
+    'domain-name': ['whois', 'virustotal', 'threatfox', 'dns', 'ssl', 'threatcrowd', 'misp'],
+    'url': ['virustotal', 'threatfox', 'dns', 'threatcrowd', 'misp'],
+    'file': ['virustotal', 'hybrid', 'threatfox', 'threatcrowd', 'misp'],
+    'mutex': ['threatcrowd', 'misp'],
+    'autonomous-system': ['asn', 'misp'],
+    'indicator': ['threatfox', 'misp'],
+    'malware': ['threatfox', 'misp'],
+    'threat-actor': ['misp'],
+    // Add other types as needed; default to minimal services
+    default: ['threatfox', 'misp'],
+  };
 
   private readonly serviceFactory: Map<StixType, StixService<any>> = new Map<StixType, StixService<any>>([
     ['artifact', this.artifactService],
@@ -264,223 +292,268 @@ export class FeedIngesterService implements OnModuleInit {
     this.logger.log('Feed Ingester Service initialized');
   }
 
+
+  
   private async initializeLimiters() {
-    try {
-      const configs = await this.feedConfigService.getAllConfigs();
-      if (configs.length === 0) {
-        this.logger.warn('No feed configurations found during limiter initialization');
-        return;
-      }
-      for (const config of configs) {
-        this.limiters.set(
-          config.id,
-          new Bottleneck({
-            maxConcurrent: 1,
-            minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY, // Default to 1000ms
-          }),
-        );
-        this.logger.debug(`Initialized rate limiter for feed ${config.id} with rateLimitDelay ${config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY}ms`);
-      }
-      this.logger.log(`Initialized ${this.limiters.size} rate limiters`);
-    } catch (error) {
-      this.logger.error(`Failed to initialize rate limiters: ${error instanceof Error ? error.message : error}`);
-      throw new InternalServerErrorException('Failed to initialize rate limiters');
+    const configs = await this.feedConfigService.getAllConfigs();
+    if (!configs.length) {
+      this.logger.warn('No feed configurations found');
+      return;
     }
+    for (const config of configs) {
+      this.limiters.set(
+        config.id,
+        new Bottleneck({
+          maxConcurrent: 1,
+          minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY,
+        }),
+      );
+    }
+    this.logger.log(`Initialized ${this.limiters.size} rate limiters`);
   }
 
   private async scheduleFeedProcessing(): Promise<void> {
-    try {
-      await this.feedQueue.empty();
-      const repeatableJobs = await this.feedQueue.getRepeatableJobs();
-      for (const job of repeatableJobs) {
-        await this.feedQueue.removeRepeatableByKey(job.key);
-      }
-
-      const configs = await this.feedConfigService.getAllConfigs();
-      if (configs.length === 0) {
-        this.logger.warn('No feed configurations found');
-        return;
-      }
-
-      const schedule = configs[0].schedule || this.defaultSchedule;
-      await this.feedQueue.add(
-        'processAllFeeds',
-        {},
-        { repeat: { cron: schedule }, jobId: `all-feeds-${uuidv4()}` },
-      );
-      this.logger.log(`Scheduled feed processing with cron ${schedule}`);
-    } catch (error) {
-      this.logger.error(`Failed to schedule feed processing: ${error instanceof Error ? error.message : error}`);
-      throw new InternalServerErrorException('Failed to initialize feed scheduler');
+    await this.feedQueue.empty();
+    const repeatableJobs = await this.feedQueue.getRepeatableJobs();
+    for (const job of repeatableJobs) {
+      await this.feedQueue.removeRepeatableByKey(job.key);
     }
+
+    const configs = await this.feedConfigService.getAllConfigs();
+    if (!configs.length) {
+      this.logger.warn('No feed configurations found');
+      return;
+    }
+
+    const schedule = configs[0].schedule || this.defaultSchedule;
+    await this.feedQueue.add(
+      'processAllFeeds',
+      {},
+      { repeat: { cron: schedule }, jobId: `all-feeds-${uuidv4()}` },
+    );
+    this.logger.log(`Scheduled feed processing with cron ${schedule}`);
   }
 
   @Process('processAllFeeds')
   async handleProcessAllFeeds(job: Job): Promise<void> {
     this.logger.log(`Starting job ${job.id} to process all feeds`);
-    try {
-      const configs = await this.feedConfigService.getAllConfigs();
-      if (configs.length === 0) {
-        this.logger.warn(`No feed configurations for job ${job.id}`);
-        return;
-      }
-
-      await Promise.all(
-        configs.map(config =>
-          this.processFeed(config).catch(error => {
-            this.logger.error(`Failed to process feed ${config.name}: ${error instanceof Error ? error.message : error}`);
-          }),
-        ),
-      );
-      this.logger.log(`Job ${job.id} completed`);
-    } catch (error) {
-      this.logger.error(`Job ${job.id} failed: ${error instanceof Error ? error.message : error}`);
-      throw new InternalServerErrorException(`Feed processing failed: ${error instanceof Error ? error.message : error}`);
+    const configs = await this.feedConfigService.getAllConfigs();
+    if (!configs.length) {
+      this.logger.warn(`No feed configurations for job ${job.id}`);
+      return;
     }
+
+    await Promise.all(
+      configs.map(config =>
+        this.processFeed(config).catch(error => {
+          this.logger.error(`Failed to process feed ${config.name}`, { error: error.message, feed: config.name });
+        }),
+      ),
+    );
+    this.logger.log(`Job ${job.id} completed`);
   }
 
   private async processFeed(config: FeedProviderConfig): Promise<void> {
     const startTime = Date.now();
-    this.logger.log(`Processing feed ${config.name}`);
+    this.logger.log(`Processing feed ${config.name}`, { feed: config.name });
     let indicators: GenericStixObject[] = [];
-
+  
     try {
       indicators = await this.fetchStixObjects(config, 0);
       if (!indicators.length) {
-        this.logger.warn(`No indicators fetched from ${config.name}`);
+        this.logger.warn(`No indicators fetched from ${config.name}`, { feed: config.name });
         return;
       }
     } catch (error) {
-      this.logger.error(`Failed to fetch indicators from ${config.name}: ${error instanceof Error ? error.message : error}`);
+      this.logger.error(`Failed to fetch indicators from ${config.name}`, { error: error.message, feed: config.name });
       throw error;
     }
-
+  
+    let successCount = 0;
+    let duplicateCount = 0;
     let failedCount = 0;
     const batchSize = config.batchSize || DEFAULT_BATCH_SIZE;
     for (let i = 0; i < indicators.length; i += batchSize) {
       const batch = indicators.slice(i, i + batchSize);
-      const results = await Promise.allSettled(
-        batch.map(indicator =>
-          this.processStixObject(indicator, config).catch(err => {
-            this.logger.error(`Error processing ${indicator.indicator}: ${err instanceof Error ? err.message : err}`);
-            return Promise.reject(err);
-          }),
-        ),
-      );
-      failedCount += results.filter(r => r.status === 'rejected').length;
+      const results = await Promise.allSettled(batch.map(indicator => this.processStixObject(indicator, config)));
+      results.forEach((result, index) => {
+        const indicator = batch[index];
+        const lookupValue = indicator.indicator || indicator.value || indicator.name || (indicator.hashes ? Object.values(indicator.hashes)[0] : 'unknown');
+        if (result.status === 'fulfilled') {
+          if (result.value.success) {
+            if (result.value.isDuplicate) {
+              duplicateCount++;
+            } else {
+              successCount++;
+            }
+          } else {
+            failedCount++;
+          }
+        } else {
+          failedCount++;
+          this.logger.error(`Failed to process ${indicator.type}: ${lookupValue}`, {
+            feed: config.name,
+            error: result.reason.message,
+          });
+        }
+      });
+      if (this.debugLogging) {
+        this.logger.debug(`Batch processed: ${successCount}/${batch.length} stored, ${duplicateCount} duplicates, ${failedCount} failed`, {
+          feed: config.name,
+        });
+      }
       await new Promise(resolve => setTimeout(resolve, config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY));
     }
-
+  
     const elapsedSeconds = (Date.now() - startTime) / 1000;
     this.logger.log(
-      `Completed ${config.name} with ${indicators.length - failedCount}/${indicators.length} objects processed in ${elapsedSeconds}s`,
+      `Completed feed ${config.name}: ${successCount}/${indicators.length} objects stored, ${duplicateCount} duplicates, ${failedCount} failed in ${elapsedSeconds}s`,
+      {
+        feed: config.name,
+        successCount,
+        duplicateCount,
+        failedCount,
+        total: indicators.length,
+        duration: elapsedSeconds,
+      },
     );
   }
 
-  private async processStixObject(obj: GenericStixObject, config: FeedProviderConfig): Promise<boolean> {
-    const loggerContext = `Feed ${config.name}, ID ${obj.id || 'unknown'}`;
-    this.logger.debug(`Processing indicator: ${JSON.stringify(obj, null, 2)} [${loggerContext}]`);
 
+  
+
+  private async processStixObject(obj: GenericStixObject, config: FeedProviderConfig): Promise<{ success: boolean; isDuplicate: boolean }> {
+    const objectId = obj.id || 'unknown';
+    let type = FeedUtils.identifyStixType(obj);
+    const context = { feed: config.name, objectId, type };
+  
+    if (this.debugLogging) {
+      this.logger.debug(`Processing ${type}: ${obj.indicator || obj.value || obj.name}`, context);
+    }
+  
     // Validate indicator
     if (!obj || (!obj.indicator && !obj.value && !obj.name && !obj.hashes)) {
-      this.logger.warn(`Skipping invalid indicator: ${JSON.stringify(obj, null, 2)} [${loggerContext}]`);
-      return false;
+      this.logger.warn(`Skipping invalid indicator: missing required fields`, context);
+      return { success: false, isDuplicate: false };
     }
-
-    const stixType = FeedUtils.identifyStixType(obj);
-
+  
     const lookupValue = obj.indicator || obj.value || obj.name || (obj.hashes ? Object.values(obj.hashes)[0] : undefined);
     if (!lookupValue) {
-      this.logger.warn(`No valid lookup value for indicator: ${JSON.stringify(obj, null, 2)} [${loggerContext}]`);
-      return false;
+      this.logger.warn(`Skipping invalid indicator: no valid lookup value`, context);
+      return { success: false, isDuplicate: false };
     }
-
-    if (await this.lookupService.findByValue(lookupValue, stixType)) {
-      this.logger.debug(`Skipping duplicate ${stixType}: ${lookupValue} [${loggerContext}]`);
-      return true;
+  
+    if (await this.lookupService.findByValue(lookupValue, type)) {
+      this.logger.warn(`Skipping duplicate ${type}: ${lookupValue}`, context);
+      return { success: true, isDuplicate: true };
     }
-
+  
     const normalizedObj = {
       ...obj,
       id: obj.id || uuidv4(),
-      type: stixType,
+      type,
       sourceConfigId: config.id,
     };
-
-    const enrichedResult = await this.enrichmentService.enrichIndicator(normalizedObj);
+  
+    const services = (this.stixTypeToServices[type] || this.stixTypeToServices.default) as EnrichmentServiceKey[];
+    const enrichedResult = await this.enrichmentService.enrichIndicator(normalizedObj, { services });
     const enrichedObj = this.adaptToGenericIndicator(enrichedResult);
-
-    const stixResult = await this.transformToStixInput(enrichedObj, config);
-    const storedObject = await this.storeStixObject(stixResult.type, stixResult.input, enrichedObj);
-
+  
+    if (!enrichedObj.enrichment || Object.keys(enrichedObj.enrichment).length === 0) {
+      this.logger.warn(`No enrichment data available for ${type}: ${lookupValue}`, context);
+    } else if (this.debugLogging) {
+      this.logger.debug(`Enrichment completed for ${type}: ${lookupValue}`, {
+        ...context,
+        enrichmentSources: Object.keys(enrichedObj.enrichment),
+      });
+    }
+  
+    let stixResult: EnrichmentResult;
+    try {
+      stixResult = await this.transformToStixInput(enrichedObj, config);
+    } catch (error) {
+      this.logger.error(`Failed to transform ${type}: ${lookupValue}`, { ...context, error: error.message });
+      if (type === 'domain-name') {
+        this.logger.warn(`Retrying ${lookupValue} as URL`, context);
+        type = 'url';
+        enrichedObj.type = 'url';
+        try {
+          stixResult = await this.transformToStixInput(enrichedObj, config);
+        } catch (retryError) {
+          this.logger.error(`Failed to transform as URL: ${lookupValue}`, { ...context, error: retryError.message });
+          return { success: false, isDuplicate: false };
+        }
+      } else {
+        return { success: false, isDuplicate: false };
+      }
+    }
+  
+    let storedObject: { id: string };
+    try {
+      storedObject = await this.storeStixObject(stixResult.type, stixResult.input, enrichedObj);
+    } catch (error) {
+      this.logger.error(`Failed to store ${type}: ${lookupValue}`, { ...context, error: error.message });
+      return { success: false, isDuplicate: false };
+    }
+  
     const relationships = this.buildInitialRelationships(enrichedObj, storedObject.id);
     if (relationships.length > 0) {
-      await Promise.all(
-        relationships.map(rel =>
-          this.relationshipService.create(rel).catch(err => {
-            this.logger.warn(`Failed to create relationship for ${storedObject.id}: ${err instanceof Error ? err.message : err} [${loggerContext}]`);
-          }),
-        ),
-      );
+      try {
+        await this.createRelationships(storedObject, stixResult);
+      } catch (error) {
+        this.logger.warn(`Failed to create relationships for ${type}: ${storedObject.id}`, {
+          ...context,
+          error: error.message,
+        });
+      }
     }
-
-    this.logger.log(`Successfully processed ${stixType}: ${storedObject.id} [${loggerContext}]`);
-    return true;
+  
+    if (this.debugLogging) {
+      this.logger.debug(`Stored ${type}: ${storedObject.id}`, context);
+    }
+    return { success: true, isDuplicate: false };
   }
+
+
 
   private adaptToGenericIndicator(enrichedResult: any): GenericStixObject {
-    const { enrichment, ...baseIndicator } = enrichedResult;
-
-    const allowedEnrichmentSources = new Set([
-      'geo',
-      'whois',
-      'virustotal',
-      'abuseipdb',
-      'shodan',
-      'threatfox',
-      'dns',
-      'ssl',
-      'asn',
-      'hybrid',
-      'threatcrowd',
-      'misp',
-      'ipinfo',
-    ]);
-
-    const adaptedEnrichment = enrichment
-      ? Object.fromEntries(Object.entries(enrichment).filter(([key]) => allowedEnrichmentSources.has(key)))
-      : undefined;
-
-    return {
-      ...baseIndicator,
-      enrichment: adaptedEnrichment,
-    };
-  }
+  const { enrichment, ...baseIndicator } = enrichedResult;
+  const allowedEnrichmentSources = new Set([
+    'geo',
+    'whois',
+    'virustotal',
+    'abuseipdb',
+    'shodan',
+    'threatfox',
+    'dns',
+    'ssl',
+    'asn',
+    'hybrid',
+    'threatcrowd',
+    'misp',
+  ]);
+  const adaptedEnrichment = enrichment
+    ? Object.fromEntries(
+        Object.entries(enrichment).filter(([key]) => allowedEnrichmentSources.has(key as keyof EnrichmentResult)),
+      )
+    : undefined;
+  return { ...baseIndicator, enrichment: adaptedEnrichment };
+}
 
   private async transformToStixInput(indicator: GenericStixObject, config: FeedProviderConfig): Promise<EnrichmentResult> {
     const type = FeedUtils.identifyStixType(indicator);
     const commonProps = this.createCommonProperties(indicator, config);
     const pattern = FeedUtils.createStixPattern(indicator);
-
     const externalReferences = this.buildExternalReferences(indicator, config);
-
     const baseInput = {
       ...commonProps,
       type,
       external_references: externalReferences.length > 0 ? externalReferences : undefined,
       enrichment: indicator.enrichment,
     };
-
     const typeSpecificInput = this.createTypeSpecificInput(type, baseInput, indicator, pattern);
-
     const relationships = this.buildInitialRelationships(indicator, typeSpecificInput.id);
-
-    return {
-      type,
-      input: typeSpecificInput,
-      relationships,
-      enriched: indicator,
-    };
+    return { type, input: typeSpecificInput, relationships, enriched: indicator };
   }
 
   private createCommonProperties(
@@ -507,7 +580,6 @@ export class FeedIngesterService implements OnModuleInit {
 
   private buildExternalReferences(indicator: GenericStixObject, config: FeedProviderConfig): ExternalReference[] {
     const refs: ExternalReference[] = [];
-
     refs.push({
       id: uuidv4(),
       source_name: config.name,
@@ -515,17 +587,10 @@ export class FeedIngesterService implements OnModuleInit {
       url: indicator.id && config.apiUrl ? `${config.apiUrl}/${indicator.id}` : undefined,
       description: `Original ${config.name} indicator`,
     });
-
     if (Array.isArray(indicator.references) && indicator.references.length) {
-      refs.push(
-        ...indicator.references.map(ref => ({
-          id: uuidv4(),
-          source_name: 'External Reference',
-          url: ref,
-        })),
-      );
+      refs.push(...indicator.references.map(ref => ({ id: uuidv4(), source_name: 'External Reference', url: ref })));
     }
-
+  
     const enrichmentReferenceMap: Record<
       string,
       {
@@ -536,70 +601,106 @@ export class FeedIngesterService implements OnModuleInit {
         externalIdFn?: (indicator: GenericStixObject) => string;
       }
     > = {
+      geo: {
+        sourceName: 'GeoIP',
+        dataKey: 'country_name',
+        urlFn: (indicator) => `https://ipinfo.io/${indicator.indicator}`,
+        descriptionFn: (data) => `Geo: ${data.country_name || 'N/A'} (${data.country_code || 'N/A'})`,
+        externalIdFn: (indicator) => indicator.indicator,
+      },
+      whois: {
+        sourceName: 'Whois',
+        dataKey: 'domainName',
+        urlFn: (indicator) => `https://whois.domaintools.com/${indicator.indicator}`,
+        descriptionFn: (data) => `Whois: ${data.domainName || 'N/A'}, Registrar: ${data.registrarName || 'N/A'}`,
+        externalIdFn: (indicator) => indicator.indicator,
+      },
       virustotal: {
         sourceName: 'VirusTotal',
         dataKey: 'data.attributes.last_analysis_stats',
         urlFn: (indicator) =>
-          `https://www.virustotal.com/gui/${indicator.type.includes('file') ? 'file' : 'ip-address'}/${indicator.indicator}`,
+          `https://www.virustotal.com/gui/${
+            indicator.type.includes('file') ? 'file' : indicator.type.includes('ip') ? 'ip-address' : 'domain'
+          }/${indicator.indicator}`,
         descriptionFn: (data) => {
-          const stats = data?.attributes?.last_analysis_stats ?? { malicious: 0, undetected: 0, total: 0 };
-          const total = stats.total ?? stats.malicious + (stats.undetected ?? 0);
-          return `VirusTotal detection: ${stats.malicious}/${total}`;
+          const stats = data?.data?.attributes?.last_analysis_stats ?? { malicious: 0, undetected: 0 };
+          return `VirusTotal: ${stats.malicious || 0} malicious, Reputation: ${data?.data?.attributes?.reputation || 'N/A'}`;
         },
         externalIdFn: (indicator) => indicator.indicator,
       },
       abuseipdb: {
         sourceName: 'AbuseIPDB',
-        dataKey: 'data.totalReports',
+        dataKey: 'data.abuseConfidenceScore',
         urlFn: (indicator) => `https://www.abuseipdb.com/check/${indicator.indicator}`,
-        descriptionFn: (data) =>
-          `AbuseIPDB reports: ${data.totalReports ?? 0}, Score: ${data.abuseConfidenceScore ?? 'N/A'}`,
+        descriptionFn: (data) => `AbuseIPDB: Score ${data?.data?.abuseConfidenceScore || 'N/A'}, Reports: ${data?.data?.totalReports || 0}`,
+        externalIdFn: (indicator) => indicator.indicator,
+      },
+      shodan: {
+        sourceName: 'Shodan',
+        dataKey: 'ip',
+        urlFn: (indicator) => `https://www.shodan.io/host/${indicator.indicator}`,
+        descriptionFn: (data) => `Shodan: Org ${data.org || 'N/A'}, OS: ${data.os || 'N/A'}`,
         externalIdFn: (indicator) => indicator.indicator,
       },
       threatfox: {
         sourceName: 'ThreatFox',
-        dataKey: 'data',
+        dataKey: 'query_status',
         urlFn: (indicator) => `https://threatfox.abuse.ch/browse.php?search=${indicator.indicator}`,
-        descriptionFn: (data) => `ThreatFox IOCs: ${data?.length ?? 0}`,
+        descriptionFn: (data) => `ThreatFox: ${data?.data?.threat_type || 'N/A'}, Malware: ${data?.data?.malware || 'N/A'}`,
+        externalIdFn: (indicator) => indicator.indicator,
+      },
+      dns: {
+        sourceName: 'DNS',
+        dataKey: 'Answer',
+        urlFn: (indicator) => undefined,
+        descriptionFn: (data) => `DNS: ${data?.Answer?.length || 0} records`,
+      },
+      ssl: {
+        sourceName: 'SSL Labs',
+        dataKey: 'host',
+        urlFn: (indicator) => `https://www.ssllabs.com/ssltest/analyze.html?d=${indicator.indicator}`,
+        descriptionFn: (data) => `SSL: Grade ${data?.endpoints?.[0]?.grade || 'N/A'}`,
+        externalIdFn: (indicator) => indicator.indicator,
+      },
+      asn: {
+        sourceName: 'ASN',
+        dataKey: 'asn',
+        urlFn: (indicator) => undefined,
+        descriptionFn: (data) => `ASN: ${data.asn || 'N/A'}, Org: ${data.org || 'N/A'}`,
         externalIdFn: (indicator) => indicator.indicator,
       },
       hybrid: {
         sourceName: 'Hybrid Analysis',
-        dataKey: 'summary',
-        urlFn: (indicator, data) =>
-          `https://www.hybrid-analysis.com/sample/${data?.hashes?.sha256 || indicator.indicator}`,
-        descriptionFn: (data) =>
-          `Hybrid Analysis: Threat Score ${data?.summary?.threat_score ?? 'N/A'}, Verdict: ${data?.summary?.verdict ?? 'N/A'}`,
+        dataKey: 'result.verdict',
+        urlFn: (indicator, data) => `https://www.hybrid-analysis.com/sample/${indicator.indicator}`,
+        descriptionFn: (data) => `Hybrid Analysis: Verdict ${data?.result?.verdict || 'N/A'}, Score: ${data?.result?.threat_score || 'N/A'}`,
         externalIdFn: (indicator) => indicator.indicator,
       },
       threatcrowd: {
         sourceName: 'ThreatCrowd',
         dataKey: 'hashes',
         urlFn: (indicator) => `https://www.threatcrowd.org/search.php?search=${indicator.indicator}`,
-        descriptionFn: (data) => `ThreatCrowd: ${data?.hashes?.length ?? 0} related hashes`,
+        descriptionFn: (data) => `ThreatCrowd: ${data?.hashes?.length || 0} hashes, ${data?.domains?.length || 0} domains`,
         externalIdFn: (indicator) => indicator.indicator,
       },
       misp: {
         sourceName: 'MISP',
-        dataKey: 'events',
+        dataKey: 'response.Attribute',
         urlFn: () => undefined,
-        descriptionFn: (data) => `MISP: ${data?.events?.length ?? 0} related events`,
-        externalIdFn: (indicator) => indicator.indicator,
+        descriptionFn: (data) => `MISP: ${data?.response?.Attribute?.length || 0} attributes`,
       },
     };
-
+  
     if (indicator.enrichment) {
       Object.entries(indicator.enrichment).forEach(([source, enrichmentData]) => {
         const config = enrichmentReferenceMap[source];
         if (!config || !enrichmentData) return;
-
         let data = enrichmentData;
         if (config.dataKey) {
           const keys = config.dataKey.split('.');
           data = keys.reduce((obj, key) => obj?.[key], enrichmentData);
           if (!data || (Array.isArray(data) && !data.length)) return;
         }
-
         refs.push({
           id: uuidv4(),
           source_name: config.sourceName,
@@ -609,9 +710,38 @@ export class FeedIngesterService implements OnModuleInit {
         });
       });
     }
-
     return refs;
   }
+
+
+
+  private readonly domainNameSchema = Joi.object({
+    type: Joi.string().valid('domain-name').required(),
+    value: Joi.string()
+      .pattern(/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/)
+      .required()
+      .messages({
+        'string.pattern.base': 'Invalid domain format',
+      }),
+    resolves_to_refs: Joi.array().items(Joi.string().pattern(/^(ipv4-addr|ipv6-addr)--[a-f0-9-]{36}$/)).optional(),
+    id: Joi.string().pattern(/^domain-name--[a-f0-9-]{36}$/).required(),
+    spec_version: Joi.string().valid(STIX_SPEC_VERSION).required(),
+    created_by_ref: Joi.string().pattern(/^identity--[a-f0-9-]{36}$/).required(),
+    created: Joi.string().isoDate().required(),
+    modified: Joi.string().isoDate().required(),
+    revoked: Joi.boolean().default(false),
+    labels: Joi.array().items(Joi.string()).optional(),
+    confidence: Joi.number().min(0).max(100).optional(),
+    external_references: Joi.array().items(Joi.object({
+      id: Joi.string().uuid().required(),
+      source_name: Joi.string().required(),
+      external_id: Joi.string().optional(),
+      url: Joi.string().uri().optional(),
+      description: Joi.string().optional(),
+    })).optional(),
+    object_marking_refs: Joi.array().items(Joi.string().pattern(/^marking-definition--[a-f0-9-]{36}$/)).optional(),
+    extensions: Joi.object().optional(),
+  }).unknown(true);
 
   private createTypeSpecificInput(
     type: StixType,
@@ -625,7 +755,7 @@ export class FeedIngesterService implements OnModuleInit {
         if (value) extensions[`x-feed-${key}`] = value;
       });
     }
-
+  
     switch (type) {
       case 'artifact':
         return { ...baseInput, type, content: indicator.indicator, extensions } as CreateArtifactInput;
@@ -633,38 +763,80 @@ export class FeedIngesterService implements OnModuleInit {
         return { ...baseInput, type, number: parseInt(indicator.indicator.replace('AS', ''), 10) || 0, extensions } as CreateAutonomousSystemInput;
       case 'directory':
         return { ...baseInput, type, path: indicator.indicator, extensions } as CreateDirectoryInput;
-      case 'domain-name':
-        return {
-          ...baseInput,
-          type,
-          value: indicator.indicator,
-          resolves_to_refs: indicator.enrichment?.dns?.Answer?.map(a => `${a.type === 'A' ? 'ipv4-addr' : 'ipv6-addr'}--${uuidv4()}`),
-          extensions,
-        } as CreateDomainNameInput;
+        case 'domain-name':
+          let resolves_to_refs: string[] | undefined;
+          try {
+            if (Array.isArray(indicator.enrichment?.dns?.Answer)) {
+              resolves_to_refs = indicator.enrichment.dns.Answer
+                .filter(a => a && (a.type === 'A' || a.type === 'AAAA'))
+                .map(a => `${a.type === 'A' ? 'ipv4-addr' : 'ipv6-addr'}--${uuidv4()}`);
+            } else if (indicator.enrichment?.dns) {
+              this.logger.warn(`Invalid or missing DNS Answer for ${indicator.indicator}`, {
+                feed: indicator.sourceConfigId,
+                dns: JSON.stringify(indicator.enrichment.dns, null, 2).substring(0, 500),
+              });
+            }
+          } catch (error) {
+            this.logger.warn(`Failed to process DNS enrichment for ${indicator.indicator}`, {
+              feed: indicator.sourceConfigId,
+              error: error.message,
+            });
+          }
+    
+          const domainInput = {
+            ...baseInput,
+            type,
+            value: indicator.indicator,
+            resolves_to_refs: resolves_to_refs?.length ? resolves_to_refs : undefined,
+            extensions,
+          } as CreateDomainNameInput;
+    
+          const { error } = this.domainNameSchema.validate(domainInput);
+          if (error) {
+            this.logger.warn(`Domain name validation failed for ${indicator.indicator}, falling back to URL`, {
+              feed: indicator.sourceConfigId,
+              error: error.message,
+            });
+            return {
+              ...baseInput,
+              type: 'url',
+              value: indicator.indicator,
+              defanged: true,
+              extensions,
+            } as CreateUrlInput;
+          }
+          return domainInput;
+    
+        case 'url':
+          return { ...baseInput, type, value: indicator.indicator, defanged: true, extensions } as CreateUrlInput;
+    
       case 'email-addr':
         return { ...baseInput, type, value: indicator.indicator, extensions } as CreateEmailAddressInput;
       case 'email-message':
         return { ...baseInput, type, subject: indicator.indicator, extensions } as CreateEmailMessageInput;
-      case 'file':
+      case 'file': {
         const hashType = indicator.type.includes('md5')
           ? 'MD5'
           : indicator.type.includes('sha1')
-            ? 'SHA-1'
-            : indicator.type.includes('sha256')
-              ? 'SHA-256'
-              : indicator.type.includes('sha512')
-                ? 'SHA-512'
-                : 'SHA-256';
+          ? 'SHA-1'
+          : indicator.type.includes('sha256')
+          ? 'SHA-256'
+          : indicator.type.includes('sha512')
+          ? 'SHA-512'
+          : 'SHA-256';
+        let fileName: string | undefined = undefined;
+        const vtAttrs = indicator.enrichment?.virustotal?.data?.attributes;
+        if (vtAttrs && Array.isArray((vtAttrs as any).names) && (vtAttrs as any).names.length > 0) {
+          fileName = (vtAttrs as any).names[0];
+        }
         return {
           ...baseInput,
           type,
-          hashes: {
-            [hashType]: indicator.indicator,
-            ...(indicator.enrichment?.hybrid?.hashes || {}),
-          },
-          name: indicator.enrichment?.virustotal?.data?.attributes?.names?.[0],
+          hashes: { [hashType]: indicator.indicator },
+          name: fileName,
           extensions,
         } as CreateFileInput;
+      }
       case 'ipv4-addr':
         return { ...baseInput, type, value: indicator.indicator, extensions } as CreateIPv4AddressInput;
       case 'ipv6-addr':
@@ -686,8 +858,6 @@ export class FeedIngesterService implements OnModuleInit {
         return { ...baseInput, type, pid: parseInt(indicator.indicator, 10) || undefined, extensions } as CreateProcessInput;
       case 'software':
         return { ...baseInput, type, name: indicator.indicator, extensions } as CreateSoftwareInput;
-      case 'url':
-        return { ...baseInput, type, value: indicator.indicator, defanged: true, extensions } as CreateUrlInput;
       case 'user-account':
         return { ...baseInput, type, account_login: indicator.indicator, extensions } as CreateUserAccountInput;
       case 'windows-registry-key':
@@ -733,23 +903,22 @@ export class FeedIngesterService implements OnModuleInit {
           secondary_motivations: FeedUtils.inferSecondaryMotivations(indicator.description),
           extensions,
         } as CreateThreatActorInput;
-      default:
-        return {
-          ...baseInput,
-          type: 'observed-data',
-          first_observed: new Date(indicator.created || baseInput.created),
-          last_observed: new Date(indicator.modified || baseInput.modified),
-          number_observed: 1,
-          object_refs: [`${type}--${uuidv4()}`],
-          extensions,
-        } as CreateObservedDataInput;
+        default:
+          return {
+            ...baseInput,
+            type: 'observed-data',
+            first_observed: new Date(indicator.created || baseInput.created),
+            last_observed: new Date(indicator.modified || baseInput.modified),
+            number_observed: 1,
+            object_refs: [`${type}--${uuidv4()}`],
+            extensions,
+          } as CreateObservedDataInput;
     }
   }
 
   private buildInitialRelationships(indicator: GenericStixObject, sourceId: string): CreateRelationshipInput[] {
     const relationships: CreateRelationshipInput[] = [];
     const now = new Date().toISOString();
-
     const validRelationships = new Map<string, Set<string>>([
       ['attack-pattern', new Set(['delivers', 'targets', 'uses'])],
       ['campaign', new Set(['attributed-to', 'compromises', 'originates-from', 'targets', 'uses'])],
@@ -764,7 +933,6 @@ export class FeedIngesterService implements OnModuleInit {
       ['tool', new Set(['delivers', 'drops', 'has', 'targets'])],
       ['file', new Set(['drops', 'delivers', 'related-to'])],
     ]);
-
     const validTargets = new Map<string, Set<string>>([
       ['delivers', new Set(['malware'])],
       ['targets', new Set(['identity', 'location', 'vulnerability', 'infrastructure'])],
@@ -781,7 +949,7 @@ export class FeedIngesterService implements OnModuleInit {
       ['related-to', new Set(['file', 'indicator', 'malware'])],
       ['resolves-to', new Set(['ipv4-addr', 'ipv6-addr'])],
     ]);
-
+  
     const addRelationships = (
       refs: any[] | undefined,
       relationshipType: string,
@@ -789,37 +957,37 @@ export class FeedIngesterService implements OnModuleInit {
       descriptionFn: (item: any) => string,
     ) => {
       if (!Array.isArray(refs) || !refs.length) return;
-
       const sourceType = sourceId.split('--')[0];
       if (!validRelationships.get(sourceType)?.has(relationshipType)) {
-        this.logger.warn(`Skipping invalid relationship: ${sourceType} cannot have '${relationshipType}'`);
+        if (this.debugLogging) {
+          this.logger.debug(`Skipping invalid relationship: ${sourceType} cannot have '${relationshipType}'`, { sourceType, relationshipType });
+        }
         return;
       }
       if (!validTargets.get(relationshipType)?.has(targetType)) {
-        this.logger.warn(`Skipping invalid target: '${relationshipType}' cannot target ${targetType}`);
+        if (this.debugLogging) {
+          this.logger.debug(`Skipping invalid target: '${relationshipType}' cannot target ${targetType}`, { relationshipType, targetType });
+        }
         return;
       }
-
-      relationships.push(
-        ...refs.map(item => ({
-          id: `relationship--${uuidv4()}`,
-          type: 'relationship',
-          spec_version: STIX_SPEC_VERSION,
-          created: now,
-          modified: now,
-          source_ref: sourceId,
-          target_ref: `${targetType}--${uuidv4()}`,
-          relationship_type: relationshipType,
-          description: descriptionFn(item),
-        } as CreateRelationshipInput)),
-      );
+      relationships.push(...refs.map(item => ({
+        id: `relationship--${uuidv4()}`,
+        type: 'relationship',
+        spec_version: STIX_SPEC_VERSION,
+        created: now,
+        modified: now,
+        source_ref: sourceId,
+        target_ref: `${targetType}--${uuidv4()}`,
+        relationship_type: relationshipType,
+        description: descriptionFn(item),
+      } as CreateRelationshipInput)));
     };
-
+  
     addRelationships(indicator.relatedIndicators, 'related-to', 'indicator', () => 'Related indicator');
     addRelationships(indicator.relatedFiles, 'related-to', 'file', () => 'Related file');
     addRelationships(indicator.indicatorRelationships, 'based-on', 'indicator', () => 'Based on indicator');
     addRelationships(indicator.relatedThreatActors, 'attributed-to', 'threat-actor', () => 'Attributed to threat actor');
-
+  
     const enrichmentRelationshipMap: Record<
       string,
       {
@@ -834,7 +1002,7 @@ export class FeedIngesterService implements OnModuleInit {
         relationshipType: 'indicates',
         defaultTargetType: 'malware',
         dataKey: 'data',
-        descriptionFn: (item) => `Linked to ThreatFox malware: ${item.malware || 'Unknown'}`,
+        descriptionFn: (item) => `Linked to ThreatFox malware: ${item.threat_type || 'Unknown'} (${item.malware || 'Unknown'})`,
       },
       dns: {
         relationshipType: 'resolves-to',
@@ -846,35 +1014,31 @@ export class FeedIngesterService implements OnModuleInit {
       hybrid: {
         relationshipType: 'related-to',
         defaultTargetType: 'file',
-        dataKey: 'hashes',
-        descriptionFn: (item) => `Linked to Hybrid Analysis hash: ${item[0].toUpperCase()} - ${item[1]}`,
+        dataKey: 'result',
+        descriptionFn: (item) => `Linked to Hybrid Analysis: Verdict ${item.verdict || 'N/A'}, Score ${item.threat_score || 'N/A'}`,
       },
       threatcrowd: {
         relationshipType: 'communicates-with',
         defaultTargetType: 'ipv4-addr',
-        dataKey: 'ips',
-        targetTypeFn: (item) => (item.includes(':') ? 'ipv6-addr' : 'ipv4-addr'),
-        descriptionFn: (item) => `ThreatCrowd related IP: ${item}`,
+        dataKey: 'hashes',
+        targetTypeFn: (item) => 'file',
+        descriptionFn: (item) => `ThreatCrowd related hash: ${item}`,
       },
       misp: {
         relationshipType: 'related-to',
         defaultTargetType: 'malware',
-        dataKey: 'events',
-        descriptionFn: (item) => `Linked to MISP event: ${item.Event?.info || 'Unknown'}`,
+        dataKey: 'response.Attribute',
+        descriptionFn: (item) => `Linked to MISP attribute: ${item.type || 'Unknown'} (${item.value || 'Unknown'})`,
       },
     };
-
+  
     if (indicator.enrichment) {
       Object.entries(indicator.enrichment).forEach(([source, enrichmentData]) => {
         const config = enrichmentRelationshipMap[source];
         if (!config || !enrichmentData) return;
-
-        let data = config.dataKey ? (enrichmentData as any)[config.dataKey] : enrichmentData;
-        if (source === 'hybrid' && data) {
-          data = Object.entries(data);
-        }
-
-        if (Array.isArray(data) && data.length > 0) {
+        let data = config.dataKey ? (enrichmentData as any)[config.dataKey] : [enrichmentData];
+        if (!Array.isArray(data)) data = [data];
+        if (data.length > 0) {
           data.forEach(item => {
             const targetType = config.targetTypeFn ? config.targetTypeFn(item) : config.defaultTargetType;
             addRelationships([item], config.relationshipType, targetType, config.descriptionFn);
@@ -882,92 +1046,95 @@ export class FeedIngesterService implements OnModuleInit {
         }
       });
     }
-
     return relationships;
   }
 
+
+
   private async fetchStixObjects(config: FeedProviderConfig, retryCount: number): Promise<GenericStixObject[]> {
-    const apiKey = process.env[config.apiKeyEnv];
-    if (!apiKey) {
-      throw new InternalServerErrorException(`${config.apiKeyEnv} not configured`);
-    }
-
-    // Ensure a limiter exists, create one if missing
-    if (!this.limiters.has(config.id)) {
-      this.logger.warn(`No rate limiter found for ${config.id}, creating one with rateLimitDelay ${config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY}ms`);
-      this.limiters.set(
-        config.id,
-        new Bottleneck({
-          maxConcurrent: 1,
-          minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY,
-        }),
-      );
-    }
-
-    const limiter = this.limiters.get(config.id)!;
-
-    try {
-      const headers = config.headers ? this.interpolateHeaders(config.headers, apiKey) : {};
-
-      const response = await limiter.schedule(() =>
-        axios({
-          method: config.method || 'GET',
-          url: config.apiUrl,
-          headers,
-          params: config.params,
-          data: config.data,
-          timeout: config.timeout || DEFAULT_TIMEOUT,
-        }),
-      );
-
-      const data = config.responsePath ? this.getNestedProperty(response.data, config.responsePath) : response.data;
-      if (!Array.isArray(data)) {
-        throw new Error(`Invalid response format from ${config.name} API`);
-      }
-
-      const stixObjects = data
-        .map(raw => {
-          const mapped = config.indicatorMapper(raw);
-          if (!mapped.type || !FeedUtils.isValidStixType(mapped.type)) {
-            this.logger.warn(`Skipping invalid STIX type: ${JSON.stringify(mapped)}`);
-            return null;
-          }
-          if (!this.isValidStixObject(mapped)) {
-            this.logger.warn(`Skipping invalid STIX object: ${JSON.stringify(mapped)}`);
-            return null;
-          }
-          return { ...mapped, sourceConfigId: config.id };
-        })
-        .filter(obj => obj !== null) as GenericStixObject[];
-
-      this.logger.log(`Fetched ${stixObjects.length}/${data.length} valid objects from ${config.name}`);
-      return stixObjects;
-    } catch (error) {
-      return this.handleFetchError(error as AxiosError, config, retryCount);
-    }
+  const apiKey = process.env[config.apiKeyEnv];
+  if (!apiKey) {
+    this.logger.error(`API key not configured`, { feed: config.name, key: config.apiKeyEnv });
+    throw new InternalServerErrorException(`${config.apiKeyEnv} not configured`);
   }
 
+  if (!this.limiters.has(config.id)) {
+    this.logger.warn(`Creating rate limiter for ${config.id}`, { feed: config.name });
+    this.limiters.set(
+      config.id,
+      new Bottleneck({
+        maxConcurrent: 1,
+        minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY,
+      }),
+    );
+  }
+
+  const limiter = this.limiters.get(config.id)!;
+  try {
+    const headers = config.headers ? this.interpolateHeaders(config.headers, apiKey) : {};
+    const response = await limiter.schedule(() =>
+      axios({
+        method: config.method || 'GET',
+        url: config.apiUrl,
+        headers,
+        params: config.params,
+        data: config.data,
+        timeout: config.timeout || DEFAULT_TIMEOUT,
+      }),
+    );
+
+    const data = config.responsePath ? this.getNestedProperty(response.data, config.responsePath) : response.data;
+    if (!Array.isArray(data)) {
+      this.logger.error(`Invalid response format from ${config.name} API`, { feed: config.name });
+      throw new Error(`Invalid response format from ${config.name} API`);
+    }
+
+    const stixObjects = data
+      .map(raw => {
+        const mapped = config.indicatorMapper(raw);
+        if (!mapped.type || !FeedUtils.isValidStixType(mapped.type)) {
+          this.logger.warn(`Skipping invalid STIX type`, {
+            feed: config.name,
+            type: mapped.type,
+            raw: JSON.stringify(raw, null, 2).substring(0, 500),
+          });
+          return null;
+        }
+        if (!this.isValidStixObject(mapped)) {
+          this.logger.warn(`Skipping invalid STIX object`, {
+            feed: config.name,
+            type: mapped.type,
+            raw: JSON.stringify(raw, null, 2).substring(0, 500),
+          });
+          return null;
+        }
+        return { ...mapped, sourceConfigId: config.id };
+      })
+      .filter(obj => obj !== null) as GenericStixObject[];
+
+    this.logger.log(`Fetched ${stixObjects.length}/${data.length} valid objects from ${config.name}`, { feed: config.name });
+    return stixObjects;
+  } catch (error) {
+    return this.handleFetchError(error as AxiosError, config, retryCount);
+  }
+}
   private isValidStixObject(obj: GenericStixObject): boolean {
     switch (obj.type) {
-      case 'file':
-        return !!(obj.hashes && Object.keys(obj.hashes).length > 0) || !!obj.value;
+      case 'file': return !!(obj.hashes && Object.keys(obj.hashes).length > 0) || !!obj.value;
       case 'url':
       case 'domain-name':
       case 'ipv4-addr':
       case 'ipv6-addr':
-      case 'email-addr':
-        return !!obj.value;
+      case 'email-addr': return !!obj.value;
       case 'malware':
       case 'threat-actor':
       case 'campaign':
-      case 'attack-pattern':
-        return !!obj.name;
-      case 'indicator':
-        return !!obj.indicator;
-      default:
-        return true;
+      case 'attack-pattern': return !!obj.name;
+      case 'indicator': return !!obj.indicator;
+      default: return true;
     }
   }
+
 
   private interpolateHeaders(headers: Record<string, string>, apiKey: string): Record<string, string> {
     const result: Record<string, string> = {};
@@ -983,9 +1150,8 @@ export class FeedIngesterService implements OnModuleInit {
 
   private async handleFetchError(error: AxiosError, config: FeedProviderConfig, retryCount: number): Promise<GenericStixObject[]> {
     const message = error.response?.data ? JSON.stringify(error.response.data) : error.message;
-    this.logger.error(`API request failed for ${config.name}: ${message}`);
-
     if (error.response?.status === 403) {
+      this.logger.error(`Invalid API credentials for ${config.name}`, { feed: config.name, error: message });
       throw new InternalServerErrorException(`Invalid ${config.name} API credentials`);
     }
 
@@ -995,40 +1161,58 @@ export class FeedIngesterService implements OnModuleInit {
       retryCount < maxRetries
     ) {
       const delay = Math.pow(2, retryCount) * (config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY);
-      this.logger.warn(`Retrying ${config.name} after ${delay}ms (${retryCount + 1}/${maxRetries})`);
+      this.logger.warn(`Retrying ${config.name} after ${delay}ms`, { feed: config.name, retry: retryCount + 1, maxRetries });
       await new Promise(resolve => setTimeout(resolve, delay));
       return this.fetchStixObjects(config, retryCount + 1);
     }
 
+    this.logger.error(`API failed for ${config.name} after ${retryCount + 1} attempts`, { feed: config.name, error: message });
     throw new InternalServerErrorException(`${config.name} API failed after ${retryCount + 1} attempts: ${message}`);
   }
 
   private async createRelationships(storedObject: { id: string }, result: EnrichmentResult): Promise<void> {
-    const relationships = result.relationships.map(rel => ({
-      ...rel,
-      source_ref: storedObject.id,
-    }));
-
+    const relationships = result.relationships.map(rel => ({ ...rel, source_ref: storedObject.id }));
     if (relationships.length) {
-      await Promise.all(
-        relationships.map(rel =>
-          this.relationshipService.create(rel).catch(err => {
-            this.logger.warn(`Failed to create relationship: ${err instanceof Error ? err.message : err}`);
-          }),
-        ),
-      );
+      const results = await Promise.allSettled(relationships.map(rel => this.relationshipService.create(rel)));
+      const failed = results.filter(r => r.status === 'rejected').length;
+      if (failed && this.debugLogging) {
+        this.logger.debug(`Failed to create ${failed}/${relationships.length} relationships for ${storedObject.id}`, {
+          feed: result.enriched.sourceConfigId,
+          objectId: storedObject.id,
+        });
+      }
     }
   }
 
   private async storeStixObject(type: StixType, input: StixCreateInput, indicator: GenericStixObject): Promise<{ id: string }> {
     const service = this.serviceFactory.get(type) || this.indicatorService;
-    try {
-      const storedObject = await service.create(input as any);
-      this.logger.log(`Created ${type}: ${storedObject.id}`);
-      return storedObject;
-    } catch (error) {
-      this.logger.error(`Failed to store ${type}: ${error instanceof Error ? error.message : error}`);
-      throw new InternalServerErrorException(`Failed to store STIX object: ${error instanceof Error ? error.message : error}`);
+    const maxRetries = 3;
+    let lastError: Error | null = null;
+  
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const storedObject = await service.create(input as any);
+        if (this.debugLogging) {
+          this.logger.debug(`Stored ${type}: ${storedObject.id}`, { feed: indicator.sourceConfigId, objectId: storedObject.id });
+        }
+        return storedObject;
+      } catch (error) {
+        lastError = error;
+        this.logger.warn(`Attempt ${attempt}/${maxRetries} failed to store ${type}`, {
+          feed: indicator.sourceConfigId,
+          error: error.message,
+        });
+        if (attempt < maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        }
+      }
     }
+  
+    this.logger.error(`Failed to store ${type} after ${maxRetries} attempts`, {
+      feed: indicator.sourceConfigId,
+      error: lastError?.message,
+      input: JSON.stringify(input, null, 2).substring(0, 500),
+    });
+    throw new InternalServerErrorException(`Failed to store STIX object: ${lastError?.message}`);
   }
 }
