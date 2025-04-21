@@ -88,7 +88,6 @@ export class FeedUtils {
     const finalConfidence = Math.max(0, Math.min(confidence, 100));
     return finalConfidence;
   }
-
   /**
    * Determines kill chain phases using concise EnrichmentData.
    */
@@ -250,7 +249,6 @@ export class FeedUtils {
       if (TYPE_PATTERNS['mac-address'].test(obj.indicator)) {
         return 'mac-address';
       }
-
       return 'indicator';
     }
 

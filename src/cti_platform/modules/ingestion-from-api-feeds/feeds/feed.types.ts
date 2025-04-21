@@ -62,6 +62,7 @@ export interface FeedProviderConfig {
 }
 
 // Enrichment data structure aligned with EnrichmentService's conciseResponseFields
+
 export interface EnrichmentData {
   geo?: {
     country_name: string;

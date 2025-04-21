@@ -1167,6 +1167,7 @@ export class EnrichmentService implements OnModuleInit {
     if (!parsed.domain) {
       throw new Error(`Invalid domain: ${domain}`);
     }
+    
     const cacheKey = `dns:${parsed.domain}`;
     const context = { service: 'dns', domain: parsed.domain };
   
@@ -1253,7 +1254,7 @@ export class EnrichmentService implements OnModuleInit {
         ),
       );
     }
-  
+
     const typeMap: Record<number, string> = {
       1: 'A',
       5: 'CNAME',

@@ -81,9 +81,7 @@ import {CreateSightingInput} from '../../stix-objects/sighting/sighting.input';
 import { CreateRelationshipInput } from '../../stix-objects/relationships/relationship.input';
 import { CreateBundleInput } from '../../stix-objects/bundle/bundle.input';
 import { CreateX509CertificateInput } from '../../stix-objects/cyber-observables/x.509-certificate/x509-certificate.input';
-
 import * as Joi from 'joi';
-
 import { Injectable, InternalServerErrorException, OnModuleInit, Logger } from '@nestjs/common';
 import { InjectQueue, Process, Processor } from '@nestjs/bull';
 import { Queue, Job } from 'bull';
@@ -291,8 +289,6 @@ export class FeedIngesterService implements OnModuleInit {
     await this.scheduleFeedProcessing();
     this.logger.log('Feed Ingester Service initialized');
   }
-
-
   
   private async initializeLimiters() {
     const configs = await this.feedConfigService.getAllConfigs();
@@ -417,10 +413,7 @@ export class FeedIngesterService implements OnModuleInit {
         duration: elapsedSeconds,
       },
     );
-  }
-
-
-  
+  }  
 
   private async processStixObject(obj: GenericStixObject, config: FeedProviderConfig): Promise<{ success: boolean; isDuplicate: boolean }> {
     const objectId = obj.id || 'unknown';
@@ -590,7 +583,7 @@ export class FeedIngesterService implements OnModuleInit {
     if (Array.isArray(indicator.references) && indicator.references.length) {
       refs.push(...indicator.references.map(ref => ({ id: uuidv4(), source_name: 'External Reference', url: ref })));
     }
-  
+    
     const enrichmentReferenceMap: Record<
       string,
       {
@@ -713,8 +706,6 @@ export class FeedIngesterService implements OnModuleInit {
     return refs;
   }
 
-
-
   private readonly domainNameSchema = Joi.object({
     type: Joi.string().valid('domain-name').required(),
     value: Joi.string()
@@ -829,6 +820,7 @@ export class FeedIngesterService implements OnModuleInit {
         if (vtAttrs && Array.isArray((vtAttrs as any).names) && (vtAttrs as any).names.length > 0) {
           fileName = (vtAttrs as any).names[0];
         }
+
         return {
           ...baseInput,
           type,
@@ -949,7 +941,7 @@ export class FeedIngesterService implements OnModuleInit {
       ['related-to', new Set(['file', 'indicator', 'malware'])],
       ['resolves-to', new Set(['ipv4-addr', 'ipv6-addr'])],
     ]);
-  
+
     const addRelationships = (
       refs: any[] | undefined,
       relationshipType: string,
@@ -982,12 +974,12 @@ export class FeedIngesterService implements OnModuleInit {
         description: descriptionFn(item),
       } as CreateRelationshipInput)));
     };
-  
+
     addRelationships(indicator.relatedIndicators, 'related-to', 'indicator', () => 'Related indicator');
     addRelationships(indicator.relatedFiles, 'related-to', 'file', () => 'Related file');
     addRelationships(indicator.indicatorRelationships, 'based-on', 'indicator', () => 'Based on indicator');
     addRelationships(indicator.relatedThreatActors, 'attributed-to', 'threat-actor', () => 'Attributed to threat actor');
-  
+
     const enrichmentRelationshipMap: Record<
       string,
       {
@@ -1031,7 +1023,7 @@ export class FeedIngesterService implements OnModuleInit {
         descriptionFn: (item) => `Linked to MISP attribute: ${item.type || 'Unknown'} (${item.value || 'Unknown'})`,
       },
     };
-  
+
     if (indicator.enrichment) {
       Object.entries(indicator.enrichment).forEach(([source, enrichmentData]) => {
         const config = enrichmentRelationshipMap[source];
@@ -1048,8 +1040,6 @@ export class FeedIngesterService implements OnModuleInit {
     }
     return relationships;
   }
-
-
 
   private async fetchStixObjects(config: FeedProviderConfig, retryCount: number): Promise<GenericStixObject[]> {
   const apiKey = process.env[config.apiKeyEnv];
@@ -1118,6 +1108,7 @@ export class FeedIngesterService implements OnModuleInit {
     return this.handleFetchError(error as AxiosError, config, retryCount);
   }
 }
+  
   private isValidStixObject(obj: GenericStixObject): boolean {
     switch (obj.type) {
       case 'file': return !!(obj.hashes && Object.keys(obj.hashes).length > 0) || !!obj.value;
@@ -1134,7 +1125,6 @@ export class FeedIngesterService implements OnModuleInit {
       default: return true;
     }
   }
-
 
   private interpolateHeaders(headers: Record<string, string>, apiKey: string): Record<string, string> {
     const result: Record<string, string> = {};

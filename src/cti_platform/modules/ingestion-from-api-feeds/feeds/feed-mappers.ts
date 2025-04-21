@@ -87,7 +87,7 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
         'FileHash-SHA1': 'SHA-1',
         'FileHash-SHA256': 'SHA-256',
       };
-  
+
       // Determine the value field
       const value = raw.indicator || raw.value || raw.ioc || raw.address || raw.domain;
       if (!value && (stixType === 'ipv4-addr' || stixType === 'domain-name' || stixType === 'url')) {
