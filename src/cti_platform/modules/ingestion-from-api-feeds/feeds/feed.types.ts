@@ -1,4 +1,5 @@
-import { CommonProperties, MarkingDefinition, MarkingDefinitionType } from '../../../core/types/common-data-types';
+// src/cti_platform/modules/ingestion-from-api-feeds/feeds/feed.types.ts
+import { CommonProperties, MarkingDefinition,  } from '../../../core/types/common-data-types';
 
 // STIX 2.1 object types supported by the project (verified complete per STIX 2.1 spec)
 export type StixType =
@@ -60,109 +61,93 @@ export interface FeedProviderConfig {
   indicatorMapper: (raw: any) => GenericStixObject | null; // Allow null for invalid mappings
 }
 
-// Enrichment data structure
+// Enrichment data structure aligned with EnrichmentService's conciseResponseFields
+
 export interface EnrichmentData {
   geo?: {
     country_name: string;
-    country_code?: string;
-    lat?: number;
-    lon?: number;
-    city?: string;
+    country_code: string;
+    city: string;
+    lat: number;
+    lon: number;
   };
   whois?: {
-    WhoisRecord?: {
-      registrarName?: string;
-      createdDate?: string;
-      updatedDate?: string;
-      expiresDate?: string;
-      nameServers?: string[];
-    };
+    domainName: string;
+    registrarName: string;
+    createdDate: string;
+    expiresDate: string;
   };
   virustotal?: {
-    data?: {
-      id?: string;
-      attributes?: {
-        last_analysis_stats?: {
+    data: {
+      attributes: {
+        last_analysis_stats: {
           malicious: number;
-          undetected?: number;
-          total?: number;
-          harmless?: number;
-          suspicious?: number;
+          undetected: number;
+          harmless: number;
+          suspicious: number;
         };
-        names?: string[];
-        reputation?: number;
-        last_analysis_date?: string;
+        reputation: number;
       };
     };
   };
   abuseipdb?: {
-    data?: {
-      totalReports?: number;
-      abuseConfidenceScore?: number;
-      lastReportedAt?: string;
-      isp?: string;
+    data: {
+      abuseConfidenceScore: number;
+      countryCode: string;
+      totalReports: number;
     };
   };
   shodan?: {
-    hostnames?: string[];
-    ports?: number[];
-    os?: string;
-    last_update?: string;
+    ip: string;
+    org: string;
+    os: string | null;
   };
   threatfox?: {
-    data?: Array<{
-      ioc_value: string;
-      ioc_type: string;
+    query_status: string;
+    data: {
+      threat_type: string;
       malware: string;
-      confidence_level?: number;
-      first_seen?: string;
-    }>;
+    };
   };
   dns?: {
-    Answer?: Array<{
+    Answer: Array<{
       data: string;
       type: string;
-      TTL?: number;
+      TTL: number;
     }>;
-    Question?: Array<{ name: string; type: number }>;
   };
   ssl?: {
-    endpoints?: Array<{
-      grade?: string;
-      ipAddress?: string;
-      protocols?: Array<{ name: string; version: string }>;
-      details?: { heartbleed?: boolean; poodle?: boolean };
+    host: string;
+    endpoints: Array<{
+      serverName: string;
+      grade: string;
     }>;
   };
   asn?: {
-    asn?: string;
-    org?: string;
-    routes?: string[];
+    asn: string;
+    org: string;
+    ip?: string;
   };
   hybrid?: {
-    summary?: {
-      environment?: string;
-      threat_score?: number;
-      verdict?: string;
-      analysis_time?: string;
+    result: {
+      verdict: string;
+      threat_score: number;
+      submissions: number;
     };
-    hashes?: { md5?: string; sha1?: string; sha256?: string; sha512?: string };
   };
   threatcrowd?: {
-    hashes?: string[];
-    ips?: string[];
-    domains?: string[];
-    last_seen?: string;
+    response_code: string;
+    hashes: string[];
+    domains: string[];
   };
   misp?: {
-    events?: Array<{
-      Event?: {
-        info?: string;
-        tags?: string[];
-        timestamp?: string;
-        attributes?: Array<{ type: string; value: string }>;
-      };
-    }>;
+    response: {
+      Attribute: Array<{
+        value: string;
+        type: string;
+        category: string;
+      }>;
+    };
   };
 }
 
@@ -198,6 +183,7 @@ export interface GenericStixObject extends Partial<CommonProperties> {
   relatedThreatActors?: string[];
   validationErrors?: string[]; // Track validation issues (e.g., "invalid TLD")
   enrichment?: EnrichmentData;
+  sourceConfigId?: string; // Added to fix TS2339 errors
 }
 
 // TLP Marking Definition

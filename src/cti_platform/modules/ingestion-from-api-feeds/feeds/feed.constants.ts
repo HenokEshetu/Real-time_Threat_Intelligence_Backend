@@ -1,11 +1,11 @@
 import { v4 as uuidv4 } from 'uuid';
 
 // Generic default values for feed processing
-export const DEFAULT_BATCH_SIZE = 50;
-export const DEFAULT_TIMEOUT = 5000; // 5 seconds for faster DNS/ThreatFox queries
+export const DEFAULT_BATCH_SIZE = 60;
+export const DEFAULT_TIMEOUT = 9000; // 5 seconds for faster DNS/ThreatFox queries
 export const DEFAULT_RATE_LIMIT_DELAY = 1000; // 1 second
 export const DEFAULT_MAX_RETRIES = 3;
-export const DEFAULT_CONFIDENCE = 85; // Default confidence score for indicators
+export const DEFAULT_CONFIDENCE = 50; // Default confidence score for indicators
 export const STIX_SPEC_VERSION = '2.1'; // STIX specification version
 
 // Suspicious TLDs for warning (configurable)
