@@ -114,14 +114,19 @@ export const enrichmentConfig: EnrichmentConfig = {
       rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
       timeout: 15000,
     },
-    misp: {
-      url: 'https://your-misp-instance/api',
-      apiKeyEnv: 'MISP_API_KEY',
-      requiredKey: true,
-      rateLimit: { maxRequests: 20, perMilliseconds: 60000 },
-      headers: { Authorization: '${apiKey}', Accept: 'application/json' },
-      timeout: 15000,
-    },
+    
+misp: {
+  url: 'http://localhost',
+  apiKeyEnv: 'MISP_API_KEY',
+  requiredKey: true,
+  rateLimit: { maxRequests: 20, perMilliseconds: 60000 },
+  headers: {
+    Authorization: '${apiKey}',
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+  },
+  timeout: 15000,
+},
   },
   enrichmentSchemas: {
     geo: Joi.object({
