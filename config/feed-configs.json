@@ -13,7 +13,6 @@
     "data": {
       "returnFormat": "json",
       "withAttachments": false,
-      "typeAttribute": ["ip-dst", "ip-src"],
       "limit": 50,
       "published": true
     },
@@ -90,6 +89,3 @@
     }
   }
  ]
- 
- 
- 
