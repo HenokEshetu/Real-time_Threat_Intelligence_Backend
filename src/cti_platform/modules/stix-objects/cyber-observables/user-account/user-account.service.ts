@@ -31,13 +31,14 @@ export class UserAccountService implements OnModuleInit {
 
   async create(createUserAccountInput: CreateUserAccountInput): Promise<UserAccount> {
     const userAccount: UserAccount = {
+      ...createUserAccountInput,
+      ...(createUserAccountInput.enrichment ? { enrichment: createUserAccountInput.enrichment } : {}),
       id: `user-account--${uuidv4()}`,
       type: 'user-account' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      ...createUserAccountInput,
-      ...(createUserAccountInput.enrichment ? { enrichment: createUserAccountInput.enrichment } : {}),
+      
     };
 
     try {
@@ -65,12 +66,13 @@ export class UserAccountService implements OnModuleInit {
       const response = await this.openSearchClient.get({ index: this.index, id });
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'user-account' as const,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -206,12 +208,13 @@ export class UserAccountService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'user-account' as const,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

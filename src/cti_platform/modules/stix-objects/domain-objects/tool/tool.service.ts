@@ -30,14 +30,15 @@ export class ToolService implements OnModuleInit {
 
   async create(createToolInput: CreateToolInput): Promise<Tool> {
     const tool: Tool = {
+      ...createToolInput,
+      ...(createToolInput.enrichment ? { enrichment: createToolInput.enrichment } : {}),
       id: `tool--${uuidv4()}`,
       type: 'tool' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createToolInput.name, // Required field
-      ...createToolInput,
-      ...(createToolInput.enrichment ? { enrichment: createToolInput.enrichment } : {}),
+      
     };
 
     try {
@@ -69,6 +70,7 @@ export class ToolService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'tool' as const,
         spec_version: source.spec_version || '2.1',
@@ -76,7 +78,7 @@ export class ToolService implements OnModuleInit {
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-        ...source,
+       
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -208,6 +210,7 @@ export class ToolService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'tool' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -215,7 +218,7 @@ export class ToolService implements OnModuleInit {
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           name: hit._source.name, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

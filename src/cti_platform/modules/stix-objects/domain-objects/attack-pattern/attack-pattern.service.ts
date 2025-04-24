@@ -30,13 +30,14 @@ export class AttackPatternService implements OnModuleInit{
 
   async create(createAttackPatternInput: CreateAttackPatternInput): Promise<AttackPattern> {
     const attackPattern: AttackPattern = {
+      ...createAttackPatternInput,
+      ...(createAttackPatternInput.enrichment ? { enrichment: createAttackPatternInput.enrichment } : {}),
       id: `attack-pattern--${uuidv4()}`,
       type: 'attack-pattern' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      ...createAttackPatternInput,
-      ...(createAttackPatternInput.enrichment ? { enrichment: createAttackPatternInput.enrichment } : {}),
+      
     };
 
     try {
@@ -68,13 +69,14 @@ export class AttackPatternService implements OnModuleInit{
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'attack-pattern' as const,
         name:source.name,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -206,13 +208,14 @@ export class AttackPatternService implements OnModuleInit{
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           name:hit._source.name,
           type: 'attack-pattern' as const,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

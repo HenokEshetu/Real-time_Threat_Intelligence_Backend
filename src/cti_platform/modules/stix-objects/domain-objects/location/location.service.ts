@@ -29,6 +29,8 @@ export class LocationService implements OnModuleInit {
 
   async create(createLocationInput: CreateLocationInput): Promise<Location> {
     const location: Location = {
+      ...createLocationInput,
+      ...(createLocationInput.enrichment ? { enrichment: createLocationInput.enrichment } : {}),
       id: `location--${uuidv4()}`,
       type: 'location' as const,
       spec_version: '2.1',
@@ -37,8 +39,7 @@ export class LocationService implements OnModuleInit {
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createLocationInput.name, // Required field
-      ...createLocationInput,
-      ...(createLocationInput.enrichment ? { enrichment: createLocationInput.enrichment } : {}),
+      
     };
 
     try {
@@ -70,6 +71,7 @@ export class LocationService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'location' as const,
         spec_version: source.spec_version || '2.1',
@@ -78,7 +80,7 @@ export class LocationService implements OnModuleInit {
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -210,6 +212,7 @@ export class LocationService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'location' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -218,7 +221,7 @@ export class LocationService implements OnModuleInit {
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           name: hit._source.name, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

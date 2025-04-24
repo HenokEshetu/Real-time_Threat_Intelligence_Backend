@@ -31,14 +31,15 @@ export class DomainNameService  implements OnModuleInit {
     const now = new Date().toISOString();
 
     const doc: DomainName = {
+      ...createDomainNameInput,
+      ...(createDomainNameInput.enrichment ? { enrichment: createDomainNameInput.enrichment } : {}),
       id,
       type: 'domain-name' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
       value: createDomainNameInput.value,
-      ...createDomainNameInput,
-      ...(createDomainNameInput.enrichment ? { enrichment: createDomainNameInput.enrichment } : {}),
+      
     };
 
     try {
@@ -96,13 +97,14 @@ export class DomainNameService  implements OnModuleInit {
       const source = response.body._source;
 
       return {
+        ...source,
         id,
         type: 'domain-name' as const,
         spec_version: '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         value: source.value,
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -125,13 +127,14 @@ export class DomainNameService  implements OnModuleInit {
       });
 
       return response.body.hits.hits.map((hit) => ({
+        ...hit._source,
         id: hit._id,
         type: 'domain-name' as const,
         spec_version: '2.1',
         created: hit._source.created || new Date().toISOString(),
         modified: hit._source.modified || new Date().toISOString(),
         value: hit._source.value,
-        ...hit._source,
+        
       }));
     } catch (error) {
       throw new InternalServerErrorException({
@@ -204,18 +207,20 @@ export class DomainNameService  implements OnModuleInit {
         : response.body.hits.total;
 
       return {
+        
         page,
         pageSize,
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'domain-name' as const,
           spec_version: '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           value: hit._source.value,
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

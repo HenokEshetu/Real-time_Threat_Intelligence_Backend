@@ -31,6 +31,8 @@ export class IPv4AddressService implements OnModuleInit{
     const now = new Date().toISOString();
 
     const doc: IPv4Address = {
+      ...createIPv4AddressInput,
+      ...(createIPv4AddressInput.enrichment ? { enrichment: createIPv4AddressInput.enrichment } : {}),
       id,
       type: 'ipv4-addr' as const,
       spec_version: '2.1',
@@ -39,8 +41,7 @@ export class IPv4AddressService implements OnModuleInit{
       value: createIPv4AddressInput.value,
       resolves_to_refs: createIPv4AddressInput.resolves_to_refs || [],
       belongs_to_refs: createIPv4AddressInput.belongs_to_refs || [],
-      ...createIPv4AddressInput,
-      ...(createIPv4AddressInput.enrichment ? { enrichment: createIPv4AddressInput.enrichment } : {}),
+     
     };
 
     try {
@@ -107,6 +108,7 @@ export class IPv4AddressService implements OnModuleInit{
 
       const source = response.body._source;
       return {
+        ...source,
         id,
         type: 'ipv4-addr' as const,
         spec_version: source.spec_version || '2.1',
@@ -115,7 +117,7 @@ export class IPv4AddressService implements OnModuleInit{
         value: source.value,
         resolves_to_refs: source.resolves_to_refs || [],
         belongs_to_refs: source.belongs_to_refs || [],
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -158,6 +160,7 @@ export class IPv4AddressService implements OnModuleInit{
       });
 
       return response.body.hits.hits.map((hit) => ({
+        ...hit._source,
         id: hit._id,
         type: 'ipv4-addr' as const,
         spec_version: hit._source.spec_version || '2.1',
@@ -166,7 +169,7 @@ export class IPv4AddressService implements OnModuleInit{
         value: hit._source.value,
         resolves_to_refs: hit._source.resolves_to_refs || [],
         belongs_to_refs: hit._source.belongs_to_refs || [],
-        ...hit._source,
+       
       }));
     } catch (error) {
       throw new InternalServerErrorException({
@@ -252,6 +255,7 @@ export class IPv4AddressService implements OnModuleInit{
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'ipv4-addr' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -260,7 +264,7 @@ export class IPv4AddressService implements OnModuleInit{
           value: hit._source.value,
           resolves_to_refs: hit._source.resolves_to_refs || [],
           belongs_to_refs: hit._source.belongs_to_refs || [],
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

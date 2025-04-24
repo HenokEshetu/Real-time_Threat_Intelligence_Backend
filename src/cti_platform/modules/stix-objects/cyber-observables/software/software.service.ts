@@ -31,13 +31,13 @@ export class SoftwareService implements OnModuleInit {
     this.validateSoftware(createSoftwareInput);
 
     const software: Software = {
-    
+      ...createSoftwareInput,
+      ...(createSoftwareInput.enrichment ? { enrichment: createSoftwareInput.enrichment } : {}),
       type: 'software' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      ...createSoftwareInput,
-      ...(createSoftwareInput.enrichment ? { enrichment: createSoftwareInput.enrichment } : {}),
+      
     };
 
     try {
@@ -69,13 +69,14 @@ export class SoftwareService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'software' as const,
         name:source.name,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -245,13 +246,14 @@ export class SoftwareService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / size),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'software' as const,
           name:hit._source.name,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

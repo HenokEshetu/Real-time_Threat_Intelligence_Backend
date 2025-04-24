@@ -30,14 +30,15 @@ export class IndicatorService implements OnModuleInit {
 
   async create(createIndicatorInput: CreateIndicatorInput): Promise<Indicator> {
     const indicator: Indicator = {
+      ...createIndicatorInput,
+      ...(createIndicatorInput.enrichment ? { enrichment: createIndicatorInput.enrichment } : {}),
       id: `indicator--${uuidv4()}`,
       type: 'indicator' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createIndicatorInput.name, // Required field
-      ...createIndicatorInput,
-      ...(createIndicatorInput.enrichment ? { enrichment: createIndicatorInput.enrichment } : {}),
+      
     };
 
     try {
@@ -69,6 +70,7 @@ export class IndicatorService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'indicator' as const,
         spec_version: source.spec_version || '2.1',
@@ -78,7 +80,7 @@ export class IndicatorService implements OnModuleInit {
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-        ...source,
+       
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -210,6 +212,7 @@ export class IndicatorService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'indicator' as const,
            pattern: hit._source.pattern,
@@ -219,7 +222,7 @@ export class IndicatorService implements OnModuleInit {
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           name: hit._source.name, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

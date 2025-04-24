@@ -29,14 +29,15 @@ export class CampaignService implements OnModuleInit {
   }
   async create(createCampaignInput: CreateCampaignInput): Promise<Campaign> {
     const campaign: Campaign = {
+      ...createCampaignInput,
+      ...(createCampaignInput.enrichment ? { enrichment: createCampaignInput.enrichment } : {}),
       id: `campaign--${uuidv4()}`,
       type: 'campaign' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createCampaignInput.name, // Required field
-      ...createCampaignInput,
-      ...(createCampaignInput.enrichment ? { enrichment: createCampaignInput.enrichment } : {}),
+     
     };
 
     try {
@@ -68,13 +69,14 @@ export class CampaignService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'campaign' as const,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -206,13 +208,14 @@ export class CampaignService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'campaign' as const,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           name: hit._source.name, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

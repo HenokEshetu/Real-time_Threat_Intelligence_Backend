@@ -33,14 +33,15 @@ export class MACAddressService implements OnModuleInit {
     const now = new Date().toISOString();
 
     const doc: MACAddress = {
+      ...createMACAddressInput,
+      ...(createMACAddressInput.enrichment ? { enrichment: createMACAddressInput.enrichment } : {}),
       id,
       type: 'mac-addr' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
       value: createMACAddressInput.value, // Required field
-      ...createMACAddressInput,
-      ...(createMACAddressInput.enrichment ? { enrichment: createMACAddressInput.enrichment } : {}),
+      
     };
 
     try {
@@ -69,13 +70,14 @@ export class MACAddressService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id,
         type: 'mac-addr' as const,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         value: source.value, // Ensure required field is included
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -199,13 +201,14 @@ export class MACAddressService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / size),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'mac-addr' as const,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           value: hit._source.value, // Ensure required field is included
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

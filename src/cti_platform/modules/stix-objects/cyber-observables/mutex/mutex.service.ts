@@ -33,14 +33,15 @@ export class MutexService implements OnModuleInit  {
     const now = new Date().toISOString();
 
     const doc: Mutex = {
+      ...createMutexInput,
+      ...(createMutexInput.enrichment ? { enrichment: createMutexInput.enrichment } : {}),
       id,
       type: 'mutex' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
       name: createMutexInput.name, // Required field
-      ...createMutexInput,
-      ...(createMutexInput.enrichment ? { enrichment: createMutexInput.enrichment } : {}),
+      
     };
 
     try {
@@ -69,13 +70,14 @@ export class MutexService implements OnModuleInit  {
 
       const source = response.body._source;
       return {
+        ...source,
         id,
         type: 'mutex' as const,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -144,13 +146,14 @@ export class MutexService implements OnModuleInit  {
       });
 
       return response.body.hits.hits.map((hit) => ({
+        ...hit._source,
         id: hit._id,
         type: 'mutex' as const,
         spec_version: hit._source.spec_version || '2.1',
         created: hit._source.created || new Date().toISOString(),
         modified: hit._source.modified || new Date().toISOString(),
         name: hit._source.name, // Required field
-        ...hit._source,
+        
       }));
     } catch (error) {
       throw new InternalServerErrorException({
@@ -227,13 +230,14 @@ export class MutexService implements OnModuleInit  {
         total,
         totalPages: Math.ceil(total / size),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'mutex' as const,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           name: hit._source.name, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

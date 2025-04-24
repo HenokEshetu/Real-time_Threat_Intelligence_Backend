@@ -32,13 +32,14 @@ export class EmailMessageService implements OnModuleInit {
     const now = new Date().toISOString();
 
     const doc: EmailMessage = {
+      ...createEmailMessageInput,
+      ...(createEmailMessageInput.enrichment ? { enrichment: createEmailMessageInput.enrichment } : {}),
       id,
       type: 'email-message' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
-      ...createEmailMessageInput,
-      ...(createEmailMessageInput.enrichment ? { enrichment: createEmailMessageInput.enrichment } : {}),
+      
     };
 
     try {
@@ -96,12 +97,13 @@ export class EmailMessageService implements OnModuleInit {
       const source = response.body._source;
 
       return {
+        ...source,
         id,
         type: 'email-message' as const,
         spec_version: '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -184,12 +186,13 @@ export class EmailMessageService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / size),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'email-message' as const,
           spec_version: '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

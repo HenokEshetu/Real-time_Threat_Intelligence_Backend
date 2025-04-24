@@ -32,14 +32,15 @@ export class DirectoryService implements OnModuleInit{
     const now = new Date().toISOString();
 
     const doc: Directory = {
+      ...createDirectoryInput,
+      ...(createDirectoryInput.enrichment ? { enrichment: createDirectoryInput.enrichment } : {}),
       id: createDirectoryInput.id,
       type: 'directory' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
       path: createDirectoryInput.path,
-      ...createDirectoryInput,
-      ...(createDirectoryInput.enrichment ? { enrichment: createDirectoryInput.enrichment } : {}),
+      
     };
 
     try {
@@ -97,13 +98,14 @@ export class DirectoryService implements OnModuleInit{
       const source = response.body._source;
 
       return {
+        ...source,
         id,
         type: 'directory' as const,
         spec_version: '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         path: source.path,
-        ...source,
+       
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -126,13 +128,14 @@ export class DirectoryService implements OnModuleInit{
       });
 
       return response.body.hits.hits.map((hit) => ({
+        ...hit._source,
         id: hit._id,
         type: 'directory' as const,
         spec_version: '2.1',
         created: hit._source.created || new Date().toISOString(),
         modified: hit._source.modified || new Date().toISOString(),
         path: hit._source.path,
-        ...hit._source,
+        
       }));
     } catch (error) {
       throw new InternalServerErrorException({
@@ -205,18 +208,20 @@ export class DirectoryService implements OnModuleInit{
         : response.body.hits.total;
 
       return {
+        
         page,
         pageSize,
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'directory' as const,
           spec_version: '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           path: hit._source.path,
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

@@ -33,13 +33,14 @@ export class SightingService implements OnModuleInit {
     this.validateSighting(createSightingInput);
 
     const sighting: Sighting = {
+      ...createSightingInput,
       id: `sighting--${uuidv4()}`,
       type: 'sighting' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       sighting_of_ref: createSightingInput.sighting_of_ref, // Required field
-      ...createSightingInput,
+     
     };
 
     try {
@@ -71,6 +72,7 @@ export class SightingService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'sighting' as const,
         spec_version: source.spec_version || '2.1',
@@ -79,7 +81,7 @@ export class SightingService implements OnModuleInit {
         sighting_of_ref: source.sighting_of_ref, // Required field
         first_seen:source.first_seen,
         last_seen:source.last_seen,
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -213,6 +215,7 @@ export class SightingService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'sighting' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -221,7 +224,7 @@ export class SightingService implements OnModuleInit {
           first_seen:hit._source.first_seen,
           last_seen:hit._source.last_seen,
           sighting_of_ref: hit._source.sighting_of_ref, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

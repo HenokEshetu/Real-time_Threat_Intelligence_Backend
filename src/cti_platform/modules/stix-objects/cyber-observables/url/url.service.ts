@@ -32,14 +32,15 @@ export class UrlService implements OnModuleInit {
     const now = new Date().toISOString();
 
     const doc: Url = {
+      ...createUrlInput,
+      ...(createUrlInput.enrichment ? { enrichment: createUrlInput.enrichment } : {}),
       id,
       type: 'url' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
       value: createUrlInput.value,
-      ...createUrlInput,
-      ...(createUrlInput.enrichment ? { enrichment: createUrlInput.enrichment } : {}),
+      
     };
 
     try {
@@ -67,13 +68,14 @@ export class UrlService implements OnModuleInit {
       const response = await this.openSearchClient.get({ index: this.index, id });
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'url' as const,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         value: source.value,
-        ...source,
+       
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -193,13 +195,14 @@ export class UrlService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'url' as const,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           value: hit._source.value,
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

@@ -66,10 +66,10 @@ export class RelationshipService implements OnModuleInit {
     );
 
     const relationship: StixRelationship = {
+      ...createRelationshipInput,
       id: `relationship--${uuidv4()}`,
       type: 'relationship' as const,
       spec_version: '2.1',
-      ...createRelationshipInput,
       start_time: createRelationshipInput.start_time ? new Date(createRelationshipInput.start_time).toISOString() : undefined,
       stop_time: createRelationshipInput.stop_time ? new Date(createRelationshipInput.stop_time).toISOString() : undefined,
       created: new Date().toISOString(),
@@ -105,6 +105,7 @@ export class RelationshipService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'relationship' as const,
         spec_version: source.spec_version || '2.1',
@@ -113,7 +114,7 @@ export class RelationshipService implements OnModuleInit {
         source_ref: source.source_ref,
         target_ref: source.target_ref,
         relationship_type: source.relationship_type,
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -308,6 +309,7 @@ export class RelationshipService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'relationship' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -318,7 +320,7 @@ export class RelationshipService implements OnModuleInit {
           modified: hit._source.modified || new Date().toISOString(),
           start_time: hit._source.start_time,
           stop_time: hit._source.stop_time,
-          ...hit._source,
+         
         })),
       };
     } catch (error) {
@@ -347,6 +349,7 @@ export class RelationshipService implements OnModuleInit {
       });
 
       return response.body.hits.hits.map((hit) => ({
+        ...hit._source,
         id: hit._id,
         type: 'relationship' as const,
         spec_version: hit._source.spec_version || '2.1',
@@ -357,7 +360,7 @@ export class RelationshipService implements OnModuleInit {
         modified: hit._source.modified || new Date().toISOString(),
         start_time: hit._source.start_time,
         stop_time: hit._source.stop_time,
-        ...hit._source,
+        
       }));
     } catch (error) {
       throw new InternalServerErrorException({
@@ -403,8 +406,9 @@ export class RelationshipService implements OnModuleInit {
         });
 
         const chunkResults = response.body.hits.hits.map((hit) => ({
-          id: hit._id,
           ...hit._source,
+          id: hit._id,
+          
         }));
 
         results.push(...chunkResults);

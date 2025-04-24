@@ -32,13 +32,14 @@ export class FileService implements OnModuleInit {
       const now = new Date().toISOString();
     
       const doc: File = {
+        ...createFileInput,
+        ...(createFileInput.enrichment ? { enrichment: createFileInput.enrichment } : {}),
         id,
         type: 'file' as const,
         spec_version: '2.1',
         created: now,
         modified: now,
-        ...createFileInput,
-        ...(createFileInput.enrichment ? { enrichment: createFileInput.enrichment } : {}),
+        
       };
     
       // Validate and convert hashes if provided
@@ -186,12 +187,13 @@ export class FileService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / size),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'file' as const,
           spec_version: '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
-          ...hit._source,
+          
         })),
       };
     } catch (error) {
@@ -211,12 +213,13 @@ export class FileService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id,
         type: 'file' as const,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -267,13 +270,14 @@ export class FileService implements OnModuleInit {
       });
 
       return response.body.hits.hits.map((hit) => ({
+        ...hit._source,
         id: hit._id,
         type: 'file' as const,
         spec_version: hit._source.spec_version || '2.1',
         created: hit._source.created || new Date().toISOString(),
         modified: hit._source.modified || new Date().toISOString(),
         hashes: hit._source.hashes,
-        ...hit._source,
+        
       }));
     } catch (error) {
       throw new InternalServerErrorException({

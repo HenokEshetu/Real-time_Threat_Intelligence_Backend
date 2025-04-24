@@ -35,14 +35,15 @@ export class ArtifactService implements OnModuleInit {
     const timestamp = new Date().toISOString();
     const id = createArtifactInput.id;
     const artifact: Artifact = {
+      ...createArtifactInput,
+      ...(createArtifactInput.enrichment ? { enrichment: createArtifactInput.enrichment } : {}), // Optional enrichment
       id,
       type: 'artifact' as const,
       spec_version: '2.1',
       created: timestamp,
       modified: timestamp,
-      ...createArtifactInput,
       hashes: this.convertHashesInputToHashes(createArtifactInput.hashes),
-      ...(createArtifactInput.enrichment ? { enrichment: createArtifactInput.enrichment } : {}), // Optional enrichment
+      
     };
 
     try {

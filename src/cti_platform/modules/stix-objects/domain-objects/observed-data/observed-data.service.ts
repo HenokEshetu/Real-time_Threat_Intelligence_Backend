@@ -30,6 +30,8 @@ export class ObservedDataService implements OnModuleInit {
 
   async create(createObservedDataInput: CreateObservedDataInput): Promise<ObservedData> {
     const observedData: ObservedData = {
+      ...createObservedDataInput,
+      ...(createObservedDataInput.object_refs ? { object_refs: createObservedDataInput.object_refs } : {}),
       id: `observed-data--${uuidv4()}`,
       type: 'observed-data' as const,
       spec_version: '2.1',
@@ -38,8 +40,7 @@ export class ObservedDataService implements OnModuleInit {
       first_observed: createObservedDataInput.first_observed, // Required field
       last_observed: createObservedDataInput.last_observed,   // Required field
       number_observed: createObservedDataInput.number_observed, // Required field
-      ...createObservedDataInput,
-      ...(createObservedDataInput.object_refs ? { object_refs: createObservedDataInput.object_refs } : {}),
+      
     };
 
     try {
@@ -71,6 +72,7 @@ export class ObservedDataService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'observed-data' as const,
         spec_version: source.spec_version || '2.1',
@@ -80,7 +82,7 @@ export class ObservedDataService implements OnModuleInit {
         last_observed: source.last_observed,   // Required field
         object_refs:source.object_refs,
         number_observed: source.number_observed, // Required field
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -212,6 +214,7 @@ export class ObservedDataService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'observed-data' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -221,7 +224,7 @@ export class ObservedDataService implements OnModuleInit {
           last_observed: hit._source.last_observed,   // Required field
           number_observed: hit._source.number_observed, // Required field
           object_refs: hit._source.object_refs,
-          ...hit._source,
+         
         })),
       };
     } catch (error) {

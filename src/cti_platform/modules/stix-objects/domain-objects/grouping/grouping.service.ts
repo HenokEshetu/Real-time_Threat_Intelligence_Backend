@@ -31,14 +31,15 @@ export class GroupingService implements OnModuleInit {
 
   async create(createGroupingInput: CreateGroupingInput): Promise<Grouping> {
     const grouping: Grouping = {
+      ...createGroupingInput,
+      ...(createGroupingInput.enrichment ? { enrichment: createGroupingInput.enrichment } : {}),
       id: `grouping--${uuidv4()}`,
       type: 'grouping' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createGroupingInput.name, // Required field
-      ...createGroupingInput,
-      ...(createGroupingInput.enrichment ? { enrichment: createGroupingInput.enrichment } : {}),
+      
     };
 
     try {
@@ -70,6 +71,7 @@ export class GroupingService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'grouping' as const,
         spec_version: source.spec_version || '2.1',
@@ -78,7 +80,7 @@ export class GroupingService implements OnModuleInit {
         name: source.name, // Required field
         object_refs: source.object_refs,
         context: source.context,
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -209,6 +211,7 @@ export class GroupingService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'grouping' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -217,7 +220,7 @@ export class GroupingService implements OnModuleInit {
           name: hit._source.name, // Required field
           context: hit._source.context,
           object_refs:hit._source.object_refs,
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

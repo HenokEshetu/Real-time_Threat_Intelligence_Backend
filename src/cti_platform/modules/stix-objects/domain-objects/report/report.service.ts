@@ -30,14 +30,15 @@ export class ReportService implements OnModuleInit {
 
   async create(createReportInput: CreateReportInput): Promise<Report> {
     const report: Report = {
+      ...createReportInput,
+      ...(createReportInput.enrichment ? { enrichment: createReportInput.enrichment } : {}),
       id: `report--${uuidv4()}`,
       type: 'report' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createReportInput.name, // Required field
-      ...createReportInput,
-      ...(createReportInput.enrichment ? { enrichment: createReportInput.enrichment } : {}),
+      
     };
 
     try {
@@ -69,6 +70,7 @@ export class ReportService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'report' as const,
         report_types:source.report_types,
@@ -78,7 +80,7 @@ export class ReportService implements OnModuleInit {
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-        ...source,
+       
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -210,6 +212,7 @@ export class ReportService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'report' as const,
           report_types:hit._source.report_types,
@@ -219,7 +222,7 @@ export class ReportService implements OnModuleInit {
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           name: hit._source.name, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

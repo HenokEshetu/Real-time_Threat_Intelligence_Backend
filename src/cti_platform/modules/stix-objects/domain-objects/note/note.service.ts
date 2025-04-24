@@ -30,14 +30,15 @@ export class NoteService implements OnModuleInit {
 
   async create(createNoteInput: CreateNoteInput): Promise<Note> {
     const note: Note = {
+      ...createNoteInput,
+      ...(createNoteInput.enrichment ? { enrichment: createNoteInput.enrichment } : {}),
       id: `note--${uuidv4()}`,
       type: 'note' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       content: createNoteInput.content, // Required field
-      ...createNoteInput,
-      ...(createNoteInput.enrichment ? { enrichment: createNoteInput.enrichment } : {}),
+      
     };
 
     try {
@@ -69,6 +70,7 @@ export class NoteService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'note' as const,
         spec_version: source.spec_version || '2.1',
@@ -77,7 +79,7 @@ export class NoteService implements OnModuleInit {
         object_refs: source.object_refs,
         abstract:source.abstract,
         content: source.content, // Required field
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -209,6 +211,7 @@ export class NoteService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'note' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -217,7 +220,7 @@ export class NoteService implements OnModuleInit {
           content: hit._source.content, // Required field
           abstract: hit._source.abstract,
           object_refs: hit._source.object_refs,
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

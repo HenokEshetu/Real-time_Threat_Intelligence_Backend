@@ -36,13 +36,14 @@ export class ProcessService implements OnModuleInit {
     const now = new Date().toISOString();
 
     const process: Process = {
+      ...createProcessInput,
+      ...(createProcessInput.enrichment ? { enrichment: createProcessInput.enrichment } : {}),
       id,
       type: 'process' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
-      ...createProcessInput,
-      ...(createProcessInput.enrichment ? { enrichment: createProcessInput.enrichment } : {}),
+      
     };
 
     try {
@@ -73,12 +74,13 @@ export class ProcessService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id,
         type: 'process' as const,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -243,12 +245,13 @@ export class ProcessService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / size),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'process' as const,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

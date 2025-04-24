@@ -113,13 +113,14 @@ export class AutonomousSystemService implements OnModuleInit {
     const now = new Date().toISOString();
 
     const doc: AutonomousSystem = {
+      ...createAutonomousSystemInput,
+      ...(createAutonomousSystemInput.enrichment ? { enrichment: createAutonomousSystemInput.enrichment } : {}), // Optional enrichment
       id :createAutonomousSystemInput.id,
       type: 'autonomous-system' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
-      ...createAutonomousSystemInput,
-      ...(createAutonomousSystemInput.enrichment ? { enrichment: createAutonomousSystemInput.enrichment } : {}), // Optional enrichment
+      
     };
 
     try {
@@ -177,13 +178,14 @@ export class AutonomousSystemService implements OnModuleInit {
       const source = response.body._source;
 
       return {
+        ...source,
         id,
         number: source.number,
         type: 'autonomous-system' as const,
         spec_version: '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -211,13 +213,14 @@ export class AutonomousSystemService implements OnModuleInit {
 
       const hit = response.body.hits.hits[0];
       return {
+        ...hit._source,
         id: hit._id,
         number: hit._source.number,
         type: 'autonomous-system' as const,
         spec_version: '2.1',
         created: hit._source.created || new Date().toISOString(),
         modified: hit._source.modified || new Date().toISOString(),
-        ...hit._source,
+        
       };
     } catch (error) {
       if (error instanceof NotFoundException) throw error;

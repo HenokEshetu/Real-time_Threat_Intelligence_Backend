@@ -30,14 +30,15 @@ export class IdentityService implements OnModuleInit {
 
   async create(createIdentityInput: CreateIdentityInput): Promise<Identity> {
     const identity: Identity = {
+      ...createIdentityInput,
+      ...(createIdentityInput.enrichment ? { enrichment: createIdentityInput.enrichment } : {}),
       id: `identity--${uuidv4()}`,
       type: 'identity' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createIdentityInput.name, // Required field
-      ...createIdentityInput,
-      ...(createIdentityInput.enrichment ? { enrichment: createIdentityInput.enrichment } : {}),
+      
     };
 
     try {
@@ -69,6 +70,7 @@ export class IdentityService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'identity' as const,
         identity_class: source.identity_class,
@@ -76,7 +78,7 @@ export class IdentityService implements OnModuleInit {
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -208,6 +210,7 @@ export class IdentityService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'identity' as const,
           identity_class: hit._source.identity_class,
@@ -215,7 +218,7 @@ export class IdentityService implements OnModuleInit {
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           name: hit._source.name, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

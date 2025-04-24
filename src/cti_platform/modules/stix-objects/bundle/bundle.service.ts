@@ -13,7 +13,7 @@ export class BundleService implements OnModuleInit {
   constructor() {
     this.client = new Client({
       node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      // Add authentication if needed
+     
       auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD 
         ? {
             username: process.env.OPENSEARCH_USERNAME,
@@ -33,9 +33,10 @@ export class BundleService implements OnModuleInit {
     const id = `bundle--${uuidv4()}`;
     const timestamp = new Date().toISOString();
     const bundle: Bundle = {
-      id,
-      type: 'bundle',
       ...createBundleInput,
+      id,
+      type: 'bundle'
+      
     };
 
     try {
@@ -156,8 +157,9 @@ export class BundleService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map(hit => ({
-          id: hit._id,
           ...(hit._source as Bundle),
+          id: hit._id,
+          
         })),
       };
     } catch (error) {

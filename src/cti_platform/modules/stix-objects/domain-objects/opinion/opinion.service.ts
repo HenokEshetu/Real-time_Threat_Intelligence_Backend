@@ -30,14 +30,15 @@ export class OpinionService implements OnModuleInit {
 
   async create(createOpinionInput: CreateOpinionInput): Promise<Opinion> {
     const opinion: Opinion = {
+      ...createOpinionInput,
+      ...(createOpinionInput.object_refs ? { object_refs: createOpinionInput.object_refs } : {}),
       id: `opinion--${uuidv4()}`,
       type: 'opinion' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       opinion: createOpinionInput.opinion, // Required field
-      ...createOpinionInput,
-      ...(createOpinionInput.object_refs ? { object_refs: createOpinionInput.object_refs } : {}),
+      
     };
 
     try {
@@ -69,6 +70,7 @@ export class OpinionService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id: response.body._id,
         type: 'opinion' as const,
         spec_version: source.spec_version || '2.1',
@@ -78,7 +80,7 @@ export class OpinionService implements OnModuleInit {
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         opinion: source.opinion, // Required field
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -223,6 +225,7 @@ export class OpinionService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'opinion' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -231,7 +234,7 @@ export class OpinionService implements OnModuleInit {
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           opinion: hit._source.opinion, // Required field
-          ...hit._source,
+          
         })),
       };
     } catch (error) {

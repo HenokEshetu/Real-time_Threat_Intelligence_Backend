@@ -31,6 +31,8 @@ export class IPv6AddressService implements OnModuleInit {
     const now = new Date().toISOString();
 
     const doc: IPv6Address = {
+      ...createIPv6AddressInput,
+      ...(createIPv6AddressInput.enrichment ? { enrichment: createIPv6AddressInput.enrichment } : {}),
       id,
       type: 'ipv6-addr' as const,
       spec_version: '2.1',
@@ -38,8 +40,7 @@ export class IPv6AddressService implements OnModuleInit {
       modified: now,
       value: createIPv6AddressInput.value,
       resolves_to_refs: createIPv6AddressInput.resolves_to_refs,
-      ...createIPv6AddressInput,
-      ...(createIPv6AddressInput.enrichment ? { enrichment: createIPv6AddressInput.enrichment } : {}),
+      
     };
 
     try {
@@ -68,6 +69,7 @@ export class IPv6AddressService implements OnModuleInit {
 
       const source = response.body._source;
       return {
+        ...source,
         id,
         type: 'ipv6-addr' as const,
         spec_version: source.spec_version || '2.1',
@@ -75,7 +77,7 @@ export class IPv6AddressService implements OnModuleInit {
         modified: source.modified || new Date().toISOString(),
         value: source.value,
         resolves_to_refs: source.resolves_to_refs || [],
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -208,6 +210,7 @@ export class IPv6AddressService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / pageSize),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'ipv6-addr' as const,
           spec_version: hit._source.spec_version || '2.1',
@@ -215,7 +218,7 @@ export class IPv6AddressService implements OnModuleInit {
           modified: hit._source.modified || new Date().toISOString(),
           value: hit._source.value,
           resolves_to_refs: hit._source.resolves_to_refs || [],
-          ...hit._source,
+          
         })),
       };
     } catch (error) {
@@ -238,6 +241,7 @@ export class IPv6AddressService implements OnModuleInit {
       });
 
       return response.body.hits.hits.map((hit) => ({
+        ...hit._source,
         id: hit._id,
         type: 'ipv6-addr' as const,
         spec_version: hit._source.spec_version || '2.1',
@@ -245,7 +249,7 @@ export class IPv6AddressService implements OnModuleInit {
         modified: hit._source.modified || new Date().toISOString(),
         value: hit._source.value,
         resolves_to_refs: hit._source.resolves_to_refs || [],
-        ...hit._source,
+        
       }));
     } catch (error) {
       throw new InternalServerErrorException({

@@ -31,6 +31,8 @@ export class EmailAddressService implements OnModuleInit {
     const now = new Date().toISOString();
 
     const doc: EmailAddress = {
+      ...createEmailAddressInput,
+      ...(createEmailAddressInput.enrichment ? { enrichment: createEmailAddressInput.enrichment } : {}),
       id,
       type: 'email-addr' as const,
       spec_version: '2.1',
@@ -38,8 +40,7 @@ export class EmailAddressService implements OnModuleInit {
       modified: now,
       value: createEmailAddressInput.value,
       display_name: createEmailAddressInput.display_name || '',
-      ...createEmailAddressInput,
-      ...(createEmailAddressInput.enrichment ? { enrichment: createEmailAddressInput.enrichment } : {}),
+      
     };
 
     try {
@@ -97,6 +98,7 @@ export class EmailAddressService implements OnModuleInit {
       const source = response.body._source;
 
       return {
+        ...source,
         id,
         type: 'email-addr' as const,
         spec_version: '2.1',
@@ -104,7 +106,7 @@ export class EmailAddressService implements OnModuleInit {
         modified: source.modified || new Date().toISOString(),
         value: source.value,
         display_name: source.display_name || '',
-        ...source,
+        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -127,6 +129,7 @@ export class EmailAddressService implements OnModuleInit {
       });
 
       return response.body.hits.hits.map((hit) => ({
+        ...hit._source,
         id: hit._id,
         type: 'email-addr' as const,
         spec_version: '2.1',
@@ -134,7 +137,7 @@ export class EmailAddressService implements OnModuleInit {
         modified: hit._source.modified || new Date().toISOString(),
         value: hit._source.value,
         display_name: hit._source.display_name || '',
-        ...hit._source,
+       
       }));
     } catch (error) {
       throw new InternalServerErrorException({
@@ -239,6 +242,7 @@ export class EmailAddressService implements OnModuleInit {
         total,
         totalPages: Math.ceil(total / size),
         results: response.body.hits.hits.map((hit) => ({
+          ...hit._source,
           id: hit._id,
           type: 'email-addr' as const,
           spec_version: '2.1',
@@ -246,7 +250,7 @@ export class EmailAddressService implements OnModuleInit {
           modified: hit._source.modified || new Date().toISOString(),
           value: hit._source.value,
           display_name: hit._source.display_name || '',
-          ...hit._source,
+          
         })),
       };
     } catch (error) {
