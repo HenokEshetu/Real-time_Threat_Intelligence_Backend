@@ -1,5 +1,5 @@
 // src/cti_platform/modules/ingestion-from-api-feeds/feeds/feed.types.ts
-import { CommonProperties, MarkingDefinition,  } from '../../../core/types/common-data-types';
+import { CommonProperties, MarkingDefinition } from '../../../core/types/common-data-types';
 
 // STIX 2.1 object types supported by the project (verified complete per STIX 2.1 spec)
 export type StixType =
@@ -40,7 +40,8 @@ export type StixType =
   | 'threat-actor'
   | 'tool'
   | 'vulnerability'
-  | 'sighting';
+  | 'sighting'
+  | 'relationship';
 
 // Configuration for a generic feed provider
 export interface FeedProviderConfig {
@@ -58,7 +59,14 @@ export interface FeedProviderConfig {
   rateLimitDelay?: number;
   maxRetries?: number;
   schedule?: string;
-  indicatorMapper: (raw: any) => GenericStixObject | null; // Allow null for invalid mappings
+  indicatorMapper: (raw: any) => GenericStixObject | GenericStixObject[] | null; // Allow array or null
+  pagination?: {
+    paramType?: 'params' | 'data'; // Where to apply pagination parameters (query params or request body)
+    pageKey?: string; // Key for page number (e.g., 'page', 'offset', 'cursor')
+    totalCountKey?: string; // Key for total item count in response (e.g., 'total_count')
+    hasNextKey?: string; // Key for next-page indicator (e.g., 'has_next')
+    maxPages?: number; // Maximum pages to fetch (default: 100)
+  };
 }
 
 // Enrichment data structure aligned with EnrichmentService's conciseResponseFields
@@ -160,6 +168,7 @@ export interface GenericStixObject extends Partial<CommonProperties> {
   description?: string;
   created?: string;
   modified?: string;
+  valid_from?: string;
   expiration?: string;
   validated?: boolean;
   reputation?: number;
@@ -183,10 +192,39 @@ export interface GenericStixObject extends Partial<CommonProperties> {
   validationErrors?: string[]; // Track validation issues (e.g., "invalid TLD")
   enrichment?: EnrichmentData;
   sourceConfigId?: string; // Added to fix TS2339 errors
+  // --- Added for STIX compatibility ---
+  published?: string; // For 'report'
+  pattern?: string; // For 'indicator'
+  pattern_type?: string; // For 'indicator'
+  resolves_to_refs?: string[]; // For 'domain-name'
+  number?: number; // For 'autonomous-system'
+  malware_types?: string[]; // For 'malware' (legacy, mapped to malwareTypes)
+  threat_actor_types?: string[]; // For 'threat-actor' (legacy, mapped to threatActorTypes)
+  dst_ref?: string; // For 'network-traffic'
+  dst_port?: number; // For 'network-traffic'
+  key?: string; // For 'windows-registry-key'
+  values?: any[]; // For 'windows-registry-key'
+  account_login?: string; // For 'user-account'
+  account_type?: string; // For 'user-account'
+  identity_class?: string; // For 'identity'
+  infrastructure_types?: string[]; // For 'infrastructure'
+  payload_bin?: string; // For 'artifact'
+  content?: string; // For 'note'
+  arguments?: string[]; // For 'process'
+  first_observed?: string; // For 'observed-data'
+  last_observed?: string; // For 'observed-data'
+  object_refs?: string[]; // For 'observed-data'
+  number_observed?: number; // For observed-data
+  // --- Added for relationships ---
+  source_ref?: string;
+  target_ref?: string;
+  relationship_type?: string;
 }
 
 // TLP Marking Definition
 export interface TLPMarkingDefinition extends MarkingDefinition {
+  // Added property to allow spec_version
+  spec_version: string;
   definition_type: 'tlp';
   definition: {
     tlp: 'white' | 'green' | 'amber' | 'red';

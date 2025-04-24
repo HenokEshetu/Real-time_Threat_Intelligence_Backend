@@ -287,11 +287,20 @@ export class FeedIngesterService implements OnModuleInit {
   }
 
   async onModuleInit() {
-    await this.initializeLimiters();
-    await this.scheduleFeedProcessing();
-    this.logger.log('Feed Ingester Service initialized');
+    try {
+      await this.feedQueue.clean(0, 'completed');
+      await this.feedQueue.clean(0, 'failed');
+      await this.feedQueue.clean(0, 'delayed');
+      this.logger.log('Cleaned stale jobs from feedQueue');
+      await this.initializeLimiters();
+      await this.triggerImmediateFetch();
+      await this.scheduleFeedProcessing();
+      this.logger.log('Feed Ingester Service initialized');
+    } catch (error) {
+      this.logger.error('Failed to initialize Feed Ingester Service', { error: error.message });
+      throw error;
+    }
   }
-
 
   
   private async initializeLimiters() {
@@ -312,27 +321,82 @@ export class FeedIngesterService implements OnModuleInit {
     this.logger.log(`Initialized ${this.limiters.size} rate limiters`);
   }
 
-  private async scheduleFeedProcessing(): Promise<void> {
-    await this.feedQueue.empty();
-    const repeatableJobs = await this.feedQueue.getRepeatableJobs();
-    for (const job of repeatableJobs) {
-      await this.feedQueue.removeRepeatableByKey(job.key);
-    }
 
-    const configs = await this.feedConfigService.getAllConfigs();
-    if (!configs.length) {
-      this.logger.warn('No feed configurations found');
-      return;
-    }
 
-    const schedule = configs[0].schedule || this.defaultSchedule;
-    await this.feedQueue.add(
-      'processAllFeeds',
-      {},
-      { repeat: { cron: schedule }, jobId: `all-feeds-${uuidv4()}` },
-    );
-    this.logger.log(`Scheduled feed processing with cron ${schedule}`);
+  private async triggerImmediateFetch(): Promise<void> {
+    try {
+      this.logger.log('Triggering immediate fetch for all feeds');
+      const configs = await this.feedConfigService.getAllConfigs();
+      this.logger.log(`Found ${configs.length} feed configurations`, { configIds: configs.map(c => c.id) });
+      if (!configs.length) {
+        this.logger.warn('No feed configurations found for immediate fetch');
+        return;
+      }
+      const jobId = `immediate-fetch-${uuidv4()}`;
+      const job = await this.feedQueue.add(
+        'processAllFeeds',
+        {},
+        { jobId, removeOnComplete: true, removeOnFail: true },
+      );
+      this.logger.log(`Queued immediate fetch job ${jobId}`);
+      await this.getQueueStatus();
+      await job.finished();
+      this.logger.log(`Immediate fetch job ${jobId} completed`);
+    } catch (error) {
+      this.logger.error('Failed to trigger immediate fetch', { error: error.message });
+      throw error;
+    }
   }
+
+  private async scheduleFeedProcessing(): Promise<void> {
+    try {
+      await this.feedQueue.empty();
+      const repeatableJobs = await this.feedQueue.getRepeatableJobs();
+      for (const job of repeatableJobs) {
+        await this.feedQueue.removeRepeatableByKey(job.key);
+        this.logger.log(`Removed existing repeatable job ${job.id}`);
+      }
+
+      const configs = await this.feedConfigService.getAllConfigs();
+      if (!configs.length) {
+        this.logger.warn('No feed configurations found for scheduling');
+        return;
+      }
+
+      for (const config of configs) {
+        const schedule = config.schedule || this.defaultSchedule;
+        const jobId = `feed-${config.id}-${uuidv4()}`;
+        await this.feedQueue.add(
+          'processFeed',
+          { config },
+          { repeat: { cron: schedule }, jobId },
+        );
+        this.logger.log(`Scheduled feed ${config.name} with cron ${schedule} (job ${jobId})`);
+      }
+    } catch (error) {
+      this.logger.error('Failed to schedule feed processing', { error: error.message });
+      throw error;
+    }
+  }
+
+  async getQueueStatus() {
+    const [waiting, active, completed, failed] = await Promise.all([
+      this.feedQueue.getWaiting(),
+      this.feedQueue.getActive(),
+      this.feedQueue.getCompleted(),
+      this.feedQueue.getFailed(),
+    ]);
+    this.logger.log('Queue status', {
+      waiting: waiting.length,
+      active: active.length,
+      completed: completed.length,
+      failed: failed.length,
+      waitingJobs: waiting.map(j => ({ id: j.id, name: j.name })),
+      activeJobs: active.map(j => ({ id: j.id, name: j.name })),
+    });
+    return { waiting, active, completed, failed };
+  }
+
 
   @Process('processAllFeeds')
   async handleProcessAllFeeds(job: Job): Promise<void> {
@@ -352,6 +416,18 @@ export class FeedIngesterService implements OnModuleInit {
     );
     this.logger.log(`Job ${job.id} completed`);
   }
+
+
+  @Process('processFeed')
+  async handleProcessFeed(job: Job<{ config: FeedProviderConfig }>): Promise<void> {
+    const { config } = job.data;
+    this.logger.log(`Starting job ${job.id} to process feed ${config.name}`);
+    await this.processFeed(config).catch(error => {
+      this.logger.error(`Failed to process feed ${config.name}`, { error: error.message, feed: config.name });
+    });
+    this.logger.log(`Job ${job.id} completed`);
+  }
+  
 
   private async processFeed(config: FeedProviderConfig): Promise<void> {
     const startTime = Date.now();
@@ -437,9 +513,18 @@ export class FeedIngesterService implements OnModuleInit {
       return { success: false, isDuplicate: false };
     }
   
-    const lookupValue = obj.indicator || obj.value || obj.name || (obj.hashes ? Object.values(obj.hashes)[0] : undefined);
+    let lookupValue = obj.indicator || obj.value || obj.name || (obj.hashes ? Object.values(obj.hashes)[0] : undefined);
+    // Fallback: iterate over hashes if lookupValue remains falsy
+    if (!lookupValue && obj.hashes && typeof obj.hashes === 'object') {
+      for (const key in obj.hashes) {
+        if (obj.hashes[key]) {
+          lookupValue = obj.hashes[key];
+          break;
+        }
+      }
+    }
     if (!lookupValue) {
-      this.logger.warn(`Skipping invalid indicator: no valid lookup value`, context);
+      this.logger.warn(`Skipping invalid indicator: no valid lookup value. Object: ${JSON.stringify(obj)}`, context);
       return { success: false, isDuplicate: false };
     }
   
@@ -1049,91 +1134,131 @@ export class FeedIngesterService implements OnModuleInit {
     return relationships;
   }
 
-
-
   private async fetchStixObjects(config: FeedProviderConfig, retryCount: number): Promise<GenericStixObject[]> {
-  const apiKey = process.env[config.apiKeyEnv];
-  if (!apiKey) {
-    this.logger.error(`API key not configured`, { feed: config.name, key: config.apiKeyEnv });
-    throw new InternalServerErrorException(`${config.apiKeyEnv} not configured`);
-  }
-
-  if (!this.limiters.has(config.id)) {
-    this.logger.warn(`Creating rate limiter for ${config.id}`, { feed: config.name });
-    this.limiters.set(
-      config.id,
-      new Bottleneck({
-        maxConcurrent: 1,
-        minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY,
-      }),
-    );
-  }
-
-  const limiter = this.limiters.get(config.id)!;
-  try {
-    const headers = config.headers ? this.interpolateHeaders(config.headers, apiKey) : {};
-    const response = await limiter.schedule(() =>
-      axios({
-        method: config.method || 'GET',
-        url: config.apiUrl,
-        headers,
-        params: config.params,
-        data: config.data,
-        timeout: config.timeout || DEFAULT_TIMEOUT,
-      }),
-    );
-
-    const data = config.responsePath ? this.getNestedProperty(response.data, config.responsePath) : response.data;
-    if (!Array.isArray(data)) {
-      this.logger.error(`Invalid response format from ${config.name} API`, { feed: config.name });
-      throw new Error(`Invalid response format from ${config.name} API`);
+    const apiKey = process.env[config.apiKeyEnv];
+    if (!apiKey) {
+      this.logger.error(`API key not configured`, { feed: config.name, key: config.apiKeyEnv });
+      throw new InternalServerErrorException(`${config.apiKeyEnv} not configured`);
     }
-
-    const stixObjects = data
-      .map(raw => {
-        const mapped = config.indicatorMapper(raw);
-        if (!mapped.type || !FeedUtils.isValidStixType(mapped.type)) {
-          this.logger.warn(`Skipping invalid STIX type`, {
-            feed: config.name,
-            type: mapped.type,
-            raw: JSON.stringify(raw, null, 2).substring(0, 500),
-          });
-          return null;
-        }
-        if (!this.isValidStixObject(mapped)) {
-          this.logger.warn(`Skipping invalid STIX object`, {
-            feed: config.name,
-            type: mapped.type,
-            raw: JSON.stringify(raw, null, 2).substring(0, 500),
-          });
-          return null;
-        }
-        return { ...mapped, sourceConfigId: config.id };
-      })
-      .filter(obj => obj !== null) as GenericStixObject[];
-
-    this.logger.log(`Fetched ${stixObjects.length}/${data.length} valid objects from ${config.name}`, { feed: config.name });
-    return stixObjects;
-  } catch (error) {
-    return this.handleFetchError(error as AxiosError, config, retryCount);
-  }
-}
-  private isValidStixObject(obj: GenericStixObject): boolean {
-    switch (obj.type) {
-      case 'file': return !!(obj.hashes && Object.keys(obj.hashes).length > 0) || !!obj.value;
-      case 'url':
-      case 'domain-name':
-      case 'ipv4-addr':
-      case 'ipv6-addr':
-      case 'email-addr': return !!obj.value;
-      case 'malware':
-      case 'threat-actor':
-      case 'campaign':
-      case 'attack-pattern': return !!obj.name;
-      case 'indicator': return !!obj.indicator;
-      default: return true;
+  
+    if (!this.limiters.has(config.id)) {
+      this.logger.warn(`Creating rate limiter for ${config.id}`, { feed: config.name });
+      this.limiters.set(
+        config.id,
+        new Bottleneck({
+          maxConcurrent: 1,
+          minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY,
+        }),
+      );
     }
+  
+    const limiter = this.limiters.get(config.id)!;
+    const allStixObjects: GenericStixObject[] = [];
+    let page = 1;
+    const pageSize = config.data?.limit || config.params?.limit || 50;
+    let hasMore = true;
+  
+    while (hasMore) {
+      try {
+        const headers = config.headers ? this.interpolateHeaders(config.headers, apiKey) : {};
+        const paginationParams = {
+          ...(config.params || {}),
+          ...(config.pagination?.paramType === 'params' ? { [config.pagination?.pageKey || 'page']: page, limit: pageSize } : {}),
+        };
+        const paginationData = {
+          ...(config.data || {}),
+          ...(config.pagination?.paramType === 'data' ? { [config.pagination?.pageKey || 'page']: page, limit: pageSize } : {}),
+        };
+  
+        const response = await limiter.schedule(() =>
+          axios({
+            method: config.method || 'GET',
+            url: config.apiUrl,
+            headers,
+            params: Object.keys(paginationParams).length > 0 ? paginationParams : undefined,
+            data: Object.keys(paginationData).length > 0 ? paginationData : config.data,
+            timeout: config.timeout || DEFAULT_TIMEOUT,
+          }),
+        );
+  
+        if (this.debugLogging) {
+          this.logger.debug(`Raw API response from ${config.name} (page ${page})`, {
+            feed: config.name,
+            response: JSON.stringify(response.data, null, 2).substring(0, 1000),
+          });
+        }
+  
+        let data = config.responsePath ? this.getNestedProperty(response.data, config.responsePath) : response.data;
+        if (config.name === 'AlienVaultOTX' && data?.results) {
+          data = data.results; // Matches responsePath: "results"
+        } else if (config.name === 'HybridAnalysis' && data?.data) {
+          data = data.data; // Matches responsePath: "data"
+        }
+  
+        if (!Array.isArray(data)) {
+          this.logger.error(`Invalid response format from ${config.name} API`, {
+            feed: config.name,
+            responseType: typeof data,
+            responseKeys: data ? Object.keys(data) : null,
+            page,
+          });
+          throw new Error(`Invalid response format from ${config.name} API`);
+        }
+  
+        const stixObjects = data
+          .flatMap(raw => {
+            try {
+              const mapped = config.indicatorMapper(raw);
+              if (!mapped) return [];
+              return Array.isArray(mapped) ? mapped : [mapped];
+            } catch (e) {
+              this.logger.warn(`Failed to map item from ${config.name}`, {
+                feed: config.name,
+                error: (e as Error).message,
+                raw: JSON.stringify(raw, null, 2).substring(0, 500),
+              });
+              return [];
+            }
+          })
+          .filter((obj): obj is GenericStixObject => obj !== null && FeedUtils.isValidStixType(obj.type));
+  
+        allStixObjects.push(...stixObjects);
+  
+        this.logger.log(
+          `Fetched ${stixObjects.length}/${data.length} valid objects from ${config.name} (page ${page}, total ${allStixObjects.length})`,
+          { feed: config.name, page, stixTypes: [...new Set(stixObjects.map(obj => obj.type))] },
+        );
+  
+        // Pagination logic
+        hasMore = data.length === pageSize;
+        if (config.pagination?.hasNextKey && response.data[config.pagination.hasNextKey] !== undefined) {
+          hasMore = response.data[config.pagination.hasNextKey] && data.length > 0;
+        } else if (config.pagination?.totalCountKey && response.data[config.pagination.totalCountKey] !== undefined) {
+          const totalCount = response.data[config.pagination.totalCountKey];
+          hasMore = allStixObjects.length < totalCount && data.length > 0;
+        } else if (config.name === 'HybridAnalysis') {
+          // Fallback for Hybrid Analysis: continue if full page received
+          hasMore = data.length === pageSize;
+        }
+  
+        page++;
+        if (page > (config.pagination?.maxPages || 100)) {
+          this.logger.warn(`Reached maximum page limit for ${config.name}`, {
+            feed: config.name,
+            maxPages: config.pagination?.maxPages || 100,
+          });
+          hasMore = false;
+        }
+      } catch (error) {
+        const fetchError = await this.handleFetchError(error as AxiosError, config, retryCount);
+        allStixObjects.push(...fetchError);
+        hasMore = false;
+      }
+    }
+  
+    return allStixObjects;
   }
+  
 
 
   private interpolateHeaders(headers: Record<string, string>, apiKey: string): Record<string, string> {

@@ -1,36 +1,95 @@
 [
   {
-    "id": "hybrid-analysis",
-    "name": "Hybrid Analysis",
-    "apiUrl": "https://www.hybrid-analysis.com/api/v2/feed/latest",
-    "apiKeyEnv": "HYBRID_API_KEY",
-    "headers": { "api-key": "${apiKey}" },
-    "method": "GET",
-    "responsePath": "data",
+    "id": "misp-feed",
+    "name": "MISP",
+    "apiUrl": "http://localhost/events/restSearch",
+    "apiKeyEnv": "MISP_API_KEY",
+    "method": "POST",
+    "headers": {
+      "Authorization": "${apiKey}",
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    },
+    "data": {
+      "returnFormat": "json",
+      "withAttachments": false,
+      "typeAttribute": ["ip-dst", "ip-src"],
+      "limit": 50,
+      "published": true
+    },
+    "responsePath": "response",
+    "indicatorMapper": "misp",
     "batchSize": 50,
-    "timeout": 30000,
-    "rateLimitDelay": 1000,
-    "maxRetries": 3,
-    "schedule": "*/1 * * * *",
-    "indicatorMapper": "hybridAnalysis"
+    "rateLimitDelay": 3000,
+    "timeout": 90000,
+    "maxRetries": 5,
+    "schedule": "*/200 * * * *",
+    "pagination": {
+      "paramType": "data",
+      "pageKey": "page",
+      "maxPages": 100
+    }
   },
+ 
+ 
   {
-    "id": "AlienVault-OTX",
-    "name": "AlienVault",
-    "apiUrl": "https://otx.alienvault.com/api/v1/indicators/export",
-    "apiKeyEnv": "ALIENVAULT_API_KEY",
+    "id": "alienvault-otx-feed",
+    "name": "AlienVaultOTX",
+    "apiUrl": "https://otx.alienvault.com/api/v1/pulses/subscribed",
+    "apiKeyEnv": "OTX_API_KEY",
+    "method": "GET",
     "headers": {
       "X-OTX-API-KEY": "${apiKey}",
       "Accept": "application/json"
     },
-    "method": "GET",
-    "params": {},
+    "params": {
+      "limit": 50
+    },
     "responsePath": "results",
-    "batchSize": 100,
-    "timeout": 30000,
+    "indicatorMapper": "alienVaultOTX",
+    "batchSize": 50,
     "rateLimitDelay": 2000,
+    "timeout": 60000,
     "maxRetries": 3,
-    "schedule": "*/1 * * * *",
-    "indicatorMapper": "alienVaultOTX"
+    "schedule": "*/200* * * *",
+    "pagination": {
+      "paramType": "params",
+      "pageKey": "page",
+      "totalCountKey": "count",
+      "maxPages": 50
+    }
+  },
+ 
+ 
+  {
+    "id": "hybrid-analysis-feed",
+    "name": "HybridAnalysis",
+    "apiUrl": "https://www.hybrid-analysis.com/api/v2/feed/latest",
+    "apiKeyEnv": "HYBRID_ANALYSIS_API_KEY",
+    "method": "GET",
+    "headers": {
+      "api-key": "${apiKey}",
+      "User-Agent": "Falcon Sandbox",
+      "Accept": "application/json"
+    },
+    "params": {
+      "limit": 50
+    },
+    "responsePath": "data",
+    "indicatorMapper": "hybridAnalysis",
+    "batchSize": 50,
+    "rateLimitDelay": 2000,
+    "timeout": 60000,
+    "maxRetries": 3,
+    "schedule": "*/200 * * * *",
+    "pagination": {
+      "paramType": "params",
+      "pageKey": "page",
+      "hasNextKey": "has_next",
+      "maxPages": 50
+    }
   }
-]
+ ]
+ 
+ 
+ 

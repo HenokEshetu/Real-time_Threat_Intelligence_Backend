@@ -379,13 +379,17 @@ export class FeedUtils {
    * Creates STIX pattern using concise EnrichmentData.
    */
   static createStixPattern(indicator: GenericStixObject): STIXPattern {
-    const primaryValue = indicator.indicator || indicator.value || indicator.name || Object.values(indicator.hashes || {})[0];
-    if (!primaryValue) throw new Error('Cannot create STIX pattern: no primary value available');
+    let primaryValue = indicator.indicator || indicator.value || indicator.name || Object.values(indicator.hashes || {})[0];
+    if (!primaryValue) {
+      // Fallback: use 'unknown' and log a warning instead of throwing an error
+      primaryValue = 'unknown';
+      new Logger('FeedUtils').warn(`Primary value missing in STIX pattern creation, falling back to 'unknown'`, { indicator });
+    }
 
     const now = new Date().toISOString();
     const oneYearLater = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString();
-    const escapeValue = (val: string) => val.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-
+    const escapeValue = (val: string) =>
+      val.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
     const stixType = this.identifyStixType(indicator);
     let patternKey = this.getPatternKey(stixType);
     let pattern;
@@ -472,6 +476,7 @@ export class FeedUtils {
       'tool': 'tool:name',
       'vulnerability': 'vulnerability:name',
       'sighting': 'sighting:summary',
+      'relationship': '',
     };
     return patternKeys[stixType] || 'indicator:pattern';
   }
