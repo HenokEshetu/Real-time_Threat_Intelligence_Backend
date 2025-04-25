@@ -72,12 +72,16 @@ export class FeedConfigService {
   }
 
   private parseConfigs(data: any[]): FeedProviderConfig[] {
+    this.logger.log('Available indicator mappers:', Object.keys(indicatorMappers));
     return data.map(source => {
       const indicatorMapperName = source.indicatorMapper;
       const indicatorMapper = indicatorMappers[indicatorMapperName];
-
+      this.logger.log(`Mapper for ${source.id}:`, {
+        indicatorMapperName,
+        isFunction: typeof indicatorMapper === 'function',
+      });
       if (!indicatorMapper) {
-        this.logger.warn(`Indicator mapper '${indicatorMapperName}' for ${source.id} not found. Using default mapper.`);
+        this.logger.error(`Indicator mapper '${indicatorMapperName}' for ${source.id} not found. Available mappers: ${Object.keys(indicatorMappers).join(', ')}`);
         return {
           id: source.id,
           name: source.name,
@@ -104,7 +108,6 @@ export class FeedConfigService {
           }),
         };
       }
-
       return {
         id: source.id,
         name: source.name,

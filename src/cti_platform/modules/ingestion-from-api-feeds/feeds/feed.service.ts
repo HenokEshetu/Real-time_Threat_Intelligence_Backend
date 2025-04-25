@@ -93,7 +93,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FeedProviderConfig, GenericStixObject, StixType } from './feed.types';
 import { FeedUtils } from './feed.utils';
 import { FeedConfigService } from './feed-config.service';
-
+import { indicatorMappers } from './feed-mappers'; 
 import {
   DEFAULT_BATCH_SIZE,
   DEFAULT_TIMEOUT,
@@ -292,7 +292,7 @@ export class FeedIngesterService implements OnModuleInit {
       await this.clearQueue();
       this.logger.log('Cleaned stale jobs from feedQueue');
       await this.initializeLimiters();
-      await this.triggerImmediateFetch();
+      await this.triggerImmediateFetch(); // Perform immediate fetch on startup
       await this.scheduleFeedProcessing();
       this.logger.log('Feed Ingester Service initialized');
     } catch (error) {
@@ -350,7 +350,7 @@ export class FeedIngesterService implements OnModuleInit {
       }
       const existingJobs = await this.feedQueue.getActive();
       if (existingJobs.some(job => job.name === 'processAllFeeds')) {
-        this.logger.warn('processAllFeeds job already active, skipping');
+        this.logger.warn('processAllFeeds job already active, skipping immediate fetch');
         return;
       }
       const jobId = `immediate-fetch-${uuidv4()}`;
@@ -368,7 +368,6 @@ export class FeedIngesterService implements OnModuleInit {
 
   private async scheduleFeedProcessing(): Promise<void> {
     try {
-      await this.clearQueue();
       const configs = await this.feedConfigService.getAllConfigs();
       if (!configs.length) {
         this.logger.warn('No feed configurations found for scheduling');
@@ -378,34 +377,31 @@ export class FeedIngesterService implements OnModuleInit {
         const schedule = config.schedule || this.defaultSchedule;
         const jobId = `feed-${config.id}-${uuidv4()}`;
         const repeatableJobs = await this.feedQueue.getRepeatableJobs();
-        // Check for existing jobs by fetching full Job instances
-        for (const repeatableJob of repeatableJobs) {
-          const job = await this.feedQueue.getJob(repeatableJob.id);
-          if (
-            job &&
-            job.name === 'processFeed' &&
-            job.data &&
-            typeof job.data === 'object' &&
-            'config' in job.data &&
-            (job.data as { config?: { id?: string } }).config?.id === config.id
-          ) {
-            this.logger.warn(`Repeatable job for feed ${config.name} already exists, skipping`);
-            continue;
-          }
+        const existingJob = repeatableJobs.find(job => job.name === `processFeed:${config.id}`);
+        if (existingJob) {
+          this.logger.log(`Repeatable job for ${config.id} already exists`, { jobId: existingJob.id, cron: existingJob.cron });
+          continue;
         }
         await this.feedQueue.add(
-          'processFeed',
-          { config },
-          { repeat: { cron: schedule }, jobId, removeOnComplete: true, removeOnFail: true },
+          `processFeed:${config.id}`,
+          { configId: config.id },
+          {
+            jobId,
+            repeat: { cron: schedule },
+            removeOnComplete: true,
+            removeOnFail: true,
+          },
         );
-        this.logger.log(`Scheduled feed ${config.name} with cron ${schedule} (job ${jobId})`);
+        this.logger.log(`Scheduled feed processing for ${config.id} with cron ${schedule}`, { jobId });
       }
+      const scheduledJobs = await this.feedQueue.getRepeatableJobs();
+      this.logger.log(`Scheduled ${scheduledJobs.length} repeatable jobs`, {
+        jobs: scheduledJobs.map(j => ({ id: j.id, name: j.name, cron: j.cron })),
+      });
     } catch (error) {
       this.logger.error('Failed to schedule feed processing', { error: error.message, stack: error.stack });
     }
   }
-
-
   async getQueueStatus() {
     try {
       const [waiting, active, completed, failed] = await Promise.all([
@@ -1167,6 +1163,7 @@ export class FeedIngesterService implements OnModuleInit {
     return relationships;
   }
 
+
   private async fetchStixObjects(config: FeedProviderConfig, retryCount: number): Promise<GenericStixObject[]> {
     const apiKey = process.env[config.apiKeyEnv];
     if (!apiKey) {
@@ -1188,107 +1185,169 @@ export class FeedIngesterService implements OnModuleInit {
     const limiter = this.limiters.get(config.id)!;
     const allStixObjects: GenericStixObject[] = [];
     let page = 1;
-    const pageSize = config.data?.limit || config.params?.limit || 50;
+    const pageSize = config.data?.limit || config.params?.limit || 10;
     let hasMore = true;
+    const maxRetries = config.maxRetries || DEFAULT_MAX_RETRIES;
   
     while (hasMore) {
-      try {
-        const headers = config.headers ? this.interpolateHeaders(config.headers, apiKey) : {};
-        const paginationParams = {
-          ...(config.params || {}),
-          ...(config.pagination?.paramType === 'params' ? { [config.pagination?.pageKey || 'page']: page, limit: pageSize } : {}),
-        };
-        const paginationData = {
-          ...(config.data || {}),
-          ...(config.pagination?.paramType === 'data' ? { [config.pagination?.pageKey || 'page']: page, limit: pageSize } : {}),
-        };
+      let attempt = 1;
+      let response: any = null;
   
-        const response = await limiter.schedule(() =>
-          axios({
-            method: config.method || 'GET',
-            url: config.apiUrl,
-            headers,
-            params: Object.keys(paginationParams).length > 0 ? paginationParams : undefined,
-            data: Object.keys(paginationData).length > 0 ? paginationData : config.data,
-            timeout: config.timeout || DEFAULT_TIMEOUT,
-          }),
-        );
+      while (attempt <= maxRetries) {
+        try {
+          const headers = config.headers ? this.interpolateHeaders(config.headers, apiKey) : {};
+          const paginationParams = {
+            ...(config.params || {}),
+            ...(config.pagination?.paramType === 'params' ? { [config.pagination?.pageKey || 'page']: page, limit: pageSize } : {}),
+          };
+          const paginationData = {
+            ...(config.data || {}),
+            ...(config.pagination?.paramType === 'data' ? { [config.pagination?.pageKey || 'page']: page, limit: pageSize } : {}),
+          };
   
-        if (this.debugLogging) {
-          this.logger.debug(`Raw API response from ${config.name} (page ${page})`, {
-            feed: config.name,
-            response: JSON.stringify(response.data, null, 2).substring(0, 1000),
-          });
-        }
+          response = await limiter.schedule(() =>
+            axios({
+              method: config.method || 'GET',
+              url: config.apiUrl,
+              headers,
+              params: Object.keys(paginationParams).length > 0 ? paginationParams : undefined,
+              data: Object.keys(paginationData).length > 0 ? paginationData : config.data,
+              timeout: config.timeout || DEFAULT_TIMEOUT,
+            }),
+          );
   
-        let data = config.responsePath ? this.getNestedProperty(response.data, config.responsePath) : response.data;
-        if (config.name === 'AlienVaultOTX' && data?.results) {
-          data = data.results; // Matches responsePath: "results"
-        } else if (config.name === 'HybridAnalysis' && data?.data) {
-          data = data.data; // Matches responsePath: "data"
-        }
+          if (this.debugLogging) {
+            this.logger.debug(`Raw API response from ${config.name} (page ${page})`, {
+              feed: config.name,
+              response: JSON.stringify(response.data, null, 2).substring(0, 1000),
+            });
+          }
   
-        if (!Array.isArray(data)) {
-          this.logger.error(`Invalid response format from ${config.name} API`, {
-            feed: config.name,
-            responseType: typeof data,
-            responseKeys: data ? Object.keys(data) : null,
-            page,
-          });
-          throw new Error(`Invalid response format from ${config.name} API`);
-        }
+          let data = config.responsePath ? this.getNestedProperty(response.data, config.responsePath) : response.data;
+          if (config.name === 'AlienVaultOTX' && data?.results) {
+            data = data.results;
+          } else if (config.name === 'HybridAnalysis' && data?.data) {
+            data = data.data;
+          }
   
-        const stixObjects = data
-          .flatMap(raw => {
-            try {
-              const mapped = config.indicatorMapper(raw);
-              if (!mapped) return [];
-              return Array.isArray(mapped) ? mapped : [mapped];
-            } catch (e) {
-              this.logger.warn(`Failed to map item from ${config.name}`, {
-                feed: config.name,
-                error: (e as Error).message,
-                raw: JSON.stringify(raw, null, 2).substring(0, 500),
-              });
-              return [];
-            }
-          })
-          .filter((obj): obj is GenericStixObject => obj !== null && FeedUtils.isValidStixType(obj.type));
+          if (!Array.isArray(data)) {
+            this.logger.error(`Invalid response format from ${config.name} API`, {
+              feed: config.name,
+              responseType: typeof data,
+              responseKeys: data ? Object.keys(data) : null,
+              page,
+            });
+            throw new Error(`Invalid response format from ${config.name} API`);
+          }
   
-        allStixObjects.push(...stixObjects);
+          // Resolve indicatorMapper string to function
+          const mapperKey = config.indicatorMapper;
+          const mapper = typeof mapperKey === 'string' ? indicatorMappers[mapperKey] : mapperKey;
+          if (typeof mapper !== 'function') {
+            this.logger.error(`Invalid indicatorMapper for ${config.name}: ${mapperKey}`, {
+              feed: config.name,
+              mapperType: typeof mapperKey,
+            });
+            throw new Error(`Invalid indicatorMapper for ${config.name}: ${mapperKey}`);
+          }
   
-        this.logger.log(
-          `Fetched ${stixObjects.length}/${data.length} valid objects from ${config.name} (page ${page}, total ${allStixObjects.length})`,
-          { feed: config.name, page, stixTypes: [...new Set(stixObjects.map(obj => obj.type))] },
-        );
+          const stixObjects = data
+            .flatMap(raw => {
+              try {
+                const mapped = mapper(raw);
+                if (!mapped) return [];
+                return Array.isArray(mapped) ? mapped : [mapped];
+              } catch (e) {
+                this.logger.warn(`Failed to map item from ${config.name}`, {
+                  feed: config.name,
+                  error: (e as Error).message,
+                  raw: JSON.stringify(raw, null, 2).substring(0, 500),
+                });
+                return [];
+              }
+            })
+            .filter((obj): obj is GenericStixObject => obj !== null && FeedUtils.isValidStixType(obj.type));
   
-        // Pagination logic
-        hasMore = data.length === pageSize;
-        if (config.pagination?.hasNextKey && response.data[config.pagination.hasNextKey] !== undefined) {
-          hasMore = response.data[config.pagination.hasNextKey] && data.length > 0;
-        } else if (config.pagination?.totalCountKey && response.data[config.pagination.totalCountKey] !== undefined) {
-          const totalCount = response.data[config.pagination.totalCountKey];
-          hasMore = allStixObjects.length < totalCount && data.length > 0;
-        } else if (config.name === 'HybridAnalysis') {
-          // Fallback for Hybrid Analysis: continue if full page received
+          allStixObjects.push(...stixObjects);
+  
+          this.logger.log(
+            `Fetched ${stixObjects.length}/${data.length} valid objects from ${config.name} (page ${page}, total ${allStixObjects.length})`,
+            { feed: config.name, page, stixTypes: [...new Set(stixObjects.map(obj => obj.type))] },
+          );
+  
+          // Pagination logic
           hasMore = data.length === pageSize;
-        }
+          if (config.pagination?.hasNextKey && response.data[config.pagination.hasNextKey] !== undefined) {
+            hasMore = response.data[config.pagination.hasNextKey] && data.length > 0;
+          } else if (config.pagination?.totalCountKey && response.data[config.pagination.totalCountKey] !== undefined) {
+            const totalCount = response.data[config.pagination.totalCountKey];
+            hasMore = allStixObjects.length < totalCount && data.length > 0;
+          } else if (config.name === 'HybridAnalysis') {
+            hasMore = data.length === pageSize;
+          }
   
-        page++;
-        if (page > (config.pagination?.maxPages || 100)) {
-          this.logger.warn(`Reached maximum page limit for ${config.name}`, {
+          page++;
+          if (page > (config.pagination?.maxPages || 100)) {
+            this.logger.warn(`Reached maximum page limit for ${config.name}`, {
+              feed: config.name,
+              maxPages: config.pagination?.maxPages || 100,
+            });
+            hasMore = false;
+          }
+  
+          break; // Exit retry loop on success
+        } catch (error) {
+          const axiosError = error as AxiosError;
+          const status = axiosError.response?.status;
+          const message = axiosError.response?.data ? JSON.stringify(axiosError.response.data) : axiosError.message;
+  
+          if (attempt === maxRetries) {
+            this.logger.warn(`Max retries (${maxRetries}) reached for ${config.name} (page ${page})`, {
+              feed: config.name,
+              error: message,
+              status,
+            });
+  
+            if (status === 500) {
+              this.logger.warn(`Skipping page ${page} for ${config.name} due to server error`, { feed: config.name });
+              page++;
+              break; // Skip page and continue
+            }
+  
+            try {
+              const fetchErrorObjects = await this.handleFetchError(axiosError, config, retryCount);
+              allStixObjects.push(...fetchErrorObjects);
+              hasMore = false;
+              break;
+            } catch (fetchError) {
+              this.logger.error(`Failed to handle fetch error for ${config.name}`, {
+                feed: config.name,
+                error: (fetchError as Error).message,
+              });
+              hasMore = false;
+              break;
+            }
+          }
+  
+          this.logger.warn(`Retry ${attempt}/${maxRetries} for ${config.name} (page ${page})`, {
             feed: config.name,
-            maxPages: config.pagination?.maxPages || 100,
+            error: message,
+            status,
           });
-          hasMore = false;
+          attempt++;
+          await new Promise(resolve => setTimeout(resolve, (config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY) * attempt));
         }
-      } catch (error) {
-        const fetchError = await this.handleFetchError(error as AxiosError, config, retryCount);
-        allStixObjects.push(...fetchError);
+      }
+  
+      if (attempt > maxRetries && !response) {
+        this.logger.error(`Failed to fetch page ${page} for ${config.name} after ${maxRetries} attempts`, {
+          feed: config.name,
+        });
         hasMore = false;
       }
     }
   
+    this.logger.log(`Completed fetching ${allStixObjects.length} objects from ${config.name}`, { feed: config.name });
     return allStixObjects;
   }
   
