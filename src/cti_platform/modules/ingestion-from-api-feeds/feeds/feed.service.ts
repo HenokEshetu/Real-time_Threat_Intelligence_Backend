@@ -181,6 +181,7 @@ export class FeedIngesterService implements OnModuleInit {
   private readonly limiters: Map<string, Bottleneck> = new Map();
   private readonly debugLogging: boolean = process.env.DEBUG_LOGGING === 'true';
 
+
   private readonly stixTypeToServices: Record<string, string[]> = {
     'ipv4-addr': ['geo', 'virustotal', 'abuseipdb', 'shodan', 'threatfox', 'asn', 'threatcrowd', 'misp'],
     'ipv6-addr': ['geo', 'virustotal', 'abuseipdb', 'threatfox', 'asn', 'threatcrowd', 'misp'],
@@ -288,40 +289,55 @@ export class FeedIngesterService implements OnModuleInit {
 
   async onModuleInit() {
     try {
-      await this.feedQueue.clean(0, 'completed');
-      await this.feedQueue.clean(0, 'failed');
-      await this.feedQueue.clean(0, 'delayed');
+      await this.clearQueue();
       this.logger.log('Cleaned stale jobs from feedQueue');
       await this.initializeLimiters();
       await this.triggerImmediateFetch();
       await this.scheduleFeedProcessing();
       this.logger.log('Feed Ingester Service initialized');
     } catch (error) {
-      this.logger.error('Failed to initialize Feed Ingester Service', { error: error.message });
-      throw error;
+      this.logger.error('Failed to initialize Feed Ingester Service', { error: error.message, stack: error.stack });
     }
   }
-
+  private async clearQueue() {
+    try {
+      await this.feedQueue.obliterate({ force: true });
+      this.logger.log('Queue obliterated');
+      await Promise.all([
+        this.feedQueue.clean(0, 'active'),
+        this.feedQueue.clean(0, 'wait'),
+        this.feedQueue.clean(0, 'completed'),
+        this.feedQueue.clean(0, 'failed'),
+        this.feedQueue.clean(0, 'delayed'),
+      ]);
+      this.logger.log('Queue cleared');
+    } catch (error) {
+      this.logger.error('Failed to clear queue', { error: error.message, stack: error.stack });
+    }
+  }
+  
   
   private async initializeLimiters() {
-    const configs = await this.feedConfigService.getAllConfigs();
-    if (!configs.length) {
-      this.logger.warn('No feed configurations found');
-      return;
+    try {
+      const configs = await this.feedConfigService.getAllConfigs();
+      if (!configs.length) {
+        this.logger.warn('No feed configurations found for limiters');
+        return;
+      }
+      for (const config of configs) {
+        this.limiters.set(
+          config.id,
+          new Bottleneck({
+            maxConcurrent: 1,
+            minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY,
+          }),
+        );
+      }
+      this.logger.log(`Initialized ${this.limiters.size} rate limiters`);
+    } catch (error) {
+      this.logger.error('Failed to initialize limiters', { error: error.message, stack: error.stack });
     }
-    for (const config of configs) {
-      this.limiters.set(
-        config.id,
-        new Bottleneck({
-          maxConcurrent: 1,
-          minTime: config.rateLimitDelay || DEFAULT_RATE_LIMIT_DELAY,
-        }),
-      );
-    }
-    this.logger.log(`Initialized ${this.limiters.size} rate limiters`);
   }
-
-
 
   private async triggerImmediateFetch(): Promise<void> {
     try {
@@ -332,69 +348,86 @@ export class FeedIngesterService implements OnModuleInit {
         this.logger.warn('No feed configurations found for immediate fetch');
         return;
       }
+      const existingJobs = await this.feedQueue.getActive();
+      if (existingJobs.some(job => job.name === 'processAllFeeds')) {
+        this.logger.warn('processAllFeeds job already active, skipping');
+        return;
+      }
       const jobId = `immediate-fetch-${uuidv4()}`;
-      const job = await this.feedQueue.add(
+      await this.feedQueue.add(
         'processAllFeeds',
         {},
         { jobId, removeOnComplete: true, removeOnFail: true },
       );
       this.logger.log(`Queued immediate fetch job ${jobId}`);
       await this.getQueueStatus();
-      await job.finished();
-      this.logger.log(`Immediate fetch job ${jobId} completed`);
     } catch (error) {
-      this.logger.error('Failed to trigger immediate fetch', { error: error.message });
-      throw error;
+      this.logger.error('Failed to trigger immediate fetch', { error: error.message, stack: error.stack });
     }
   }
 
   private async scheduleFeedProcessing(): Promise<void> {
     try {
-      await this.feedQueue.empty();
-      const repeatableJobs = await this.feedQueue.getRepeatableJobs();
-      for (const job of repeatableJobs) {
-        await this.feedQueue.removeRepeatableByKey(job.key);
-        this.logger.log(`Removed existing repeatable job ${job.id}`);
-      }
-
+      await this.clearQueue();
       const configs = await this.feedConfigService.getAllConfigs();
       if (!configs.length) {
         this.logger.warn('No feed configurations found for scheduling');
         return;
       }
-
       for (const config of configs) {
         const schedule = config.schedule || this.defaultSchedule;
         const jobId = `feed-${config.id}-${uuidv4()}`;
+        const repeatableJobs = await this.feedQueue.getRepeatableJobs();
+        // Check for existing jobs by fetching full Job instances
+        for (const repeatableJob of repeatableJobs) {
+          const job = await this.feedQueue.getJob(repeatableJob.id);
+          if (
+            job &&
+            job.name === 'processFeed' &&
+            job.data &&
+            typeof job.data === 'object' &&
+            'config' in job.data &&
+            (job.data as { config?: { id?: string } }).config?.id === config.id
+          ) {
+            this.logger.warn(`Repeatable job for feed ${config.name} already exists, skipping`);
+            continue;
+          }
+        }
         await this.feedQueue.add(
           'processFeed',
           { config },
-          { repeat: { cron: schedule }, jobId },
+          { repeat: { cron: schedule }, jobId, removeOnComplete: true, removeOnFail: true },
         );
         this.logger.log(`Scheduled feed ${config.name} with cron ${schedule} (job ${jobId})`);
       }
     } catch (error) {
-      this.logger.error('Failed to schedule feed processing', { error: error.message });
-      throw error;
+      this.logger.error('Failed to schedule feed processing', { error: error.message, stack: error.stack });
     }
   }
 
+
   async getQueueStatus() {
-    const [waiting, active, completed, failed] = await Promise.all([
-      this.feedQueue.getWaiting(),
-      this.feedQueue.getActive(),
-      this.feedQueue.getCompleted(),
-      this.feedQueue.getFailed(),
-    ]);
-    this.logger.log('Queue status', {
-      waiting: waiting.length,
-      active: active.length,
-      completed: completed.length,
-      failed: failed.length,
-      waitingJobs: waiting.map(j => ({ id: j.id, name: j.name })),
-      activeJobs: active.map(j => ({ id: j.id, name: j.name })),
-    });
-    return { waiting, active, completed, failed };
+    try {
+      const [waiting, active, completed, failed] = await Promise.all([
+        this.feedQueue.getWaiting(),
+        this.feedQueue.getActive(),
+        this.feedQueue.getCompleted(),
+        this.feedQueue.getFailed(),
+      ]);
+      this.logger.log('Queue status', {
+        waiting: waiting.length,
+        active: active.length,
+        completed: completed.length,
+        failed: failed.length,
+        waitingJobs: waiting.map(j => ({ id: j.id, name: j.name, data: j.data })),
+        activeJobs: active.map(j => ({ id: j.id, name: j.name, data: j.data })),
+        failedJobs: failed.map(j => ({ id: j.id, name: j.name, error: j.failedReason })),
+      });
+      return { waiting, active, completed, failed };
+    } catch (error) {
+      this.logger.error('Failed to get queue status', { error: error.message, stack: error.stack });
+      return { waiting: [], active: [], completed: [], failed: [] };
+    }
   }
 
 
@@ -441,8 +474,8 @@ export class FeedIngesterService implements OnModuleInit {
         return;
       }
     } catch (error) {
-      this.logger.error(`Failed to fetch indicators from ${config.name}`, { error: error.message, feed: config.name });
-      throw error;
+      this.logger.error(`Failed to fetch indicators from ${config.name}`, { error: error.message, stack: error.stack });
+      return;
     }
   
     let successCount = 0;
@@ -470,6 +503,7 @@ export class FeedIngesterService implements OnModuleInit {
           this.logger.error(`Failed to process ${indicator.type}: ${lookupValue}`, {
             feed: config.name,
             error: result.reason.message,
+            stack: result.reason.stack,
           });
         }
       });
@@ -494,7 +528,6 @@ export class FeedIngesterService implements OnModuleInit {
       },
     );
   }
-
 
   
 

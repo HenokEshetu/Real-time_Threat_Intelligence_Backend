@@ -6,11 +6,15 @@ async function bootstrap() {
 
   // Enable CORS
   app.enableCors({
-    origin: 'http://localhost:5173', // Allow frontend origin
+    origin: '*', // Allow frontend origin
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 4000);
+  const port = process.env.PORT ?? 4000;
+  await app.listen(port);
+
+  console.log(` Server running at http://localhost:${port}`);
+  console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
 }
 bootstrap();

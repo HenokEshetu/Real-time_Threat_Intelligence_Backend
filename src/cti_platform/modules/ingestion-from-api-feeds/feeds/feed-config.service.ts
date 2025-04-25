@@ -1,43 +1,70 @@
-import { Injectable, Logger, InternalServerErrorException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { FeedProviderConfig } from './feed.types';
-import { indicatorMappers } from './feed-mappers'; // Import mappers
+import { indicatorMappers } from './feed-mappers';
 
 @Injectable()
 export class FeedConfigService {
   private readonly logger = new Logger(FeedConfigService.name);
   private readonly configFilePath: string = path.resolve(process.cwd(), 'config', 'feed-configs.json');
   private configs: FeedProviderConfig[] = [];
+  private isInitialized: Promise<void>;
 
   constructor() {
-    this.loadConfigs();
+    this.isInitialized = this.loadConfigs();
+  }
+
+  async onModuleInit() {
+    await this.isInitialized;
   }
 
   private async loadConfigs(): Promise<void> {
     try {
       if (!(await this.fileExists(this.configFilePath))) {
-        this.logger.error(`Configuration file not found at ${this.configFilePath}`);
-        throw new InternalServerErrorException('Feed configuration file missing');
+        this.logger.warn(`Configuration file not found at ${this.configFilePath}, using empty config`);
+        this.configs = [];
+        return;
       }
-  
+
       const data = await fs.readFile(this.configFilePath, 'utf-8');
-      const parsed = JSON.parse(data);
-      if (!Array.isArray(parsed) || parsed.length === 0) {
-        this.logger.error('Feed configuration file is empty or invalid');
-        throw new InternalServerErrorException('Invalid feed configuration');
+      if (!data.trim()) {
+        this.logger.warn('Feed configuration file is empty, using empty config');
+        this.configs = [];
+        return;
       }
+
+      let parsed;
+      try {
+        parsed = JSON.parse(data);
+      } catch (parseError) {
+        this.logger.warn('Failed to parse feed-configs.json, using empty config', {
+          error: parseError instanceof Error ? parseError.message : parseError,
+          fileContent: data.substring(0, 100),
+        });
+        this.configs = [];
+        return;
+      }
+
+      if (!Array.isArray(parsed) || parsed.length === 0) {
+        this.logger.warn('Feed configuration file is empty or not an array, using empty config', { parsed });
+        this.configs = [];
+        return;
+      }
+
       this.configs = this.parseConfigs(parsed);
       this.logger.log(`Loaded ${this.configs.length} feed configurations from ${this.configFilePath}`);
     } catch (error) {
-      this.logger.error(`Failed to load feed configs: ${error instanceof Error ? error.stack : error}`);
-      throw new InternalServerErrorException(`Failed to load feed configurations: ${error instanceof Error ? error.message : error}`);
+      this.logger.error('Unexpected error loading feed configs, using empty config', {
+        error: error instanceof Error ? error.stack : error,
+      });
+      this.configs = [];
     }
   }
 
   private async fileExists(filePath: string): Promise<boolean> {
     try {
-      await fs.access(filePath);
+      await fs.access(filePath, fs.constants.R_OK);
       return true;
     } catch {
       return false;
@@ -66,6 +93,7 @@ export class FeedConfigService {
           rateLimitDelay: source.rateLimitDelay,
           maxRetries: source.maxRetries,
           schedule: source.schedule,
+          pagination: source.pagination,
           indicatorMapper: (raw: any) => ({
             id: raw.id || require('uuid').v4(),
             indicator: raw.value || raw.indicator || raw.ioc,
@@ -92,16 +120,19 @@ export class FeedConfigService {
         rateLimitDelay: source.rateLimitDelay,
         maxRetries: source.maxRetries,
         schedule: source.schedule,
+        pagination: source.pagination,
         indicatorMapper,
       };
     });
   }
 
   async getAllConfigs(): Promise<FeedProviderConfig[]> {
+    await this.isInitialized;
     return [...this.configs];
   }
 
   async getConfig(configId: string): Promise<FeedProviderConfig | null> {
+    await this.isInitialized;
     const config = this.configs.find(c => c.id === configId);
     if (!config) {
       this.logger.warn(`Feed config with ID ${configId} not found`);
