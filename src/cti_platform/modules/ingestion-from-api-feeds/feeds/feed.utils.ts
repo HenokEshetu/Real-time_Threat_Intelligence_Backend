@@ -289,128 +289,90 @@ export class FeedUtils {
     return validTypes.includes(type as StixType);
   }
 
-  /**
-   * Builds a detailed description using concise EnrichmentData.
-   */
-  static buildDescription(indicator: GenericStixObject): string {
-    const parts: string[] = [
-      `**Indicator Type:** ${indicator.type || 'Unknown'}`,
-      `**Value:** ${indicator.indicator || indicator.value || indicator.name || Object.values(indicator.hashes || {})[0] || 'N/A'}`,
-      `**Confidence:** ${FeedUtils.calculateConfidence(indicator)}`,
-    ];
-
-    if (indicator.description) parts.push(`**Description:**\n${indicator.description}`);
-    if (indicator.labels?.length) parts.push(`**Labels:** ${indicator.labels.join(', ')}`);
-
-    if (indicator.enrichment) {
-      const enrichmentParts: string[] = [];
-      if (indicator.enrichment.geo?.country_name) {
-        enrichmentParts.push(
-          `- **Geolocation:** ${indicator.enrichment.geo.country_name} (${indicator.enrichment.geo.country_code}), City: ${indicator.enrichment.geo.city || 'N/A'}`,
-        );
-      }
-      if (indicator.enrichment.whois?.domainName) {
-        enrichmentParts.push(
-          `- **Whois:** Domain: ${indicator.enrichment.whois.domainName}, Registrar: ${indicator.enrichment.whois.registrarName || 'N/A'}, Created: ${indicator.enrichment.whois.createdDate || 'N/A'}`,
-        );
-      }
-      if (indicator.enrichment.virustotal?.data?.attributes?.last_analysis_stats) {
-        const stats = indicator.enrichment.virustotal.data.attributes.last_analysis_stats;
-        const total = stats.malicious + stats.undetected + stats.harmless + stats.suspicious;
-        enrichmentParts.push(
-          `- **VirusTotal:** ${stats.malicious}/${total} malicious scans, Reputation: ${indicator.enrichment.virustotal.data.attributes.reputation || 'N/A'}`,
-        );
-      }
-      if (indicator.enrichment.abuseipdb?.data) {
-        enrichmentParts.push(
-          `- **AbuseIPDB:** ${indicator.enrichment.abuseipdb.data.totalReports || 0} reports, Score: ${indicator.enrichment.abuseipdb.data.abuseConfidenceScore || 'N/A'}`,
-        );
-      }
-      if (indicator.enrichment.shodan?.ip) {
-        enrichmentParts.push(
-          `- **Shodan:** IP: ${indicator.enrichment.shodan.ip}, Org: ${indicator.enrichment.shodan.org || 'N/A'}, OS: ${indicator.enrichment.shodan.os || 'N/A'}`,
-        );
-      }
-      if (indicator.enrichment.threatfox?.data) {
-        enrichmentParts.push(
-          `- **ThreatFox:** Type: ${indicator.enrichment.threatfox.data.threat_type || 'N/A'}, Malware: ${indicator.enrichment.threatfox.data.malware || 'N/A'}`,
-        );
-      }
-      if (indicator.enrichment.dns?.Answer?.length) {
-        enrichmentParts.push(
-          `- **DNS:** ${indicator.enrichment.dns.Answer.map(a => `${a.type}: ${a.data} (TTL: ${a.TTL})`).join(', ')}`,
-        );
-      }
-      if (indicator.enrichment.ssl?.endpoints?.length) {
-        enrichmentParts.push(
-          `- **SSL:** Grade: ${indicator.enrichment.ssl.endpoints[0].grade || 'N/A'}, Server: ${indicator.enrichment.ssl.endpoints[0].serverName || 'N/A'}`,
-        );
-      }
-      if (indicator.enrichment.asn?.asn) {
-        enrichmentParts.push(
-          `- **ASN:** ${indicator.enrichment.asn.asn} (${indicator.enrichment.asn.org || 'Unknown'})`,
-        );
-      }
-      if (indicator.enrichment.hybrid?.result) {
-        enrichmentParts.push(
-          `- **Hybrid Analysis:** Verdict: ${indicator.enrichment.hybrid.result.verdict || 'N/A'}, Score: ${indicator.enrichment.hybrid.result.threat_score || 'N/A'}, Submissions: ${indicator.enrichment.hybrid.result.submissions || 0}`,
-        );
-      }
-      if (indicator.enrichment.threatcrowd?.hashes?.length || indicator.enrichment.threatcrowd?.domains?.length) {
-        enrichmentParts.push(
-          `- **ThreatCrowd:** Hashes: ${indicator.enrichment.threatcrowd.hashes?.length || 0}, Domains: ${indicator.enrichment.threatcrowd.domains?.length || 0}`,
-        );
-      }
-      if (indicator.enrichment.misp?.response?.Attribute?.length) {
-        enrichmentParts.push(
-          `- **MISP:** Attributes: ${indicator.enrichment.misp.response.Attribute.length}, First: ${indicator.enrichment.misp.response.Attribute[0]?.type || 'N/A'} (${indicator.enrichment.misp.response.Attribute[0]?.value || 'N/A'})`,
-        );
-      }
-      if (enrichmentParts.length) parts.push(`**Enrichment Data:**\n${enrichmentParts.join('\n')}`);
-    }
-
-    if (indicator.references?.length) parts.push(`**References:**\n- ${indicator.references.join('\n- ')}`);
-    if (indicator.relatedIndicators?.length) parts.push(`**Related Indicators:** ${indicator.relatedIndicators.join(', ')}`);
-
-    return parts.join('\n\n');
+ 
+   
+  static generateDescription(indicator: GenericStixObject): string {
+    // Use the mapper-provided description as the primary content
+    const primaryDescription = indicator.description || 'No description available';
+  
+    // Add minimal context (source feed)
+    const sourceContext = `Source: ${indicator.sourceConfigId || 'Unknown'}`;
+  
+    // Combine without redundant fields
+    return `${primaryDescription}\n\n${sourceContext}`.trim();
   }
 
   /**
    * Creates STIX pattern using concise EnrichmentData.
    */
   static createStixPattern(indicator: GenericStixObject): STIXPattern {
-    let primaryValue = indicator.indicator || indicator.value || indicator.name || Object.values(indicator.hashes || {})[0];
-    if (!primaryValue) {
-      // Fallback: use 'unknown' and log a warning instead of throwing an error
-      primaryValue = 'unknown';
-      new Logger('FeedUtils').warn(`Primary value missing in STIX pattern creation, falling back to 'unknown'`, { indicator });
+    let primaryValue: string | undefined;
+  
+    // Handle case where indicator is a nested object
+    if (typeof indicator.indicator === 'object' && indicator.indicator !== null) {
+      const nestedIndicator = indicator.indicator as GenericStixObject;
+      primaryValue =
+        nestedIndicator.indicator ||
+        nestedIndicator.value ||
+        nestedIndicator.name ||
+        (nestedIndicator.hashes && Object.values(nestedIndicator.hashes).find(h => h)) ||
+        undefined;
+    } else {
+      primaryValue =
+        indicator.indicator ||
+        indicator.value ||
+        indicator.name ||
+        (indicator.hashes && Object.values(indicator.hashes).find(h => h)) ||
+        undefined;
     }
-
+  
+    if (!primaryValue) {
+      primaryValue = 'unknown';
+      new Logger('FeedUtils').warn(`Primary value missing in STIX pattern creation, falling back to 'unknown'`, {
+        indicator: {
+          id: indicator.id,
+          type: indicator.type,
+          indicator: indicator.indicator,
+          value: indicator.value,
+          name: indicator.name,
+          hashes: indicator.hashes,
+          nestedIndicator: typeof indicator.indicator === 'object' ? indicator.indicator : undefined,
+        },
+      });
+    }
+  
     const now = new Date().toISOString();
     const oneYearLater = new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString();
     const escapeValue = (val: string) =>
       val.replace(/'/g, "\\'").replace(/"/g, '\\"').replace(/\[/g, '\\[').replace(/\]/g, '\\]');
-    const stixType = this.identifyStixType(indicator);
+    let stixType = this.identifyStixType(indicator);
     let patternKey = this.getPatternKey(stixType);
+  
+    // Override stixType for hash values
+    const hashPatterns = {
+      md5: /^[a-fA-F0-9]{32}$/,
+      sha1: /^[a-fA-F0-9]{40}$/,
+      sha256: /^[a-fA-F0-9]{64}$/,
+      sha512: /^[a-fA-F0-9]{128}$/,
+    };
+    let hashType: string | undefined;
+    if (hashPatterns.md5.test(primaryValue)) hashType = 'MD5';
+    else if (hashPatterns.sha1.test(primaryValue)) hashType = 'SHA-1';
+    else if (hashPatterns.sha256.test(primaryValue)) hashType = 'SHA-256';
+    else if (hashPatterns.sha512.test(primaryValue)) hashType = 'SHA-512';
+  
+    if (hashType) {
+      stixType = 'file';
+      patternKey = `file:hashes.'${hashType}'`;
+    }
+  
     let pattern;
-
-    // Handle file hashes
     if (stixType === 'file') {
-      const hashPatterns = {
-        md5: /^[a-fA-F0-9]{32}$/,
-        sha1: /^[a-fA-F0-9]{40}$/,
-        sha256: /^[a-fA-F0-9]{64}$/,
-        sha512: /^[a-fA-F0-9]{128}$/,
-      };
-      let hashType = 'MD5';
-      if (hashPatterns.sha1.test(primaryValue)) hashType = 'SHA-1';
-      else if (hashPatterns.sha256.test(primaryValue)) hashType = 'SHA-256';
-      else if (hashPatterns.sha512.test(primaryValue)) hashType = 'SHA-512';
-      pattern = `[file:hashes.'${hashType}' = '${escapeValue(primaryValue)}']`;
+      pattern = `[file:hashes.'${hashType || 'SHA-256'}' = '${escapeValue(primaryValue)}']`;
     } else {
       pattern = `[${patternKey} = '${escapeValue(primaryValue)}']`;
     }
-
+  
     // Add enrichment-based conditions
     if (stixType === 'domain-name' && indicator.enrichment?.dns?.Answer?.length) {
       const dnsValues = indicator.enrichment.dns.Answer.map(a => escapeValue(a.data));
@@ -423,7 +385,7 @@ export class FeedUtils {
       const mispTypes = indicator.enrichment.misp.response.Attribute.filter(a => a.category === 'malware').map(a => escapeValue(a.type));
       if (mispTypes.length) pattern += ` AND [malware:labels IN (${mispTypes.map(t => `'${t}'`).join(', ')})]`;
     }
-
+  
     return {
       pattern,
       pattern_type: 'stix' as PatternType,
@@ -432,7 +394,6 @@ export class FeedUtils {
       valid_until: indicator.expiration || oneYearLater,
     };
   }
-
   /**
    * Maps STIX types to pattern keys with full STIX 2.1 support.
    */

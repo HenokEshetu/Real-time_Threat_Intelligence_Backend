@@ -983,7 +983,7 @@ export class FeedIngesterService implements OnModuleInit {
           ...baseInput,
           type,
           name: `Indicator: ${indicator.indicator}`,
-          description: FeedUtils.buildDescription(indicator),
+          description: FeedUtils.generateDescription(indicator),
           pattern: pattern.pattern,
           pattern_type: pattern.pattern_type,
           pattern_version: pattern.pattern_version,

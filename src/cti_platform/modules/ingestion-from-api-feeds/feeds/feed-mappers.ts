@@ -78,6 +78,15 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
         definition: { tlp: tlp as 'white' | 'green' | 'amber' | 'red' },
       };
   
+      // Deduplicate geolocation labels
+      const uniqueGeolocationLabels = Array.from(
+        new Set(
+          geolocation
+            .filter((geo: any) => geo.country && typeof geo.country === 'string')
+            .map((geo: any) => `geolocation:${geo.country.toLowerCase()}`)
+        )
+      );
+  
       // Base STIX object
       const baseObj: GenericStixObject = {
         id: `file--${raw.sha256 || raw.md5 || uuidv4()}`,
@@ -88,7 +97,7 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
         labels: [
           'hybrid-analysis',
           `verdict:${verdict.toLowerCase()}`,
-          ...(geolocation.map((geo: any) => `geolocation:${geo.country?.toLowerCase() || 'unknown'}`)),
+          ...uniqueGeolocationLabels,
           ...tags.map((tag: string) => `tag:${tag.toLowerCase()}`),
         ],
         description,
@@ -117,6 +126,7 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
             id: `file--${raw.sha256 || raw.md5 || uuidv4()}`,
             type: 'file',
             hashes,
+            indicator: hashes['SHA-256'] || hashes['SHA-1'] || hashes['MD5'] || undefined,
           };
           stixObjects.push(fileObj);
         } else {
@@ -134,6 +144,12 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
             type: 'url',
             value: submitName,
             indicator: submitName,
+            labels: [
+              'hybrid-analysis',
+              `verdict:${verdict.toLowerCase()}`,
+              ...uniqueGeolocationLabels,
+              ...tags.map((tag: string) => `tag:${tag.toLowerCase()}`),
+            ],
           };
           stixObjects.push(urlObj);
           if (primaryFileId) {
@@ -162,6 +178,12 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
             type: 'domain-name',
             value: domain,
             indicator: domain,
+            labels: [
+              'hybrid-analysis',
+              `verdict:${verdict.toLowerCase()}`,
+              ...uniqueGeolocationLabels,
+              ...tags.map((tag: string) => `tag:${tag.toLowerCase()}`),
+            ],
           };
           stixObjects.push(domainObj);
         } else {
@@ -182,6 +204,12 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
             type: 'ipv4-addr',
             value: ip,
             indicator: ip,
+            labels: [
+              'hybrid-analysis',
+              `verdict:${verdict.toLowerCase()}`,
+              ...uniqueGeolocationLabels,
+              ...tags.map((tag: string) => `tag:${tag.toLowerCase()}`),
+            ],
           };
           stixObjects.push(ipObj);
           domains.forEach((domain: string) => {
@@ -230,8 +258,15 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
               id: `file--${file.sha256 || file.md5 || uuidv4()}`,
               type: 'file',
               hashes: extractedHashes,
+              indicator: extractedHashes['SHA-256'] || extractedHashes['SHA-1'] || extractedHashes['MD5'] || undefined,
               description: file.description || `Extracted file: ${file.name || 'Unknown'}`,
-              labels: [...baseObj.labels, `type:${file.type_tags?.join(',') || 'unknown'}`],
+              labels: [
+                'hybrid-analysis',
+                `verdict:${verdict.toLowerCase()}`,
+                ...uniqueGeolocationLabels,
+                `type:${file.type_tags?.join(',') || 'unknown'}`,
+                ...tags.map((tag: string) => `tag:${tag.toLowerCase()}`),
+              ],
             };
             stixObjects.push(extractedFileObj);
             if (primaryFileId) {
@@ -255,20 +290,28 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
       // Handle processes
       processes.forEach((process: any) => {
         if (process.sha256) {
-          const processFileObj: GenericStixObject = {
-            ...baseObj,
-            id: `file--${process.sha256}`,
-            type: 'file',
-            hashes: {
-              MD5: undefined,
-              'SHA-1': undefined,
-              'SHA-256': typeof process.sha256 === 'string' && /^[0-9a-fA-F]{64}$/.test(process.sha256) ? process.sha256 : undefined,
-              'SHA-512': undefined,
-            },
-            description: `Process: ${process.name || 'Unknown'}; Path: ${process.normalized_path || 'Unknown'}`,
-            labels: [...baseObj.labels, 'process'],
+          const processHashes: Record<'MD5' | 'SHA-1' | 'SHA-256' | 'SHA-512', string | undefined> = {
+            MD5: undefined,
+            'SHA-1': undefined,
+            'SHA-256': typeof process.sha256 === 'string' && /^[0-9a-fA-F]{64}$/.test(process.sha256) ? process.sha256 : undefined,
+            'SHA-512': undefined,
           };
-          if (processFileObj.hashes['SHA-256']) {
+          if (processHashes['SHA-256']) {
+            const processFileObj: GenericStixObject = {
+              ...baseObj,
+              id: `file--${process.sha256}`,
+              type: 'file',
+              hashes: processHashes,
+              indicator: processHashes['SHA-256'],
+              description: `Process: ${process.name || 'Unknown'}; Path: ${process.normalized_path || 'Unknown'}`,
+              labels: [
+                'hybrid-analysis',
+                `verdict:${verdict.toLowerCase()}`,
+                ...uniqueGeolocationLabels,
+                'process',
+                ...tags.map((tag: string) => `tag:${tag.toLowerCase()}`),
+              ],
+            };
             stixObjects.push(processFileObj);
             if (primaryFileId) {
               relationships.push({
@@ -298,6 +341,12 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
           first_observed: created,
           last_observed: modified,
           object_refs: [baseObj.id],
+          labels: [
+            'hybrid-analysis',
+            `verdict:${verdict.toLowerCase()}`,
+            ...uniqueGeolocationLabels,
+            ...tags.map((tag: string) => `tag:${tag.toLowerCase()}`),
+          ],
         };
         stixObjects.push(observedObj);
       }
@@ -314,7 +363,6 @@ export const indicatorMappers: Record<string, (raw: any) => GenericStixObject | 
       return null;
     }
   },
-
  alienVaultOTX: (raw: any): GenericStixObject | GenericStixObject[] | null => {
   try {
     // Validate pulse

@@ -13,7 +13,7 @@
     "data": {
       "returnFormat": "json",
       "withAttachments": false,
-      "limit": 5,
+      "limit": 50,
       "published": true
     },
     "responsePath": "response",
@@ -22,11 +22,11 @@
     "rateLimitDelay": 3000,
     "timeout": 90000,
     "maxRetries": 5,
-    "schedule": "0 */10 * * * *",
+    "schedule": "0 */59 * * * *",
     "pagination": {
       "paramType": "data",
       "pageKey": "page",
-      "maxPages": 5
+      "maxPages": 100
     }
   },
 
@@ -42,7 +42,7 @@
       "Accept": "application/json"
     },
     "params": {
-      "limit": 5
+      "limit": 50
     },
     "responsePath": "results",
     "indicatorMapper": "alienVaultOTX",
@@ -50,12 +50,12 @@
     "rateLimitDelay": 2000,
     "timeout": 60000,
     "maxRetries": 3,
-    "schedule": "0 */10 * * * *",
+    "schedule": "0 */59 * * * *",
     "pagination": {
       "paramType": "params",
       "pageKey": "page",
       "totalCountKey": "count",
-      "maxPages": 5
+      "maxPages": 50
     }
   },
 
@@ -72,7 +72,7 @@
       "Accept": "application/json"
     },
     "params": {
-      "limit": 5
+      "limit": 50
     },
     "responsePath": "data",
     "indicatorMapper": "hybridAnalysis",
@@ -80,12 +80,12 @@
     "rateLimitDelay": 2000,
     "timeout": 60000,
     "maxRetries": 3,
-    "schedule": "0 */10 * * * *",
+    "schedule": "0 */59 * * * *",
     "pagination": {
       "paramType": "params",
       "pageKey": "page",
       "hasNextKey": "has_next",
-      "maxPages": 5
+      "maxPages": 50
     }
   }
  ]
