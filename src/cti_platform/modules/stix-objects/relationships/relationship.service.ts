@@ -3,14 +3,19 @@ import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { StixRelationship } from './relationship.entity';
 import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
 import { StixValidationError } from '../../../core/exception/custom-exceptions';
-import { v4 as uuidv4 } from 'uuid';
 import { SearchRelationshipInput } from './relationship.resolver';
+
+import { v5 as uuidv5 } from 'uuid';
+
+// Define the UUID namespace (DNS namespace in this example)
+const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 @Injectable()
 export class RelationshipService implements OnModuleInit {
   private readonly client: Client;
   private readonly index = 'stix-relationships';
 
+  
   private readonly validRelationships = new Map<string, Set<string>>([
     ['attack-pattern', new Set(['delivers', 'targets', 'uses'])],
     ['campaign', new Set(['attributed-to', 'compromises', 'originates-from', 'targets', 'uses'])],
@@ -24,7 +29,7 @@ export class RelationshipService implements OnModuleInit {
     ['threat-actor', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'impersonates', 'located-at', 'targets', 'uses'])],
     ['tool', new Set(['delivers', 'drops', 'has', 'targets'])],
   ]);
-
+  
   private readonly validTargets = new Map<string, Set<string>>([
     ['delivers', new Set(['malware'])],
     ['targets', new Set(['identity', 'location', 'vulnerability', 'infrastructure'])],
@@ -36,9 +41,45 @@ export class RelationshipService implements OnModuleInit {
     ['mitigates', new Set(['attack-pattern', 'indicator', 'malware', 'tool', 'vulnerability'])],
     ['located-at', new Set(['location'])],
     ['indicates', new Set(['attack-pattern', 'campaign', 'infrastructure', 'intrusion-set', 'malware', 'threat-actor', 'tool'])],
-    ['based-on', new Set(['observed-data'])],
+    ['based-on', new Set([
+      'observed-data',
+      'ipv4-addr',
+      'ipv6-addr',
+      'domain-name',
+      'url',
+      'email-addr',
+      'file',
+      'mutex',
+      'windows-registry-key',
+      'x509-certificate',
+      'autonomous-system',
+      'network-traffic',
+      'software',
+      'user-account',
+      'mac-addr',
+      'process',
+      'directory',
+      'artifact'
+    ])],
+    ['communicates-with', new Set(['infrastructure'])],
+    ['consists-of', new Set(['infrastructure'])],
+    ['controls', new Set(['infrastructure', 'malware'])],
+    ['has', new Set(['vulnerability'])],
+    ['hosts', new Set(['infrastructure', 'malware'])],
+    ['authored-by', new Set(['threat-actor'])],
+    ['beacons-to', new Set(['infrastructure'])],
+    ['exfiltrate-to', new Set(['infrastructure'])],
+    ['downloads', new Set(['malware', 'tool'])],
+    ['drops', new Set(['malware', 'tool'])],
+    ['exploits', new Set(['vulnerability'])],
+    ['variant-of', new Set(['malware'])],
+    ['characterizes', new Set(['malware'])],
+    ['analysis-of', new Set(['malware'])],
+    ['static-analysis-of', new Set(['malware'])],
+    ['dynamic-analysis-of', new Set(['malware'])],
+    ['owns', new Set(['infrastructure'])],
+    ['impersonates', new Set(['identity'])],
   ]);
-
   constructor() {
     const clientOptions: ClientOptions = {
       node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
@@ -59,41 +100,69 @@ export class RelationshipService implements OnModuleInit {
 
 
   async create(createRelationshipInput: CreateRelationshipInput): Promise<StixRelationship> {
-    this.validateRelationship(
-      createRelationshipInput.source_ref,
-      createRelationshipInput.relationship_type,
-      createRelationshipInput.target_ref
-    );
-
-    const relationship: StixRelationship = {
-      ...createRelationshipInput,
-      id: `relationship--${uuidv4()}`,
-      type: 'relationship' as const,
-      spec_version: '2.1',
-      start_time: createRelationshipInput.start_time ? new Date(createRelationshipInput.start_time).toISOString() : undefined,
-      stop_time: createRelationshipInput.stop_time ? new Date(createRelationshipInput.stop_time).toISOString() : undefined,
-      created: new Date().toISOString(),
-      modified: new Date().toISOString(),
-    };
-
     try {
+      // Validate relationship first
+      this.validateRelationship(
+        createRelationshipInput.source_ref,
+        createRelationshipInput.relationship_type,
+        createRelationshipInput.target_ref
+      );
+
+      // Generate deterministic ID based on relationship properties
+      const idSeed = [
+        createRelationshipInput.source_ref,
+        createRelationshipInput.relationship_type,
+        createRelationshipInput.target_ref,
+        createRelationshipInput.start_time || '',
+        createRelationshipInput.stop_time || '',
+        Date.now().toString() // Ensure uniqueness for concurrent requests
+      ].join('|');
+
+      const relationship: StixRelationship = {
+        ...createRelationshipInput,
+        id: createRelationshipInput.id || `relationship--${uuidv5(idSeed, NAMESPACE)}`,
+        type: 'relationship',
+        spec_version: '2.1',
+        start_time: createRelationshipInput.start_time 
+          ? new Date(createRelationshipInput.start_time).toISOString() 
+          : undefined,
+        stop_time: createRelationshipInput.stop_time 
+          ? new Date(createRelationshipInput.stop_time).toISOString() 
+          : undefined,
+        created: new Date().toISOString(),
+        modified: new Date().toISOString(),
+      };
+
       const response = await this.client.index({
         index: this.index,
         id: relationship.id,
         body: relationship,
         refresh: 'wait_for',
+      }).catch(error => {
+        throw new Error(`OpenSearch error: ${this.safeGetErrorMessage(error)}`);
       });
 
-      if (response.body.result !== 'created') {
-        throw new Error('Failed to index relationship');
+      if (!['created', 'updated'].includes(response.body?.result)) {
+        throw new Error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
       }
+
       return relationship;
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Failed to create relationship',
-        details: error.meta?.body?.error || error.message,
+        details: this.safeGetErrorMessage(error),
+        objectId: createRelationshipInput?.id || 'unknown',
+        input: createRelationshipInput
       });
     }
+  }
+
+  private safeGetErrorMessage(error: any): string {
+    if (typeof error === 'string') return error;
+    if (error?.message) return error.message;
+    if (error?.response?.data?.error) return error.response.data.error;
+    if (error?.body?.error) return JSON.stringify(error.body.error);
+    return 'Unknown error occurred';
   }
 
   async findOne(id: string): Promise<StixRelationship> {

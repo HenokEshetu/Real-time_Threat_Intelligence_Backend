@@ -1,13 +1,16 @@
-import { Injectable, InternalServerErrorException, NotFoundException,OnModuleInit } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
-import { CreateMalwareAnalysisInput, UpdateMalwareAnalysisInput } from './malware-analysis.input';
 import { v4 as uuidv4 } from 'uuid';
-import { SearchMalwareAnalysisInput } from './malware-analysis.resolver';
-import { MalwareAnalysis } from './malware-analysis.entity';
+import {
+  CreateMarkingDefinitionInput,
+  UpdateMarkingDefinitionInput,
+  SearchMarkingDefinitionInput,
+} from './marking-definition.input';
+import { MarkingDefinition } from './marking-definition.entity';
 
 @Injectable()
-export class MalwareAnalysisService implements OnModuleInit  {
-  private readonly index = 'malware-analysis';
+export class MarkingDefinitionService implements OnModuleInit {
+  private readonly index = 'marking-definitions';
   private readonly openSearchService: Client;
 
   constructor() {
@@ -28,40 +31,37 @@ export class MalwareAnalysisService implements OnModuleInit  {
     await this.ensureIndex();
   }
 
-
-  async create(createMalwareAnalysisInput: CreateMalwareAnalysisInput): Promise<MalwareAnalysis> {
-    const malwareAnalysis: MalwareAnalysis = {
-      ...createMalwareAnalysisInput,
-      id: `malware-analysis--${uuidv4()}`,
-      type: 'malware-analysis' as const,
+  async create(createMarkingDefinitionInput: CreateMarkingDefinitionInput): Promise<MarkingDefinition> {
+    const markingDefinition: MarkingDefinition = {
+      ...createMarkingDefinitionInput,
+      id: `marking-definition--${uuidv4()}`,
+      type: 'marking-definition' as const,
       spec_version: '2.1',
-      created: new Date().toISOString(),
-      modified: new Date().toISOString(),
-      product: createMalwareAnalysisInput.product, // Required field
-      
+      definition_type: createMarkingDefinitionInput.definition_type,
+      definition: createMarkingDefinitionInput.definition || {}, // Ensure 'definition' is always provided
     };
 
     try {
       const response = await this.openSearchService.index({
         index: this.index,
-        id: malwareAnalysis.id,
-        body: malwareAnalysis,
+        id: markingDefinition.id,
+        body: markingDefinition,
         refresh: 'wait_for',
       });
 
       if (response.body.result !== 'created') {
-        throw new Error('Failed to index malware analysis');
+        throw new Error('Failed to index marking definition');
       }
-      return malwareAnalysis;
+      return markingDefinition;
     } catch (error) {
       throw new InternalServerErrorException({
-        message: 'Failed to create malware analysis',
+        message: 'Failed to create marking definition',
         details: error.meta?.body?.error || error.message,
       });
     }
   }
 
-  async findOne(id: string): Promise<MalwareAnalysis> {
+  async findOne(id: string): Promise<MarkingDefinition> {
     try {
       const response = await this.openSearchService.get({
         index: this.index,
@@ -72,57 +72,54 @@ export class MalwareAnalysisService implements OnModuleInit  {
       return {
         ...source,
         id: response.body._id,
-        type: 'malware-analysis' as const,
+        type: 'marking-definition' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
-        product: source.product, // Required field
-        host_vm_ref: [source.host_vm_ref],
-        operating_system_ref:source.operating_system_ref,
-        installed_software_ref:[source.installed_software_ref],
-        configuration_version:[source.configuration_version],
-        submitted: source.submitted,
-        result: source.result,
-
-        
+        definition_type: source.definition_type,
+        definition: source.definition || {}, // Ensure 'definition' is always provided
+        created: new Date(source.created).toISOString(),
+        modified: new Date(source.modified).toISOString(),
+        created_by_ref: source.created_by_ref,
+        object_marking_refs: source.object_marking_refs,
+        external_references: source.external_references,
+        granular_markings: source.granular_markings,
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
-        throw new NotFoundException(`Malware Analysis with ID ${id} not found`);
+        throw new NotFoundException(`Marking Definition with ID ${id} not found`);
       }
       throw new InternalServerErrorException({
-        message: 'Failed to fetch malware analysis',
+        message: 'Failed to fetch marking definition',
         details: error.meta?.body?.error || error.message,
       });
     }
   }
 
-  async update(id: string, updateMalwareAnalysisInput: UpdateMalwareAnalysisInput): Promise<MalwareAnalysis> {
+  async update(id: string, updateMarkingDefinitionInput: UpdateMarkingDefinitionInput): Promise<MarkingDefinition> {
     try {
-      const existingAnalysis = await this.findOne(id);
-      const updatedAnalysis: MalwareAnalysis = {
-        ...existingAnalysis,
-        ...updateMalwareAnalysisInput,
+      const existingMarkingDefinition = await this.findOne(id);
+      const updatedMarkingDefinition: MarkingDefinition = {
+        ...existingMarkingDefinition,
+        ...updateMarkingDefinitionInput,
         modified: new Date().toISOString(),
       };
 
       const response = await this.openSearchService.update({
         index: this.index,
         id,
-        body: { doc: updatedAnalysis },
+        body: { doc: updatedMarkingDefinition },
         retry_on_conflict: 3,
         refresh: 'wait_for',
       });
 
       if (response.body.result !== 'updated') {
-        throw new Error('Failed to update malware analysis');
+        throw new Error('Failed to update marking definition');
       }
 
-      return updatedAnalysis;
+      return updatedMarkingDefinition;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException({
-        message: 'Failed to update malware analysis',
+        message: 'Failed to update marking definition',
         details: error.meta?.body?.error || error.message,
       });
     }
@@ -141,22 +138,22 @@ export class MalwareAnalysisService implements OnModuleInit  {
         return false;
       }
       throw new InternalServerErrorException({
-        message: 'Failed to delete malware analysis',
+        message: 'Failed to delete marking definition',
         details: error.meta?.body?.error || error.message,
       });
     }
   }
 
   async searchWithFilters(
-    filters: SearchMalwareAnalysisInput = {},
+    filters: SearchMarkingDefinitionInput = {},
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10,
   ): Promise<{
     page: number;
     pageSize: number;
     total: number;
     totalPages: number;
-    results: MalwareAnalysis[];
+    results: MarkingDefinition[];
   }> {
     try {
       const from = (page - 1) * pageSize;
@@ -172,7 +169,7 @@ export class MalwareAnalysisService implements OnModuleInit  {
           queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
         } else if (typeof value === 'boolean' || typeof value === 'number') {
           queryBuilder.query.bool.filter.push({ term: { [key]: value } });
-        } else if (['created', 'modified', 'analysis_started', 'analysis_ended'].includes(key)) {
+        } else if (['created', 'modified'].includes(key)) {
           if (typeof value === 'object' && ('gte' in value || 'lte' in value)) {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
@@ -193,7 +190,11 @@ export class MalwareAnalysisService implements OnModuleInit  {
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length &&
+        !queryBuilder.query.bool.should.length
+      ) {
         queryBuilder.query = { match_all: {} };
       } else if (queryBuilder.query.bool.should.length > 0) {
         queryBuilder.query.bool.minimum_should_match = 1;
@@ -218,24 +219,19 @@ export class MalwareAnalysisService implements OnModuleInit  {
         results: response.body.hits.hits.map((hit) => ({
           ...hit._source,
           id: hit._id,
-          type: 'malware-analysis' as const,
+          type: 'marking-definition' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          product: hit._source.product, // Required field
-        host_vm_ref: [hit._source.host_vm_ref],
-        operating_system_ref:hit._source.operating_system_ref,
-        installed_software_ref:[hit._source.installed_software_ref],
-        configuration_version:[hit._source.configuration_version],
-        submitted: hit._source.submitted,
-        result: hit._source.result,
-        
-         
+          // Convert to string using toISOString()
+          created: new Date(hit._source.created).toISOString(),
+          modified: new Date(hit._source.modified).toISOString(),
+          definition_type: hit._source.definition_type,
+            created_by_ref: hit._source.created_by_ref,
+          definition: hit._source.definition || {},
         })),
       };
     } catch (error) {
       throw new InternalServerErrorException({
-        message: 'Failed to search malware analyses',
+        message: 'Failed to search marking definitions',
         details: error.meta?.body?.error || error.message,
       });
     }
@@ -255,19 +251,14 @@ export class MalwareAnalysisService implements OnModuleInit  {
                 spec_version: { type: 'keyword' },
                 created: { type: 'date' },
                 modified: { type: 'date' },
-                product: { type: 'text' },
-                version: { type: 'keyword' },
-                host_vm_ref: { type: 'keyword' },
-                operating_system_ref: { type: 'keyword' },
-                installed_software_refs: { type: 'keyword' },
-                analysis_engine_version: { type: 'keyword' },
-                analysis_definition_version: { type: 'keyword' },
-                submitted: { type: 'date' },
-                analysis_started: { type: 'date' },
-                analysis_ended: { type: 'date' },
-                result: { type: 'keyword' },
-                result_name: { type: 'text' },
-                sample_ref: { type: 'keyword' },
+                name: { type: 'text' },
+                description: { type: 'text' },
+                definition_type: { type: 'keyword' },
+                definition: { type: 'object', enabled: true },
+                created_by_ref: { type: 'keyword' },
+                object_marking_refs: { type: 'keyword' },
+                external_references: { type: 'keyword' },
+                granular_markings: { type: 'keyword' },
               },
             },
           },
@@ -275,7 +266,7 @@ export class MalwareAnalysisService implements OnModuleInit  {
       }
     } catch (error) {
       throw new InternalServerErrorException({
-        message: 'Failed to initialize malware-analysis index',
+        message: 'Failed to initialize marking definitions index',
         details: error.meta?.body?.error || error.message,
       });
     }

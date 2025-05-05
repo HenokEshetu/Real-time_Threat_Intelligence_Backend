@@ -7,7 +7,6 @@ input AlternateDataStreamInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -29,7 +28,6 @@ type Artifact {
   decryption_key: String
   defanged: Boolean
   encryption_algorithm: Float
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   hashes: Hashes
@@ -39,6 +37,7 @@ type Artifact {
   mime_type: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   payload_bin: String
   revoked: Boolean
   spec_version: String!
@@ -60,7 +59,6 @@ type AttackPattern {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -70,6 +68,7 @@ type AttackPattern {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -95,7 +94,6 @@ type AutonomousSystem {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -105,6 +103,7 @@ type AutonomousSystem {
   name: String
   number: Float!
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   rir: String
   spec_version: String!
@@ -121,7 +120,7 @@ type AutonomousSystemSearchResult {
 
 type Bundle {
   id: ID!
-  objects: [JSON!]!
+  objects: [JSONObject!]!
   type: String!
 }
 
@@ -131,7 +130,6 @@ type Campaign {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
@@ -143,6 +141,7 @@ type Campaign {
   name: String!
   object_marking_refs: [String!]
   objective: String
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -171,7 +170,6 @@ type CourseOfAction {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -180,6 +178,7 @@ type CourseOfAction {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -201,7 +200,6 @@ input CreateArtifactInput {
   decryption_key: String
   defanged: Boolean
   encryption_algorithm: Float
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -224,7 +222,6 @@ input CreateAttackPatternInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -244,7 +241,6 @@ input CreateAutonomousSystemInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -261,7 +257,7 @@ input CreateAutonomousSystemInput {
 
 input CreateBundleInput {
   id: ID!
-  objects: [JSON!]!
+  objects: [JSONObject!]!
   type: String! = "bundle"
 }
 
@@ -272,7 +268,6 @@ input CreateCampaignInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -298,7 +293,6 @@ input CreateCourseOfActionInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -319,7 +313,6 @@ input CreateDirectoryInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -339,7 +332,6 @@ input CreateDomainNameInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -360,7 +352,6 @@ input CreateEmailAddressInput {
   created_by_ref: String
   defanged: Boolean
   display_name: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -384,7 +375,6 @@ input CreateEmailMessageInput {
   created_by_ref: String
   date: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   from_ref: String
@@ -413,7 +403,6 @@ input CreateFileInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -445,7 +434,6 @@ input CreateGroupingInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -465,7 +453,6 @@ input CreateIPv4AddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -484,7 +471,6 @@ input CreateIPv6AddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -505,7 +491,6 @@ input CreateIdentityInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -529,7 +514,6 @@ input CreateIncidentInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -554,7 +538,6 @@ input CreateIndicatorInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -570,7 +553,7 @@ input CreateIndicatorInput {
   revoked: Boolean
   spec_version: String!
   type: String!
-  valid_from: DateTime!
+  valid_from: DateTime
   valid_until: DateTime
 }
 
@@ -581,7 +564,6 @@ input CreateInfrastructureInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -605,7 +587,6 @@ input CreateIntrusionSetInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -635,7 +616,6 @@ input CreateLocationInput {
   created_by_ref: String
   default: LocationType!
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -659,7 +639,6 @@ input CreateMACAddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -683,7 +662,6 @@ input CreateMalwareAnalysisInput {
   configuration_version: [String!]!
   created: String!
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   host_vm_ref: [String!]!
@@ -713,7 +691,6 @@ input CreateMalwareInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -734,12 +711,32 @@ input CreateMalwareInput {
   type: String!
 }
 
+input CreateMarkingDefinitionInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  definition: JSONObject
+  definition_type: String!
+  description: String
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [String!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
 input CreateMutexInput {
   confidence: Float
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -765,7 +762,6 @@ input CreateNetworkTrafficInput {
   encapsulated_by_ref: String
   encapsulates_refs: [String!]
   end: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -795,7 +791,6 @@ input CreateNoteInput {
   content_type: String
   created: String!
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -813,7 +808,6 @@ input CreateObservedDataInput {
   confidence: Float
   created: String!
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_observed: DateTime!
@@ -835,7 +829,6 @@ input CreateOpinionInput {
   confidence: Float
   created: String!
   created_by_ref: String
-  enrichment: EnrichmentInput
   explanation: String!
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -851,7 +844,7 @@ input CreateOpinionInput {
 }
 
 input CreateProcessInput {
-  arguments: JSON
+  arguments: JSONObject
   child_refs: [String!]
   command_line: String
   confidence: Float
@@ -861,7 +854,6 @@ input CreateProcessInput {
   creator_user_ref: String
   cwd: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   environment_variables: [String!]
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -875,7 +867,7 @@ input CreateProcessInput {
   parent_ref: String
   pid: Float
   revoked: Boolean
-  service_dll_refs: JSON
+  service_dll_refs: JSONObject
   spec_version: String!
   type: String!
 }
@@ -885,13 +877,13 @@ input CreateRelationshipInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   relationship_type: String!
   revoked: Boolean
   source_ref: ID!
@@ -909,7 +901,6 @@ input CreateReportInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -918,7 +909,7 @@ input CreateReportInput {
   modified: String!
   name: String!
   object_refs: [String!]!
-  published: DateTime!
+  published: String!
   report_types: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -931,8 +922,7 @@ input CreateSightingInput {
   created: String!
   created_by_ref: String
   detected: Boolean
-  enrichment: EnrichmentInput
-  extensions: JSONObject
+  extensions: String
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime!
   id: ID!
@@ -955,7 +945,6 @@ input CreateSoftwareInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -979,7 +968,6 @@ input CreateThreatActorInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -1009,7 +997,6 @@ input CreateToolInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -1030,7 +1017,6 @@ input CreateUrlInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -1058,7 +1044,6 @@ input CreateUserAccountInput {
   credential_last_changed: String
   defanged: Boolean
   display_name: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -1092,7 +1077,6 @@ input CreateVulnerabilityInput {
   cvss_v3_score: String
   cvss_v3_vector: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -1115,7 +1099,6 @@ input CreateWindowsRegistryKeyInput {
   created_by_ref: String
   creator_user_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -1136,7 +1119,6 @@ input CreateX509CertificateInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -1162,7 +1144,7 @@ input CreateX509CertificateInput {
 }
 
 """
-A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+A date-time string at UTC, such as 2007-12-03T10:15:30Z, compliant with the `date-time` format outlined in section 5.6 of the RFC 3339 profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.
 """
 scalar DateTime
 
@@ -1174,7 +1156,6 @@ type Directory {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1185,6 +1166,7 @@ type Directory {
   object_marking_refs: [String!]
   path: String!
   path_enc: String
+  pattern: String
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1203,7 +1185,6 @@ type DomainName {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1211,6 +1192,7 @@ type DomainName {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -1233,7 +1215,6 @@ type EmailAddress {
   created_by_ref: String
   defanged: Boolean
   display_name: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1241,6 +1222,7 @@ type EmailAddress {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1264,7 +1246,6 @@ input EmailMIMEComponentInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -1277,7 +1258,7 @@ input EmailMIMEComponentInput {
 }
 
 type EmailMessage {
-  additional_header_fields: JSON
+  additional_header_fields: JSONObject
   bcc_refs: [String!]
   body: String
   body_multipart: String
@@ -1288,7 +1269,6 @@ type EmailMessage {
   created_by_ref: String
   date: DateTime
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   from_ref: String
@@ -1299,6 +1279,7 @@ type EmailMessage {
   message_id: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   raw_email_ref: String
   received_lines: [String!]
   revoked: Boolean
@@ -1315,36 +1296,6 @@ type EmailMessageSearchResult {
   results: [EmailMessage!]!
   total: Int!
   totalPages: Int!
-}
-
-type Enrichment {
-  abuseipdb: JSON
-  asn: JSON
-  dns: JSON
-  geo: JSON
-  hybrid: JSON
-  misp: JSON
-  shodan: JSON
-  ssl: JSON
-  threatcrowd: JSON
-  threatfox: JSON
-  virustotal: JSON
-  whois: JSON
-}
-
-input EnrichmentInput {
-  abuseipdb: JSON
-  asn: JSON
-  dns: JSON
-  geo: JSON
-  hybrid: JSON
-  misp: JSON
-  shodan: JSON
-  ssl: JSON
-  threatcrowd: JSON
-  threatfox: JSON
-  virustotal: JSON
-  whois: JSON
 }
 
 type ExternalReference {
@@ -1373,7 +1324,6 @@ type File {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   hashes: Hashes
@@ -1389,6 +1339,7 @@ type File {
   ntfs_ext: NTFSFileExtension
   object_marking_refs: [String!]
   parent_directory_ref: [String!]
+  pattern: String
   pdf_ext: PDFFileExtension
   raster_image_ext: RasterImageFileExtension
   revoked: Boolean
@@ -1413,7 +1364,6 @@ type Grouping {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1423,6 +1373,7 @@ type Grouping {
   name: String!
   object_marking_refs: [String!]
   object_refs: [String!]!
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -1457,7 +1408,6 @@ type IPv4Address {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1465,6 +1415,7 @@ type IPv4Address {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String!
@@ -1485,7 +1436,6 @@ type IPv6Address {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1493,6 +1443,7 @@ type IPv6Address {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String!
@@ -1514,7 +1465,6 @@ type Identity {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1524,6 +1474,7 @@ type Identity {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   roles: [String!]
@@ -1556,7 +1507,6 @@ type Incident {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
@@ -1568,6 +1518,7 @@ type Incident {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   severity: String
@@ -1590,7 +1541,6 @@ type Indicator {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1608,7 +1558,7 @@ type Indicator {
   revoked: Boolean
   spec_version: String!
   type: String!
-  valid_from: DateTime!
+  valid_from: DateTime
   valid_until: DateTime
 }
 
@@ -1665,7 +1615,6 @@ type Infrastructure {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
@@ -1678,6 +1627,7 @@ type Infrastructure {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -1712,7 +1662,6 @@ type IntrusionSet {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
@@ -1725,6 +1674,7 @@ type IntrusionSet {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   primary_motivation: String
   relationship: [RelationshipCommonProperties!]
   resource_level: String
@@ -1741,11 +1691,6 @@ type IntrusionSetSearchResult {
   total: Int!
   totalPages: Int!
 }
-
-"""
-The `JSON` scalar type represents JSON values as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
-"""
-scalar JSON
 
 """
 The `JSONObject` scalar type represents JSON objects as specified by [ECMA-404](http://www.ecma-international.org/publications/files/ECMA-ST/ECMA-404.pdf).
@@ -1773,7 +1718,6 @@ type Location {
   created_by_ref: String
   default: LocationType!
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1784,6 +1728,7 @@ type Location {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   postal_code: String
   precision: String
   region: String
@@ -1828,7 +1773,6 @@ type MACAddress {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -1836,6 +1780,7 @@ type MACAddress {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1858,7 +1803,6 @@ type Malware {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
@@ -1874,6 +1818,7 @@ type Malware {
   name: String!
   object_marking_refs: [String!]
   operating_system_refs: [String!]
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   sample_refs: String
@@ -1891,7 +1836,6 @@ type MalwareAnalysis {
   configuration_version: [String!]!
   created: String!
   created_by_ref: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   host_vm_ref: [String!]!
@@ -1903,6 +1847,7 @@ type MalwareAnalysis {
   modules: [String!]
   object_marking_refs: [String!]
   operating_system_ref: [String!]!
+  pattern: String
   product: String!
   relationship: [RelationshipCommonProperties!]
   result: String!
@@ -1953,6 +1898,36 @@ enum MalwareType {
   WORM
 }
 
+type MarkingDefinition {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  definition: JSONObject
+  definition_type: String!
+  description: String
+  extensions: JSONObject
+  external_references: [ExternalReference!]
+  granular_markings: [String!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String
+  object_marking_refs: [String!]
+  pattern: String
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
+type MarkingDefinitionSearchResult {
+  page: Int!
+  pageSize: Int!
+  results: [MarkingDefinition!]!
+  total: Int!
+  totalPages: Int!
+}
+
 type Mutation {
   changePassword(input: ChangePasswordDto!): AuthResponse!
   createArtifact(input: CreateArtifactInput!): Artifact!
@@ -1978,6 +1953,7 @@ type Mutation {
   createMACAddress(input: CreateMACAddressInput!): MACAddress!
   createMalware(input: CreateMalwareInput!): Malware!
   createMalwareAnalysis(input: CreateMalwareAnalysisInput!): MalwareAnalysis!
+  createMarkingDefinition(input: CreateMarkingDefinitionInput!): MarkingDefinition!
   createMutex(input: CreateMutexInput!): Mutex!
   createNetworkTraffic(input: CreateNetworkTrafficInput!): NetworkTraffic!
   createNote(input: CreateNoteInput!): Note!
@@ -2019,6 +1995,7 @@ type Mutation {
   deleteMACAddress(id: String!): Boolean!
   deleteMalware(id: String!): Boolean!
   deleteMalwareAnalysis(id: String!): Boolean!
+  deleteMarkingDefinition(id: String!): Boolean!
   deleteMutex(id: String!): Boolean!
   deleteNetworkTraffic(id: String!): Boolean!
   deleteNote(id: String!): Boolean!
@@ -2064,6 +2041,7 @@ type Mutation {
   updateMACAddress(id: String!, input: UpdateMACAddressInput!): MACAddress!
   updateMalware(id: String!, input: UpdateMalwareInput!): Malware!
   updateMalwareAnalysis(id: String!, input: UpdateMalwareAnalysisInput!): MalwareAnalysis!
+  updateMarkingDefinition(id: String!, input: UpdateMarkingDefinitionInput!): MarkingDefinition!
   updateMutex(id: String!, input: UpdateMutexInput!): Mutex!
   updateNetworkTraffic(id: String!, input: UpdateNetworkTrafficInput!): NetworkTraffic!
   updateNote(id: String!, input: UpdateNoteInput!): Note!
@@ -2089,7 +2067,6 @@ type Mutex {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -2098,6 +2075,7 @@ type Mutex {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -2122,7 +2100,6 @@ input NTFSFileExtensionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -2148,7 +2125,6 @@ type NetworkTraffic {
   encapsulated_by_ref: String
   encapsulates_refs: String
   end: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -2158,6 +2134,7 @@ type NetworkTraffic {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   protocols: [String!]
   revoked: Boolean
   spec_version: String!
@@ -2186,7 +2163,6 @@ type Note {
   content_type: String
   created: String!
   created_by_ref: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -2195,6 +2171,7 @@ type Note {
   modified: String!
   object_marking_refs: [String!]
   object_refs: [String!]!
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -2213,7 +2190,6 @@ type ObservedData {
   confidence: Float
   created: String!
   created_by_ref: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   first_observed: DateTime!
@@ -2225,6 +2201,7 @@ type ObservedData {
   number_observed: Float!
   object_marking_refs: [String!]
   object_refs: [String!]!
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -2244,7 +2221,6 @@ type Opinion {
   confidence: Float
   created: String!
   created_by_ref: String
-  enrichment: Enrichment
   explanation: String!
   extensions: JSONObject
   external_references: [ExternalReference!]
@@ -2255,6 +2231,7 @@ type Opinion {
   object_marking_refs: [String!]
   object_refs: [String!]!
   opinion: String!
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -2282,8 +2259,7 @@ input PDFFileExtensionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  document_info_dict: JSON
-  enrichment: EnrichmentInput
+  document_info_dict: JSONObject
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -2316,7 +2292,7 @@ type Permission {
 }
 
 type Process {
-  arguments: JSON
+  arguments: JSONObject
   child_refs: [String!]
   command_line: String
   confidence: Float
@@ -2326,7 +2302,6 @@ type Process {
   creator_user_ref: [String!]
   cwd: String
   defanged: Boolean
-  enrichment: Enrichment
   environment_variables: [String!]
   extensions: JSONObject
   external_references: [ExternalReference!]
@@ -2339,9 +2314,10 @@ type Process {
   object_marking_refs: [String!]
   opened_connection_refs: Boolean
   parent_ref: [String!]
+  pattern: String
   pid: Float
   revoked: Boolean
-  service_dll_refs: JSON
+  service_dll_refs: JSONObject
   spec_version: String!
   type: String!
 }
@@ -2387,6 +2363,7 @@ type Query {
   macAddress(id: String!): MACAddress
   malware(id: String!): Malware
   malwareAnalysis(id: String!): MalwareAnalysis
+  markingDefinition(id: String!): MarkingDefinition
   mutex(id: String!): Mutex
   mutexesByName(name: String!): [Mutex!]!
   networkTraffic(id: String!): NetworkTraffic
@@ -2420,6 +2397,7 @@ type Query {
   searchMACAddresses(filter: SearchMACAddressInput, from: Int! = 0, size: Int! = 10): MACAddressSearchResult!
   searchMalware(filters: SearchMalwareInput, page: Int! = 1, pageSize: Int! = 10): MalwareSearchResult!
   searchMalwareAnalyses(filters: SearchMalwareAnalysisInput, page: Int! = 1, pageSize: Int! = 10): MalwareAnalysisSearchResult!
+  searchMarkingDefinitions(filters: SearchMarkingDefinitionInput, page: Int! = 1, pageSize: Int! = 10): MarkingDefinitionSearchResult!
   searchMutexes(filters: SearchMutexInput, from: Int! = 0, size: Int! = 10): MutexSearchResult!
   searchNetworkTraffic(filters: SearchNetworkTrafficInput, from: Int! = 0, size: Int! = 10): NetworkTrafficSearchResult!
   searchNotes(filters: SearchNoteInput, page: Int! = 1, pageSize: Int! = 10): NoteSearchResult!
@@ -2464,8 +2442,7 @@ input RasterImageFileExtensionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
-  exif_tags: JSON
+  exif_tags: JSONObject
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -2484,13 +2461,13 @@ input RelationshipCommonInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   relationship_type: String!
   revoked: Boolean
   source_ref: ID!
@@ -2506,7 +2483,6 @@ type RelationshipCommonProperties {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -2514,6 +2490,7 @@ type RelationshipCommonProperties {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   relationship_type: String!
   revoked: Boolean
   source_ref: ID!
@@ -2530,7 +2507,6 @@ type Report {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -2540,6 +2516,7 @@ type Report {
   name: String!
   object_marking_refs: [String!]
   object_refs: [String!]!
+  pattern: String
   published: DateTime!
   relationship: [RelationshipCommonProperties!]
   report_types: [String!]!
@@ -2577,7 +2554,6 @@ input SearchArtifactInput {
   decryption_key: String
   defanged: Boolean
   encryption_algorithm: Float
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -2600,7 +2576,6 @@ input SearchAttackPatternInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2620,7 +2595,6 @@ input SearchAutonomousSystemInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2637,7 +2611,7 @@ input SearchAutonomousSystemInput {
 
 input SearchBundleInput {
   id: ID
-  objects: [JSON!]
+  objects: [JSONObject!]
   type: String = "bundle"
 }
 
@@ -2648,7 +2622,6 @@ input SearchCampaignInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -2674,7 +2647,6 @@ input SearchCourseOfActionInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2695,7 +2667,6 @@ input SearchDirectoryInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2715,7 +2686,6 @@ input SearchDomainNameInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2736,7 +2706,6 @@ input SearchEmailAddressInput {
   created_by_ref: String
   defanged: Boolean
   display_name: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2760,7 +2729,6 @@ input SearchEmailMessageInput {
   created_by_ref: String
   date: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   from_ref: String
@@ -2789,7 +2757,6 @@ input SearchFileInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -2821,7 +2788,6 @@ input SearchGroupingInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2841,7 +2807,6 @@ input SearchIPv4AddressInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2860,7 +2825,6 @@ input SearchIPv6AddressInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2881,7 +2845,6 @@ input SearchIdentityInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2905,7 +2868,6 @@ input SearchIncidentInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -2930,7 +2892,6 @@ input SearchIndicatorInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -2957,7 +2918,6 @@ input SearchInfrastructureInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -2981,7 +2941,6 @@ input SearchIntrusionSetInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -3011,7 +2970,6 @@ input SearchLocationInput {
   created_by_ref: String
   default: LocationType
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3035,7 +2993,6 @@ input SearchMACAddressInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3059,7 +3016,6 @@ input SearchMalwareAnalysisInput {
   configuration_version: [String!]
   created: String
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   host_vm_ref: [String!]
@@ -3089,7 +3045,6 @@ input SearchMalwareInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -3110,12 +3065,32 @@ input SearchMalwareInput {
   type: String
 }
 
+input SearchMarkingDefinitionInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  definition: JSONObject
+  definition_type: String
+  description: String
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [String!]
+  id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String
+  type: String
+}
+
 input SearchMutexInput {
   confidence: Float
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3141,7 +3116,6 @@ input SearchNetworkTrafficInput {
   encapsulated_by_ref: String
   encapsulates_refs: [String!]
   end: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3171,7 +3145,6 @@ input SearchNoteInput {
   content_type: String
   created: String
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3189,7 +3162,6 @@ input SearchObservedDataInput {
   confidence: Float
   created: String
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_observed: DateTime
@@ -3211,7 +3183,6 @@ input SearchOpinionInput {
   confidence: Float
   created: String
   created_by_ref: String
-  enrichment: EnrichmentInput
   explanation: String
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -3227,7 +3198,7 @@ input SearchOpinionInput {
 }
 
 input SearchProcessInput {
-  arguments: JSON
+  arguments: JSONObject
   child_refs: [String!]
   command_line: String
   confidence: Float
@@ -3237,7 +3208,6 @@ input SearchProcessInput {
   creator_user_ref: String
   cwd: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   environment_variables: [String!]
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -3251,7 +3221,7 @@ input SearchProcessInput {
   parent_ref: String
   pid: Float
   revoked: Boolean
-  service_dll_refs: JSON
+  service_dll_refs: JSONObject
   spec_version: String
   type: String
 }
@@ -3261,13 +3231,13 @@ input SearchRelationshipInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   relationship_type: String
   revoked: Boolean
   source_ref: ID
@@ -3285,7 +3255,6 @@ input SearchReportInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3294,7 +3263,7 @@ input SearchReportInput {
   modified: String
   name: String
   object_refs: [String!]
-  published: DateTime
+  published: String
   report_types: [String!]
   revoked: Boolean
   spec_version: String
@@ -3315,7 +3284,6 @@ input SearchSightingInput {
   created: String
   created_by_ref: String
   detected: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -3339,7 +3307,6 @@ input SearchSoftwareInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3363,7 +3330,6 @@ input SearchThreatActorInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -3393,7 +3359,6 @@ input SearchToolInput {
   created: String
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3414,7 +3379,6 @@ input SearchUrlInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3442,7 +3406,6 @@ input SearchUrlUserAccountInput {
   credential_last_changed: String
   defanged: Boolean
   display_name: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3468,7 +3431,6 @@ input SearchVulnerabilityInput {
   cvss_v3_score: String
   cvss_v3_vector: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3491,7 +3453,6 @@ input SearchWindowsRegistryKeyInput {
   created_by_ref: String
   creator_user_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID
@@ -3512,7 +3473,6 @@ input SearchX509CertificateInput {
   created: String
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -3543,17 +3503,17 @@ type Sighting {
   created: String!
   created_by_ref: String
   detected: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
-  first_seen: DateTime!
+  first_seen: String!
   id: ID!
   labels: [String!]
   lang: String
-  last_seen: DateTime!
+  last_seen: String!
   modified: String!
   object_marking_refs: [String!]
   observed_data_refs: [String!]
+  pattern: String
   revoked: Boolean
   sighting_of_ref: String!
   spec_version: String!
@@ -3580,7 +3540,6 @@ type Software {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -3590,6 +3549,7 @@ type Software {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   spec_version: String!
   swid: [String!]
@@ -3611,7 +3571,6 @@ type StixRelationship {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -3619,6 +3578,7 @@ type StixRelationship {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   relationship_type: String!
   revoked: Boolean
   source_ref: ID!
@@ -3637,13 +3597,18 @@ type StixRelationshipSearchResult {
   totalPages: Int!
 }
 
+type Subscription {
+  created: Indicator!
+  deleted: String!
+  updated: Indicator!
+}
+
 type ThreatActor {
   aliases: [String!]
   confidence: Float
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   first_seen: DateTime
@@ -3655,6 +3620,7 @@ type ThreatActor {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   personal_motivations: String
   primary_motivation: String
   relationship: [RelationshipCommonProperties!]
@@ -3697,7 +3663,6 @@ type Tool {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -3707,6 +3672,7 @@ type Tool {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   relationship: [RelationshipCommonProperties!]
   revoked: Boolean
   spec_version: String!
@@ -3745,7 +3711,6 @@ input UnixFileExtensionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   group_id: String
@@ -3767,7 +3732,6 @@ input UpdateArtifactInput {
   decryption_key: String
   defanged: Boolean
   encryption_algorithm: Float
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -3790,7 +3754,6 @@ input UpdateAttackPatternInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -3810,7 +3773,6 @@ input UpdateAutonomousSystemInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -3827,7 +3789,7 @@ input UpdateAutonomousSystemInput {
 
 input UpdateBundleInput {
   id: ID!
-  objects: [JSON!]!
+  objects: [JSONObject!]!
   type: String! = "bundle"
 }
 
@@ -3838,7 +3800,6 @@ input UpdateCampaignInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -3864,7 +3825,6 @@ input UpdateCourseOfActionInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -3885,7 +3845,6 @@ input UpdateDirectoryInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -3905,7 +3864,6 @@ input UpdateDomainNameInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -3926,7 +3884,6 @@ input UpdateEmailAddressInput {
   created_by_ref: String
   defanged: Boolean
   display_name: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -3950,7 +3907,6 @@ input UpdateEmailMessageInput {
   created_by_ref: String
   date: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   from_ref: String
@@ -3979,7 +3935,6 @@ input UpdateFileInput {
   created_by_ref: String
   ctime: DateTime
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -4011,7 +3966,6 @@ input UpdateGroupingInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4031,7 +3985,6 @@ input UpdateIPv4AddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4050,7 +4003,6 @@ input UpdateIPv6AddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4071,7 +4023,6 @@ input UpdateIdentityInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4095,7 +4046,6 @@ input UpdateIncidentInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -4120,7 +4070,6 @@ input UpdateIndicatorInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4136,7 +4085,7 @@ input UpdateIndicatorInput {
   revoked: Boolean
   spec_version: String!
   type: String!
-  valid_from: DateTime!
+  valid_from: DateTime
   valid_until: DateTime
 }
 
@@ -4147,7 +4096,6 @@ input UpdateInfrastructureInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -4171,7 +4119,6 @@ input UpdateIntrusionSetInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -4201,7 +4148,6 @@ input UpdateLocationInput {
   created_by_ref: String
   default: LocationType!
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4225,7 +4171,6 @@ input UpdateMACAddressInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4249,7 +4194,6 @@ input UpdateMalwareAnalysisInput {
   configuration_version: [String!]!
   created: String!
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   host_vm_ref: [String!]!
@@ -4279,7 +4223,6 @@ input UpdateMalwareInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -4300,12 +4243,32 @@ input UpdateMalwareInput {
   type: String!
 }
 
+input UpdateMarkingDefinitionInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  definition: JSONObject
+  definition_type: String!
+  description: String
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
+  granular_markings: [String!]
+  id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  name: String
+  object_marking_refs: [String!]
+  revoked: Boolean
+  spec_version: String!
+  type: String!
+}
+
 input UpdateMutexInput {
   confidence: Float
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4331,7 +4294,6 @@ input UpdateNetworkTrafficInput {
   encapsulated_by_ref: String
   encapsulates_refs: [String!]
   end: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4361,7 +4323,6 @@ input UpdateNoteInput {
   content_type: String
   created: String!
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4379,7 +4340,6 @@ input UpdateObservedDataInput {
   confidence: Float
   created: String!
   created_by_ref: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_observed: DateTime!
@@ -4401,7 +4361,6 @@ input UpdateOpinionInput {
   confidence: Float
   created: String!
   created_by_ref: String
-  enrichment: EnrichmentInput
   explanation: String!
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -4417,7 +4376,7 @@ input UpdateOpinionInput {
 }
 
 input UpdateProcessInput {
-  arguments: JSON
+  arguments: JSONObject
   child_refs: [String!]
   command_line: String
   confidence: Float
@@ -4427,7 +4386,6 @@ input UpdateProcessInput {
   creator_user_ref: String
   cwd: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   environment_variables: [String!]
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -4441,7 +4399,7 @@ input UpdateProcessInput {
   parent_ref: String
   pid: Float
   revoked: Boolean
-  service_dll_refs: JSON
+  service_dll_refs: JSONObject
   spec_version: String!
   type: String!
 }
@@ -4451,13 +4409,13 @@ input UpdateRelationshipInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   relationship_type: String!
   revoked: Boolean
   source_ref: ID!
@@ -4475,7 +4433,6 @@ input UpdateReportInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4484,7 +4441,7 @@ input UpdateReportInput {
   modified: String!
   name: String!
   object_refs: [String!]!
-  published: DateTime!
+  published: String!
   report_types: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -4497,8 +4454,7 @@ input UpdateSightingInput {
   created: String!
   created_by_ref: String
   detected: Boolean
-  enrichment: EnrichmentInput
-  extensions: JSONObject
+  extensions: String
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime!
   id: ID!
@@ -4521,7 +4477,6 @@ input UpdateSoftwareInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4545,7 +4500,6 @@ input UpdateThreatActorInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
@@ -4575,7 +4529,6 @@ input UpdateToolInput {
   created: String!
   created_by_ref: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4596,7 +4549,6 @@ input UpdateUrlInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4624,7 +4576,6 @@ input UpdateUserAccountInput {
   credential_last_changed: String
   defanged: Boolean
   display_name: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4655,7 +4606,6 @@ input UpdateVulnerabilityInput {
   cvss_v3_score: String
   cvss_v3_vector: String
   description: String
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4678,7 +4628,6 @@ input UpdateWindowsRegistryKeyInput {
   created_by_ref: String
   creator_user_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4699,7 +4648,6 @@ input UpdateX509CertificateInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   hashes: HashesInput
@@ -4729,7 +4677,6 @@ type Url {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -4737,6 +4684,7 @@ type Url {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4777,7 +4725,6 @@ type UserAccount {
   credential_last_changed: String
   defanged: Boolean
   display_name: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -4788,6 +4735,7 @@ type UserAccount {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4811,7 +4759,6 @@ type Vulnerability {
   cvss_v3_score: String
   cvss_v3_vector: String
   description: String
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -4821,6 +4768,7 @@ type Vulnerability {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  pattern: String
   published_date: DateTime
   references: [String!]
   relationship: [RelationshipCommonProperties!]
@@ -4840,9 +4788,9 @@ type VulnerabilitySearchResult {
 
 type WindowsPEBinaryFileExtension {
   imphash: String
-  optional_header: JSON
+  optional_header: JSONObject
   pe_type: String
-  sections: [JSON!]
+  sections: [JSONObject!]
 }
 
 input WindowsPEBinaryFileExtensionInput {
@@ -4850,7 +4798,6 @@ input WindowsPEBinaryFileExtensionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4858,7 +4805,7 @@ input WindowsPEBinaryFileExtensionInput {
   labels: [String!]
   lang: String
   modified: String!
-  optional_header: JSON
+  optional_header: JSONObject
   pe_type: String
   revoked: Boolean
   sections: [WindowsPESectionInput!]
@@ -4871,7 +4818,6 @@ input WindowsPESectionInput {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   entropy: Float
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -4893,7 +4839,6 @@ type WindowsRegistryKey {
   created_by_ref: String
   creator_user_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   id: ID!
@@ -4904,6 +4849,7 @@ type WindowsRegistryKey {
   modified_time: String
   number_of_subkeys: String
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4931,7 +4877,6 @@ input WindowsRegistryValueInput {
   data: String
   data_type: String
   defanged: Boolean
-  enrichment: EnrichmentInput
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   id: ID!
@@ -4949,7 +4894,6 @@ type X509Certificate {
   created: String!
   created_by_ref: String
   defanged: Boolean
-  enrichment: Enrichment
   extensions: JSONObject
   external_references: [ExternalReference!]
   hashes: Hashes
@@ -4960,6 +4904,7 @@ type X509Certificate {
   lang: String
   modified: String!
   object_marking_refs: [String!]
+  pattern: String
   revoked: Boolean
   serial_number: String
   signature_algorithm: String

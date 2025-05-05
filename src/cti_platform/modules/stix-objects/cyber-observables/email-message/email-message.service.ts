@@ -33,7 +33,7 @@ export class EmailMessageService implements OnModuleInit {
 
     const doc: EmailMessage = {
       ...createEmailMessageInput,
-      ...(createEmailMessageInput.enrichment ? { enrichment: createEmailMessageInput.enrichment } : {}),
+     
       id,
       type: 'email-message' as const,
       spec_version: '2.1',

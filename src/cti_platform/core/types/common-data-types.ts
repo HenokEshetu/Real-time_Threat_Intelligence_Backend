@@ -1,5 +1,4 @@
 import { ID, registerEnumType } from '@nestjs/graphql';
-import GraphQLJSON from 'graphql-type-json';
 import { Field, ObjectType, InputType, } from '@nestjs/graphql';
 import { GraphQLDateTime, GraphQLJSONObject } from 'graphql-scalars';
 // Basic Types
@@ -280,56 +279,19 @@ export class ExtensionDefinition {
  @Field(() => String) modified: string;
  @Field({ nullable: true }) revoked?: boolean;
  @Field({ nullable: true }) version?: string;
- @Field(() => GraphQLJSON) schema: Dictionary;
+ @Field(() => GraphQLJSONObject) schema: Dictionary;
  @Field(() => [String], { nullable: true }) extension_properties?: string[];
 }
 
-@ObjectType()
-export class Enrichment {
-  @Field(() => GraphQLJSON, { nullable: true })
-  geo?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  whois?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  virustotal?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  abuseipdb?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  shodan?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  threatfox?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  dns?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  ssl?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  asn?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  hybrid?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  threatcrowd?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  misp?: any;
-}
 
 
 
 @ObjectType()
 export class CommonProperties {
  @Field() type: string;
- @Field() spec_version: '2.1';
+ @Field() spec_version: string;
  @Field(() => ID) id: Identifier;
+ @Field({ nullable: true }) pattern?: string;
  @Field({ nullable: true }) created_by_ref?: Identifier;
  @Field(() => String) created: string;
  @Field(() => String) modified: string;
@@ -340,8 +302,7 @@ export class CommonProperties {
  @Field(() => [ExternalReference], { nullable: true }) external_references?: ExternalReference[];
  @Field(() => [String], { nullable: true }) object_marking_refs?: string[];
  @Field(() => GraphQLJSONObject, { nullable: true }) extensions?: Dictionary;
- @Field(() => Enrichment, { nullable: true })
- enrichment?: Enrichment; 
+ 
 }
 
 
@@ -359,6 +320,7 @@ export class RelationshipCommonProperties extends CommonProperties {
  @Field(() => ID) target_ref: string;
  @Field(() => String, { nullable: true }) start_time?: string;
  @Field(() => String, { nullable: true }) stop_time?: string;
+
 }
 
 
@@ -379,6 +341,7 @@ export interface MarkingDefinition {
   created: string;
   definition_type: MarkingDefinitionType;
   definition: Record<string, any>;
+  
 }
 
 @ObjectType()
@@ -389,10 +352,10 @@ export class STIXPattern {
   pattern_type: PatternType;
   @Field({ nullable: true })
   pattern_version?: string;
-  @Field(() => String)
-  valid_from?: string;
-  @Field(() => String)
-  valid_until?: string;
+  @Field(() => GraphQLDateTime)
+  valid_from?: Date;
+  @Field(() => GraphQLDateTime)
+  valid_until?: Date;
 }
 
 @InputType()
@@ -455,44 +418,6 @@ export class ExtensionDefinitionInput {
 }
 
 
-@InputType()
-export class EnrichmentInput {
-  @Field(() => GraphQLJSON, { nullable: true })
-  geo?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  whois?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  virustotal?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  abuseipdb?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  shodan?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  threatfox?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  dns?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  ssl?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  asn?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  hybrid?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  threatcrowd?: any;
-
-  @Field(() => GraphQLJSON, { nullable: true })
-  misp?: any;
-}
 
 
 @InputType()
@@ -500,6 +425,7 @@ export class CommonInput {
  @Field() type: string;
  @Field() spec_version: '2.1';
  @Field(() => ID) id: Identifier;
+ 
  @Field({ nullable: true }) created_by_ref?: Identifier;
  @Field(() => String) created: string;
  @Field(() => String) modified: string;
@@ -509,8 +435,7 @@ export class CommonInput {
  @Field({ nullable: true }) lang?: string;
  @Field(() => [ExternalReferenceInput], { nullable: true }) external_references?: ExternalReferenceInput[];
  @Field(() => GraphQLJSONObject, { nullable: true }) extensions?: Dictionary;
- @Field(() => EnrichmentInput, { nullable: true })
-  enrichment?: EnrichmentInput; 
+ 
 }
 
 
@@ -526,6 +451,7 @@ export class RelationshipCommonInput extends CommonInput {
  @Field({ nullable: true }) description?: string;
  @Field(() => ID) source_ref: string;
  @Field(() => ID) target_ref: string;
+ @Field(() => [String], { nullable: true }) object_marking_refs?: string[];
  @Field(() => String, { nullable: true }) start_time?: string;
  @Field(() => String, { nullable: true }) stop_time?: string;
 }
@@ -539,8 +465,8 @@ export class STIXPatternInput {
  pattern_type: PatternType;
  @Field({ nullable: true })
  pattern_version?: string;
- @Field(() => String)
- valid_from?: string;
  @Field(() => GraphQLDateTime)
- valid_until?: string;
+ valid_from?: Date;
+ @Field(() => GraphQLDateTime)
+ valid_until?: Date;
 }

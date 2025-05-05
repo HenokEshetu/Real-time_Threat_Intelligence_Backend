@@ -31,7 +31,6 @@ export class ToolService implements OnModuleInit {
   async create(createToolInput: CreateToolInput): Promise<Tool> {
     const tool: Tool = {
       ...createToolInput,
-      ...(createToolInput.enrichment ? { enrichment: createToolInput.enrichment } : {}),
       id: `tool--${uuidv4()}`,
       type: 'tool' as const,
       spec_version: '2.1',

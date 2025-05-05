@@ -13,10 +13,10 @@ export class Sighting extends CommonProperties {
   where_sighted_refs?: string[];
   @Field(() => String, { nullable: true }) 
   summary?: string;
-  @Field(() => Date)
-  first_seen: Date;
-  @Field(() => Date)
-  last_seen: Date;
+  @Field(() => String)
+  first_seen: string;
+  @Field(() => String)
+  last_seen: string;
   @Field(() => Int, { nullable: true })
   count?: number;
   @Field(() => Boolean, { nullable: true })

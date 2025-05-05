@@ -31,7 +31,7 @@ export class InfrastructureService implements OnModuleInit {
   async create(createInfrastructureInput: CreateInfrastructureInput): Promise<Infrastructure> {
     const infrastructure: Infrastructure = {
       ...createInfrastructureInput,
-      ...(createInfrastructureInput.enrichment ? { enrichment: createInfrastructureInput.enrichment } : {}),
+     
       id: `infrastructure--${uuidv4()}`,
       type: 'infrastructure' as const,
       spec_version: '2.1',

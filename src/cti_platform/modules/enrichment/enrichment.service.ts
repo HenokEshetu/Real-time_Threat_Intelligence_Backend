@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import axios, { AxiosError, AxiosRequestConfig } from 'axios';
 import Bottleneck from 'bottleneck';
 import { createClient } from 'redis';
-import { GenericStixObject, EnrichmentData } from '../ingestion-from-api-feeds/feeds/feed.types';
+import { GenericStixObject, EnrichmentData, EnrichmentInput, StixType } from '../ingestion-from-api-feeds/feeds/feed.types';
 import { TYPE_PATTERNS } from '../ingestion-from-api-feeds/feeds/feed.constants';
 import { parse } from 'tldts';
 import { isPrivate } from 'ip';
@@ -259,70 +259,73 @@ export class EnrichmentService implements OnModuleInit {
     return Object.keys(result).length > 0 ? result : data;
   }
 
-  async enrichIndicator(
-    indicator: GenericStixObject,
+  async enrichObject(
+    input: EnrichmentInput,
     options: EnrichmentOptions = {},
-  ): Promise<GenericStixObject & { enrichment: Partial<EnrichmentData> }> {
-    const primaryValue = this.getPrimaryValue(indicator);
-    const cacheKey = `enrich:${indicator.type}:${primaryValue}`;
+  ): Promise<Partial<EnrichmentData>> {
+    const { indicator, type, sourceConfigId } = input;
+    const cacheKey = `enrich:${type}:${indicator}`;
     const context = {
-      value: primaryValue,
-      type: indicator.type,
-      sourceConfigId: indicator.sourceConfigId,
+      value: indicator,
+      type,
+      sourceConfigId,
     };
 
     try {
       const cached = await this.getFromCache<EnrichmentData>(cacheKey);
       if (cached) {
         if (this.debugLogging) {
-          this.logger.debug(`Cache hit for ${indicator.type}`, context);
+          this.logger.debug(`Cache hit for ${type}`, context);
         }
-        this.eventEmitter.emit('enrichment.cache.hit', { type: indicator.type, value: primaryValue });
+        this.eventEmitter.emit('enrichment.cache.hit', { type, value: indicator });
         const filteredCached = options.services ? this.filterEnrichmentResults(cached, options.services) : cached;
-        return { ...indicator, enrichment: filteredCached };
+        return filteredCached;
       }
 
-      if (this.shouldSkipEnrichment(indicator, primaryValue)) {
+      if (this.shouldSkipEnrichment({ type, indicator }, indicator)) {
         await this.setCache(cacheKey, {});
-        return { ...indicator, enrichment: {} };
+        return {};
       }
 
-      const typeKey = this.determineTypeKey(indicator, primaryValue);
-      const tasks = this.getValidTasks(typeKey, primaryValue, options.services);
+      const typeKey = this.determineTypeKey({ type, indicator }, indicator);
+      const tasks = this.getValidTasks(typeKey, indicator, options.services);
 
       if (!tasks.length) {
         this.logger.warn(`No enrichment tasks available for ${typeKey}`, context);
         await this.setCache(cacheKey, {});
-        return { ...indicator, enrichment: {} };
+        return {};
       }
 
-      const enrichment = await this.executeEnrichmentTasks(tasks, primaryValue, context);
+      const enrichment = await this.executeEnrichmentTasks(tasks, indicator, context);
       const filteredEnrichment = options.services ? this.filterEnrichmentResults(enrichment, options.services) : enrichment;
       await this.setCache(cacheKey, filteredEnrichment);
 
       if (Object.keys(filteredEnrichment).length > 0) {
-        this.logger.log(`Enriched ${indicator.type}: ${Object.keys(filteredEnrichment).length} services`, {
+        this.logger.log(`Enriched ${type}: ${Object.keys(filteredEnrichment).length} services`, {
           ...context,
           services: Object.keys(filteredEnrichment),
         });
         this.eventEmitter.emit('enrichment.completed', {
-          type: indicator.type,
-          value: primaryValue,
+          type,
+          value: indicator,
           services: Object.keys(filteredEnrichment),
         });
       } else if (this.debugLogging) {
-        this.logger.debug(`No enrichment data for ${indicator.type}`, context);
+        this.logger.debug(`No enrichment data for ${type}`, context);
       }
 
-      return { ...indicator, enrichment: filteredEnrichment };
+      return filteredEnrichment;
     } catch (error) {
-      this.logger.error(`Failed to enrich ${indicator.type}`, { ...context, error: error instanceof Error ? error.message : error });
-      this.eventEmitter.emit('enrichment.failed', {
-        type: indicator.type,
-        value: primaryValue,
+      this.logger.error(`Failed to enrich ${type}`, {
+        ...context,
         error: error instanceof Error ? error.message : error,
       });
-      return { ...indicator, enrichment: {} };
+      this.eventEmitter.emit('enrichment.failed', {
+        type,
+        value: indicator,
+        error: error instanceof Error ? error.message : error,
+      });
+      return {};
     }
   }
 
@@ -339,81 +342,71 @@ export class EnrichmentService implements OnModuleInit {
     }
     return filtered;
   }
-  private getPrimaryValue(indicator: GenericStixObject): string {
-    if (indicator.type === 'file' || this.normalizeType(indicator.type) === 'file') {
+  private getPrimaryValue(object: GenericStixObject): string {
+    if (object.type === 'file' || this.normalizeType(object.type) === 'file') {
       return (
-        indicator.hashes?.['SHA-256'] ||
-        indicator.hashes?.['SHA-1'] ||
-        indicator.hashes?.['MD5'] ||
-        indicator.hashes?.['SHA-512'] ||
-        Object.values(indicator.hashes || {})[0] ||
-        indicator.indicator ||
-        indicator.value ||
-        indicator.name ||
+        object.hashes?.['SHA-256'] ||
+        object.hashes?.['SHA-1'] ||
+        object.hashes?.['MD5'] ||
+        object.hashes?.['SHA-512'] ||
+        Object.values(object.hashes || {})[0] ||
+        object.indicator ||
+        object.value ||
+        object.name ||
         ''
       );
-    }
-    return indicator.indicator || indicator.value || indicator.name || Object.values(indicator.hashes || {})[0] || '';
+    }object.indicator || object.value || object.name || Object.values(object.hashes || {})[0] || '';
   }
 
-  private shouldSkipEnrichment(indicator: GenericStixObject, value: string): boolean {
+  private shouldSkipEnrichment(input: { type: StixType; indicator: string }, value: string): boolean {
     try {
-      if (indicator.type === 'ipv4-addr' || indicator.type === 'ipv6-addr') {
-        const isValidIP = indicator.type === 'ipv4-addr'
+      if (input.type === 'ipv4-addr' || input.type === 'ipv6-addr') {
+        const isValidIP = input.type === 'ipv4-addr'
           ? TYPE_PATTERNS['ipv4-addr'].test(value)
           : TYPE_PATTERNS['ipv6-addr'].test(value);
         
         if (!isValidIP) {
-          this.logger.warn(`Invalid IP format for ${indicator.type}`, {
-            id: indicator.id,
-            type: indicator.type,
+          this.logger.warn(`Invalid IP format for ${input.type}`, {
+            type: input.type,
             value,
-            sourceConfigId: indicator.sourceConfigId,
           });
           return true;
         }
 
         if (isPrivate(value)) {
           if (this.debugLogging) {
-            this.logger.debug(`Skipping private IP for ${indicator.type}`, {
-              id: indicator.id,
-              type: indicator.type,
+            this.logger.debug(`Skipping private IP for ${input.type}`, {
+              type: input.type,
               value,
-              sourceConfigId: indicator.sourceConfigId,
             });
           }
           return true;
         }
       }
       
-      if (indicator.type === 'domain-name' && ['localhost', '127.0.0.1'].includes(value.toLowerCase())) {
+      if (input.type === 'domain-name' && ['localhost', '127.0.0.1'].includes(value.toLowerCase())) {
         return true;
       }
       
       if (!value) {
-        this.logger.warn(`No value for ${indicator.type}`, {
-          id: indicator.id,
-          type: indicator.type,
-          sourceConfigId: indicator.sourceConfigId,
+        this.logger.warn(`No value for ${input.type}`, {
+          type: input.type,
         });
         return true;
       }
       
       return false;
     } catch (error) {
-      this.logger.error(`Error checking if enrichment should be skipped for ${indicator.type}`, {
-        id: indicator.id,
-        type: indicator.type,
+      this.logger.error(`Error checking if enrichment should be skipped for ${input.type}`, {
+        type: input.type,
         value,
-        sourceConfigId: indicator.sourceConfigId,
         error: error instanceof Error ? error.message : error,
       });
       return true;
     }
   }
-
-  private determineTypeKey(indicator: GenericStixObject, primaryValue: string): string {
-    let typeKey = this.normalizeType(indicator.type);
+  private determineTypeKey(input: { type: StixType; indicator: string }, primaryValue: string): string {
+    let typeKey = this.normalizeType(input.type);
     if (typeKey === 'file' && TYPE_PATTERNS['url'].test(primaryValue)) {
       typeKey = 'url';
     }
@@ -488,7 +481,6 @@ export class EnrichmentService implements OnModuleInit {
     });
     return enrichment;
   }
-
   private async executeSingleTask(
     task: EnrichmentTask,
     value: string,
@@ -503,23 +495,30 @@ export class EnrichmentService implements OnModuleInit {
         }
         return cached;
       }
-
+  
       const limiter = this.limiters.get(task.service);
       if (!limiter) {
         throw new Error(`No rate limiter for ${task.service}`);
       }
-
+  
       const result = await limiter.schedule(() => task.fetchFn.call(this, value));
-
+  
       if (result) {
         const validatedResult = task.schema
           ? this.validateAndNormalizeResponse(result, task.schema, task.service)
           : result;
-
+  
         if (validatedResult) {
           const conciseResult = this.filterConciseResponse(task.service, validatedResult);
-          await this.setCache(taskCacheKey, conciseResult, this.getCacheTtlForService(task.service));
-          return conciseResult;
+          const enrichedResult = {
+            ...conciseResult,
+            source: {
+              service: task.service,
+              fetched_at: new Date().toISOString(),
+            },
+          };
+          await this.setCache(taskCacheKey, enrichedResult, this.getCacheTtlForService(task.service));
+          return enrichedResult;
         }
       }
       return null;
@@ -768,14 +767,45 @@ export class EnrichmentService implements OnModuleInit {
   }
 
   async fetchVirusTotalData(hash: string): Promise<any> {
-    if (!/^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/.test(hash)) {
+    // Validate hash format
+    if (!this.isValidHash(hash)) {
+      this.logger.warn(`Invalid hash format`, { hash });
       throw new Error(`Invalid hash format: ${hash}`);
     }
+  
     const context = { service: 'virustotal', hash };
     const cacheKey = `task:virustotal:${hash}`;
-    if (this.debugLogging) {
-      this.logger.debug(`Fetching VirusTotal file data`, { ...context });
+  
+    // Check cache first
+    const cachedResult = await this.handleCacheLookup(cacheKey, context);
+    if (cachedResult) return cachedResult;
+  
+    try {
+      // Fetch from VirusTotal API
+      const response = await this.fetchApi('virustotal', `/files/${hash}`);
+      
+      // Process successful response
+      if (response?.data) {
+        const result = this.formatVirusTotalResponse(response.data);
+        await this.setCache(cacheKey, result, 86400); // Cache for 24 hours
+        return result;
+      }
+  
+      // Handle empty response
+      return await this.handleEmptyResponse(cacheKey, context);
+  
+    } catch (error) {
+      return this.handleVirusTotalError1(error, cacheKey, context);
     }
+  }
+  
+  // Helper methods:
+  
+  private isValidHash(hash: string): boolean {
+    return /^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$/.test(hash);
+  }
+  
+  private async handleCacheLookup(cacheKey: string, context: any): Promise<any | null> {
     try {
       const cached = await this.getFromCache<any>(cacheKey);
       if (cached) {
@@ -783,65 +813,98 @@ export class EnrichmentService implements OnModuleInit {
           this.logger.debug(`Cache hit for VirusTotal file data`, {
             ...context,
             cacheKey,
-            response: JSON.stringify(cached, null, 2).substring(0, 500),
+            response: this.safeStringify(cached, 500),
           });
         }
         return cached;
       }
-  
-      const response = await this.fetchApi('virustotal', `/files/${hash}`);
-      if (!response || !response.data) {
-        this.logger.warn(`Invalid VirusTotal file response`, {
-          ...context,
-          response: JSON.stringify(response, null, 2).substring(0, 500),
-        });
-        const defaultResponse = {
-          data: {
-            attributes: {
-              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
-              reputation: 0,
-            },
-          },
-        };
-        await this.setCache(cacheKey, defaultResponse, 3600);
-        return defaultResponse;
-      }
-  
-      const result = {
-        data: {
-          attributes: {
-            last_analysis_stats: response.data.attributes.last_analysis_stats,
-            reputation: response.data.attributes.reputation || 0,
-          },
-        },
-      };
-      await this.setCache(cacheKey, result, 86400);
-      return result;
+      return null;
     } catch (error) {
-      const axiosError = error as AxiosError;
-      if (axiosError.response?.status === 404) {
-        this.logger.warn(`File not found in VirusTotal`, {
-          ...context,
-          error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
-        });
-        const defaultResponse = {
-          data: {
-            attributes: {
-              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
-              reputation: 0,
-            },
-          },
-        };
-        await this.setCache(cacheKey, defaultResponse, 3600);
-        return defaultResponse;
-      }
-      this.logger.error(`VirusTotal file request failed`, {
+      this.logger.warn(`Cache lookup failed`, {
         ...context,
-        error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
+        error: this.safeGetErrorMessage(error),
       });
-      throw error;
+      return null;
     }
   }
+  
+  private formatVirusTotalResponse(data: any): any {
+    return {
+      data: {
+        attributes: {
+          last_analysis_stats: data.attributes?.last_analysis_stats || {
+            malicious: 0,
+            undetected: 0,
+            harmless: 0,
+            suspicious: 0
+          },
+          reputation: data.attributes?.reputation || 0,
+          names: data.attributes?.names || [],
+          type_description: data.attributes?.type_description || '',
+          first_submission_date: data.attributes?.first_submission_date || 0,
+          last_analysis_date: data.attributes?.last_analysis_date || 0
+        }
+      }
+    };
+  }
+  
+  private async handleEmptyResponse(cacheKey: string, context: any): Promise<any> {
+    this.logger.warn(`Invalid VirusTotal file response`, {
+      ...context,
+      response: 'Empty or invalid response'
+    });
+    
+    const defaultResponse = this.createDefaultVirusTotalResponse();
+    await this.setCache(cacheKey, defaultResponse, 3600); // Cache for 1 hour
+    return defaultResponse;
+  }
+  
+  private async handleVirusTotalError1(error: unknown, cacheKey: string, context: any): Promise<any> {
+    const axiosError = error as AxiosError;
+    const errorMessage = this.safeGetErrorMessage(axiosError);
+    const errorData = this.safeStringify(axiosError.response?.data, 500);
+  
+    // Handle 404 Not Found specifically
+    if (axiosError.response?.status === 404) {
+      this.logger.warn(`File not found in VirusTotal`, {
+        ...context,
+        error: errorData,
+      });
+      const defaultResponse = this.createDefaultVirusTotalResponse();
+      await this.setCache(cacheKey, defaultResponse, 3600); // Cache for 1 hour
+      return defaultResponse;
+    }
+  
+    // Handle rate limiting (429)
+    if (axiosError.response?.status === 429) {
+      this.logger.warn(`VirusTotal rate limit exceeded`, context);
+      const defaultResponse = this.createDefaultVirusTotalResponse();
+      await this.setCache(cacheKey, defaultResponse, 300); // Short cache for rate limits
+      return defaultResponse;
+    }
+  
+    // Handle other API errors
+    if (axiosError.response?.status) {
+      this.logger.error(`VirusTotal API error`, {
+        ...context,
+        status: axiosError.response.status,
+        error: errorData,
+      });
+      const defaultResponse = this.createDefaultVirusTotalResponse();
+      await this.setCache(cacheKey, defaultResponse, 600); // Cache for 10 minutes
+      return defaultResponse;
+    }
+  
+    // Handle network/other errors
+    this.logger.error(`VirusTotal file request failed`, {
+      ...context,
+      error: errorMessage,
+    });
+    
+    throw error;
+  }
+  
+  
   async fetchVirusTotalIpData(ip: string): Promise<any> {
     if (!TYPE_PATTERNS['ipv4-addr'].test(ip) && !TYPE_PATTERNS['ipv6-addr'].test(ip)) {
       throw new Error(`Invalid IP format: ${ip}`);
@@ -859,185 +922,285 @@ export class EnrichmentService implements OnModuleInit {
       },
     };
   }
-
   async fetchVirusTotalDomainData(domain: string): Promise<any> {
-    if (!TYPE_PATTERNS['domain-name'].test(domain)) {
-      throw new Error(`Invalid domain format: ${domain}`);
+    if (!TYPE_PATTERNS['domain'].test(domain)) {
+      this.logger.warn(`Invalid domain format`, { domain });
+      return this.createDefaultVirusTotalResponse();
     }
-    const response = await this.fetchApi('virustotal', `/domains/${domain}`);
-    if (!response || !response.data) {
-      throw new Error('Invalid VirusTotal response');
-    }
-    return {
-      data: {
-        attributes: {
-          last_analysis_stats: response.data.attributes.last_analysis_stats,
-          reputation: response.data.attributes.reputation || 0,
-        },
-      },
+  
+    const context = { 
+      service: 'virustotal', 
+      domain,
+      baseURL: 'https://www.virustotal.com/api/v3'
     };
-  }
-
- 
-
-  async fetchVirusTotalUrlData(url: string): Promise<any> {
-    if (!TYPE_PATTERNS['url'].test(url)) {
-      throw new Error(`Invalid URL format: ${url}`);
-    }
-    const context = { service: 'virustotal', url };
     const apiKey = this.apiKeys.get('virustotal');
+  
     if (!apiKey) {
-      this.logger.warn(`Skipping VirusTotal URL enrichment: API key missing`, context);
-      return {
-        data: {
-          attributes: {
-            last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
-            reputation: 0,
-          },
-        },
-      };
+      this.logger.warn(`Skipping VirusTotal domain enrichment: API key missing`, context);
+      return this.createDefaultVirusTotalResponse();
     }
   
     try {
-      let encodedUrl: string;
-      try {
-        encodedUrl = encodeURIComponent(url);
-      } catch (error) {
-        this.logger.warn(`Failed to encode URL for VirusTotal`, {
-          ...context,
-          error: error instanceof Error ? error.message : error,
-        });
-        return {
-          data: {
-            attributes: {
-              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
-              reputation: 0,
-            },
-          },
-        };
+      const response = await this.fetchApi('virustotal', `/domains/${domain}`);
+      
+      if (!response?.data) {
+        this.logger.debug(`VirusTotal returned empty response for domain`, context);
+        return this.createDefaultVirusTotalResponse();
       }
   
-      const payload = { url: encodedUrl };
-      const requestConfig: AxiosRequestConfig = {
-        method: 'post',
-        url: 'https://www.virustotal.com/api/v3/urls',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-apikey': apiKey,
-          'User-Agent': 'CyberThreatIntelPlatform/1.0',
-        },
-        data: JSON.stringify(payload), // Explicit JSON serialization
-        timeout: 30000,
-      };
+      return response;
+    } catch (error) {
+      return this.handleVirusTotalDomainError(error, domain, context);
+    }
+  }
   
-      if (this.debugLogging) {
-        this.logger.debug(`Sending VirusTotal URL request`, {
-          ...context,
-          requestConfig: {
-            url: requestConfig.url,
-            method: requestConfig.method,
-            headers: { ...requestConfig.headers, 'x-apikey': '[redacted]' },
-            data: requestConfig.data,
-          },
-        });
-      }
-  
-      const initialResponse = await axios(requestConfig).then((res) => res.data).catch((error) => {
-        throw error;
+  private handleVirusTotalDomainError(error: unknown, domain: string, context: any) {
+    const axiosError = error as AxiosError;
+    
+    // Handle "Not Found" specifically
+    if (axiosError.response?.status === 404) {
+      this.logger.warn(`VirusTotal resource not found`, {
+        ...context,
+        url: `https://www.virustotal.com/api/v3/domains/${domain}`,
+        error: this.safeStringify(axiosError.response?.data, 500),
       });
+      return this.createDefaultVirusTotalResponse();
+    }
   
+    // Handle rate limiting
+    if (axiosError.response?.status === 429) {
+      this.logger.warn(`VirusTotal rate limit exceeded`, context);
+      return this.createDefaultVirusTotalResponse();
+    }
+  
+    // Handle other API errors
+    if (axiosError.response?.status && axiosError.response.status >= 400) {
+      this.logger.warn(`VirusTotal API error`, {
+        ...context,
+        status: axiosError.response.status,
+        error: this.safeStringify(axiosError.response?.data, 500),
+      });
+      return this.createDefaultVirusTotalResponse();
+    }
+  
+    // Handle network/other errors
+    this.logger.error(`VirusTotal domain request failed`, {
+      ...context,
+      error: this.safeGetErrorMessage(error),
+    });
+    
+    return this.createDefaultVirusTotalResponse();
+  }
+  
+  
+ 
+
+  async fetchVirusTotalUrlData(url: string): Promise<any> {
+    // Validate URL format
+    if (!TYPE_PATTERNS['url'].test(url)) {
+      this.logger.warn(`Invalid URL format`, { url });
+      return this.createDefaultVirusTotalResponse();
+    }
+  
+    const context = { service: 'virustotal', url };
+    const apiKey = this.apiKeys.get('virustotal');
+    
+    // Handle missing API key
+    if (!apiKey) {
+      this.logger.warn(`Skipping VirusTotal URL enrichment: API key missing`, context);
+      return this.createDefaultVirusTotalResponse();
+    }
+  
+    try {
+      // Encode URL safely
+      const encodedUrl = this.safeEncodeUrl(url, context);
+      if (!encodedUrl) return this.createDefaultVirusTotalResponse();
+  
+      // Prepare request
+      const requestConfig = this.prepareVirusTotalRequest(apiKey, encodedUrl);
+      this.logRequestIfDebug(context, requestConfig);
+  
+      // Submit URL for analysis
+      const initialResponse = await this.submitUrlToVirusTotal(requestConfig, context);
       if (!initialResponse?.data?.id) {
         this.logger.warn(`Invalid VirusTotal URL response`, {
           ...context,
-          response: JSON.stringify(initialResponse, null, 2).substring(0, 500),
+          response: this.safeStringify(initialResponse, 500),
         });
-        return {
-          data: {
-            attributes: {
-              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
-              reputation: 0,
-            },
-          },
-        };
+        return this.createDefaultVirusTotalResponse();
       }
   
-      const analysisId = initialResponse.data.id;
-      const maxAttempts = 3;
-      const delayMs = 5000;
-      for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        await new Promise((resolve) => setTimeout(resolve, delayMs));
-        try {
-          const response = await this.fetchApi('virustotal', `/analyses/${analysisId}`);
-          if (!response?.data) {
-            this.logger.warn(`Invalid VirusTotal analysis response`, {
-              ...context,
-              analysisId,
-              attempt: attempt + 1,
-              response: JSON.stringify(response, null, 2).substring(0, 500),
-            });
-            continue;
-          }
-          if (response.data.attributes?.status === 'completed') {
-            if (this.debugLogging) {
-              this.logger.debug(`VirusTotal URL analysis succeeded`, {
-                ...context,
-                attempt: attempt + 1,
-                analysisId,
-              });
-            }
-            return {
-              data: {
-                attributes: {
-                  last_analysis_stats: response.data.attributes.stats || {
-                    malicious: 0,
-                    undetected: 0,
-                    harmless: 0,
-                    suspicious: 0,
-                  },
-                  reputation: 0,
-                },
-              },
-            };
-          }
-        } catch (error) {
-          this.logger.debug(`VirusTotal analysis poll attempt ${attempt + 1} failed`, {
-            ...context,
-            attempt: attempt + 1,
-            analysisId,
-            error: error instanceof Error ? error.message : error,
-          });
+      // Poll for analysis results
+      const analysisResult = await this.pollAnalysisResults(initialResponse.data.id, context);
+      if (analysisResult) return analysisResult;
+  
+      // If polling fails or times out
+      this.logger.warn(`VirusTotal URL analysis timed out`, { ...context });
+      return this.createDefaultVirusTotalResponse();
+  
+    } catch (error) {
+      return this.handleVirusTotalError(error, context);
+    }
+  }
+  
+ private handleVirusTotalError(error: unknown, context: any) {
+  const axiosError = error as AxiosError;
+  
+  if (axiosError.response?.status === 400) {
+    this.logger.warn(`VirusTotal URL request failed with Bad Request`, {
+      ...context,
+      error: this.safeStringify(axiosError.response?.data || axiosError.message, 500),
+    });
+    return this.createDefaultVirusTotalResponse();
+  }
+
+  this.logger.error(`VirusTotal URL request failed`, {
+    ...context,
+    error: this.safeStringify(axiosError.response?.data || axiosError.message, 500),
+  });
+  throw error;
+}
+
+  
+  private createDefaultVirusTotalResponse(): any {
+    return {
+      data: {
+        attributes: {
+          last_analysis_stats: {
+            malicious: 0,
+            undetected: 0,
+            harmless: 0,
+            suspicious: 0
+          },
+          reputation: 0,
+          names: [],
+          type_description: '',
+          first_submission_date: 0,
+          last_analysis_date: 0
         }
       }
-      this.logger.warn(`VirusTotal URL analysis timed out`, { ...context, analysisId });
-      return {
-        data: {
-          attributes: {
-            last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
-            reputation: 0,
-          },
-        },
-      };
+    };
+  }
+  
+  private safeEncodeUrl(url: string, context: any): string | null {
+    try {
+      return encodeURIComponent(url);
     } catch (error) {
-      const axiosError = error as AxiosError;
-      if (axiosError.response?.status === 400) {
-        this.logger.warn(`VirusTotal URL request failed with Bad Request`, {
-          ...context,
-          error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
-        });
-        return {
-          data: {
-            attributes: {
-              last_analysis_stats: { malicious: 0, undetected: 0, harmless: 0, suspicious: 0 },
-              reputation: 0,
-            },
-          },
-        };
-      }
-      this.logger.error(`VirusTotal URL request failed`, {
+      this.logger.warn(`Failed to encode URL for VirusTotal`, {
         ...context,
-        error: JSON.stringify(axiosError.response?.data || axiosError.message, null, 2).substring(0, 500),
+        error: this.safeGetErrorMessage(error),
+      });
+      return null;
+    }
+  }
+  
+  private prepareVirusTotalRequest(apiKey: string, encodedUrl: string): AxiosRequestConfig {
+    return {
+      method: 'post',
+      url: 'https://www.virustotal.com/api/v3/urls',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-apikey': apiKey,
+        'User-Agent': 'CyberThreatIntelPlatform/1.0',
+      },
+      data: JSON.stringify({ url: encodedUrl }),
+      timeout: 30000,
+    };
+  }
+  
+  private logRequestIfDebug(context: any, requestConfig: AxiosRequestConfig) {
+    if (this.debugLogging) {
+      this.logger.debug(`Sending VirusTotal URL request`, {
+        ...context,
+        requestConfig: {
+          ...requestConfig,
+          headers: { ...requestConfig.headers, 'x-apikey': '[redacted]' },
+        },
+      });
+    }
+  }
+  
+  private async submitUrlToVirusTotal(requestConfig: AxiosRequestConfig, context: any) {
+    try {
+      const response = await axios(requestConfig);
+      return response.data;
+    } catch (error) {
+      this.logger.warn(`VirusTotal URL submission failed`, {
+        ...context,
+        error: this.safeGetErrorMessage(error),
       });
       throw error;
+    }
+  }
+  
+  private async pollAnalysisResults(analysisId: string, context: any, maxAttempts = 3, delayMs = 5000) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise(resolve => setTimeout(resolve, delayMs));
+      
+      try {
+        const response = await this.fetchApi('virustotal', `/analyses/${analysisId}`);
+        
+        if (!response?.data) {
+          this.logger.warn(`Invalid VirusTotal analysis response`, {
+            ...context,
+            analysisId,
+            attempt: attempt + 1,
+            response: this.safeStringify(response, 500),
+          });
+          continue;
+        }
+  
+        if (response.data.attributes?.status === 'completed') {
+          if (this.debugLogging) {
+            this.logger.debug(`VirusTotal URL analysis succeeded`, {
+              ...context,
+              attempt: attempt + 1,
+              analysisId,
+            });
+          }
+          return {
+            data: {
+              attributes: {
+                last_analysis_stats: response.data.attributes.stats || {
+                  malicious: 0,
+                  undetected: 0,
+                  harmless: 0,
+                  suspicious: 0,
+                },
+                reputation: 0,
+              },
+            },
+          };
+        }
+      } catch (error) {
+        this.logger.debug(`VirusTotal analysis poll attempt ${attempt + 1} failed`, {
+          ...context,
+          attempt: attempt + 1,
+          analysisId,
+          error: this.safeGetErrorMessage(error),
+        });
+      }
+    }
+    return null;
+  }
+  
+  
+  
+  private safeGetErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+    if (error && typeof error === 'object' && 'message' in error) {
+      return String(error.message);
+    }
+    return 'Unknown error';
+  }
+  
+  private safeStringify(obj: any, maxLength: number): string {
+    try {
+      const str = JSON.stringify(obj, null, 2);
+      return str.substring(0, maxLength);
+    } catch {
+      return 'Unable to stringify object';
     }
   }
   async fetchAbuseIPDBData(ip: string): Promise<any> {
@@ -1146,19 +1309,10 @@ export class EnrichmentService implements OnModuleInit {
     }
   }
 
-  async clearCacheForDomain(domain: string): Promise<void> {
-    const cacheKey = `dns:${domain}`;
-    try {
-      await this.redisClient.del(cacheKey);
-      this.logger.debug(`Cleared DNS cache for ${domain}`, { cacheKey });
-    } catch (error) {
-      this.logger.error(`Failed to clear DNS cache for ${domain}`, {
-        cacheKey,
-        error: error instanceof Error ? error.message : error,
-      });
-    }
-  }
+  
 
+
+  
   async fetchDNSData(domain: string): Promise<any> {
     if (!TYPE_PATTERNS['domain-name'].test(domain)) {
       throw new Error(`Invalid domain format: ${domain}`);
@@ -1330,6 +1484,9 @@ export class EnrichmentService implements OnModuleInit {
     }
     return result;
   }
+
+
+  
   async fetchDNSDataFromUrl(url: string): Promise<any> {
     if (!TYPE_PATTERNS['url'].test(url)) {
       throw new Error(`Invalid URL format: ${url}`);

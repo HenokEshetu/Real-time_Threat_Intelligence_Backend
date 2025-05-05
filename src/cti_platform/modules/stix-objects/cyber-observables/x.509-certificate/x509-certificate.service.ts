@@ -33,7 +33,7 @@ export class X509CertificateService implements OnModuleInit{
 
     const x509Certificate: X509Certificate = {
       ...createX509CertificateInput,
-      ...(createX509CertificateInput.enrichment ? { enrichment: createX509CertificateInput.enrichment } : {}),
+      
       id: `x509-certificate--${uuidv4()}`,
       type: 'x509-certificate' as const,
       spec_version: '2.1',

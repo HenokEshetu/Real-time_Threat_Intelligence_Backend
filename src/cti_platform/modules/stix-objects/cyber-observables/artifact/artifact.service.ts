@@ -2,10 +2,14 @@ import { Injectable, NotFoundException, InternalServerErrorException, OnModuleIn
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateArtifactInput, UpdateArtifactInput } from './artifact.input';
 import { SearchArtifactInput } from './artifact.resolver';
-import { v4 as uuidv4 } from 'uuid';
+import { v5 as uuidv5 } from 'uuid';
+
+// Define the UUID namespace (DNS namespace in this example)
+const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { Artifact } from './artifact.entity';
-import { Hashes } from '../../../../core/types/common-data-types'; // Import Hashes directly
+
 
 @Injectable()
 export class ArtifactService implements OnModuleInit {
@@ -29,43 +33,45 @@ export class ArtifactService implements OnModuleInit {
   async onModuleInit() {
     await this.ensureIndex();
   }
-  async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
-    this.validateArtifact(createArtifactInput);
-    
-    const timestamp = new Date().toISOString();
-    const id = createArtifactInput.id;
-    const artifact: Artifact = {
-      ...createArtifactInput,
-      ...(createArtifactInput.enrichment ? { enrichment: createArtifactInput.enrichment } : {}), // Optional enrichment
+
+  
+
+async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
+  this.validateArtifact(createArtifactInput);
+  
+  const timestamp = new Date().toISOString();
+  // Generate ID if not provided
+  const id = createArtifactInput.id || uuidv5(JSON.stringify(createArtifactInput), NAMESPACE);
+  
+  const artifact: Artifact = {
+    ...createArtifactInput,
+    id,
+    type: 'artifact' as const,
+    spec_version: '2.1',
+    created: timestamp,
+    modified: timestamp,
+    hashes: this.convertHashesInputToHashes(createArtifactInput.hashes),
+  };
+
+  try {
+    const response = await this.openSearchClient.index({
+      index: this.index,
       id,
-      type: 'artifact' as const,
-      spec_version: '2.1',
-      created: timestamp,
-      modified: timestamp,
-      hashes: this.convertHashesInputToHashes(createArtifactInput.hashes),
-      
-    };
+      body: artifact,
+      refresh: 'wait_for',
+    });
 
-    try {
-      const response = await this.openSearchClient.index({
-        index: this.index,
-        id,
-        body: artifact,
-        refresh: 'wait_for',
-      });
-
-      if (response.body.result !== 'created') {
-        throw new Error('Failed to create artifact');
-      }
-      return artifact;
-    } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to create artifact',
-        details: error.meta?.body?.error || error.message,
-      });
+    if (response.body.result !== 'created') {
+      throw new Error('Failed to create artifact');
     }
+    return artifact;
+  } catch (error) {
+    throw new InternalServerErrorException({
+      message: 'Failed to create artifact',
+      details: error.meta?.body?.error || error.message,
+    });
   }
-
+}
   async searchWithFilters(
     searchParams: SearchArtifactInput = {},
     from: number = 0,

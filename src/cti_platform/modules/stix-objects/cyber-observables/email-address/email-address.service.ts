@@ -32,7 +32,7 @@ export class EmailAddressService implements OnModuleInit {
 
     const doc: EmailAddress = {
       ...createEmailAddressInput,
-      ...(createEmailAddressInput.enrichment ? { enrichment: createEmailAddressInput.enrichment } : {}),
+      
       id,
       type: 'email-addr' as const,
       spec_version: '2.1',

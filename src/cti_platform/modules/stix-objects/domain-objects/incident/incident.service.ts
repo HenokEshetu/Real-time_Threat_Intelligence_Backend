@@ -30,7 +30,7 @@ export class IncidentService implements OnModuleInit {
   async create(createIncidentInput: CreateIncidentInput): Promise<Incident> {
     const incident: Incident = {
       ...createIncidentInput,
-      ...(createIncidentInput.enrichment ? { enrichment: createIncidentInput.enrichment } : {}),
+      
       id: `incident--${uuidv4()}`,
       type: 'incident' as const,
       spec_version: '2.1',

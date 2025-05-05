@@ -1,7 +1,169 @@
-// src/cti_platform/modules/ingestion-from-api-feeds/feeds/feed.types.ts
-import { CommonProperties, MarkingDefinition } from '../../../core/types/common-data-types';
+import { CommonProperties, PatternType } from '../../../core/types/common-data-types';
 
-// STIX 2.1 object types supported by the project (verified complete per STIX 2.1 spec)
+
+export type EnrichmentServiceKey =
+  | 'geo'
+  | 'whois'
+  | 'virustotal'
+  | 'abuseipdb'
+  | 'shodan'
+  | 'threatfox'
+  | 'dns'
+  | 'ssl'
+  | 'asn'
+  | 'hybrid'
+  | 'threatcrowd'
+  | 'misp';
+
+
+  export interface ExtensionDefinition {
+    id: string;
+    type: 'extension-definition';
+    spec_version: string;
+    name: string;
+    description: string;
+    created: string;
+    modified: string;
+    extension_type: 'property-extension';
+    version: string;
+  }
+
+  export const ENRICHMENT_EXTENSIONS: Record<EnrichmentServiceKey, ExtensionDefinition> = {
+    geo: {
+      id: 'extension-definition--geo-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'Geo Enrichment',
+      description: 'Geolocation enrichment data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    whois: {
+      id: 'extension-definition--whois-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'WHOIS Enrichment',
+      description: 'WHOIS data for domains',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    virustotal: {
+      id: 'extension-definition--virustotal-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'VirusTotal Enrichment',
+      description: 'VirusTotal scan results',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    abuseipdb: {
+      id: 'extension-definition--abuseipdb-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'AbuseIPDB Enrichment',
+      description: 'AbuseIPDB reputation data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    shodan: {
+      id: 'extension-definition--shodan-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'Shodan Enrichment',
+      description: 'Shodan scan data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    threatfox: {
+      id: 'extension-definition--threatfox-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'ThreatFox Enrichment',
+      description: 'ThreatFox IOC data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    dns: {
+      id: 'extension-definition--dns-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'DNS Enrichment',
+      description: 'DNS resolution data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    ssl: {
+      id: 'extension-definition--ssl-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'SSL Enrichment',
+      description: 'SSL certificate data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    asn: {
+      id: 'extension-definition--asn-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'ASN Enrichment',
+      description: 'Autonomous System Number data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    hybrid: {
+      id: 'extension-definition--hybrid-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'Hybrid Analysis Enrichment',
+      description: 'Hybrid Analysis report data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    threatcrowd: {
+      id: 'extension-definition--threatcrowd-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'ThreatCrowd Enrichment',
+      description: 'ThreatCrowd threat intelligence data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+    misp: {
+      id: 'extension-definition--misp-enrichment',
+      type: 'extension-definition',
+      spec_version: '2.1',
+      name: 'MISP Enrichment',
+      description: 'MISP threat intelligence data',
+      created: '2025-05-03T00:00:00.000Z',
+      modified: '2025-05-03T00:00:00.000Z',
+      extension_type: 'property-extension',
+      version: '1.0',
+    },
+  };
+  
+  
 export type StixType =
   | 'artifact'
   | 'autonomous-system'
@@ -41,7 +203,8 @@ export type StixType =
   | 'tool'
   | 'vulnerability'
   | 'sighting'
-  | 'relationship';
+  | 'relationship'
+  | 'marking-definition';
 
 // Configuration for a generic feed provider
 export interface FeedProviderConfig {
@@ -59,17 +222,23 @@ export interface FeedProviderConfig {
   rateLimitDelay?: number;
   maxRetries?: number;
   schedule?: string;
-  indicatorMapper: (raw: any) => GenericStixObject | GenericStixObject[] | null; // Allow array or null
+  objectMapper: (
+    raw: any,
+    config?: FeedProviderConfig
+  ) => GenericStixObject | GenericStixObject[] | Generator<GenericStixObject, void, unknown> | null; 
+
+  
   pagination?: {
-    paramType?: 'params' | 'data'; // Where to apply pagination parameters (query params or request body)
-    pageKey?: string; // Key for page number (e.g., 'page', 'offset', 'cursor')
-    totalCountKey?: string; // Key for total item count in response (e.g., 'total_count')
-    hasNextKey?: string; // Key for next-page indicator (e.g., 'has_next')
-    maxPages?: number; // Maximum pages to fetch (default: 100)
+    paramType?: 'params' | 'data';
+    pageKey?: string;
+    totalCountKey?: string;
+    hasNextKey?: string;
+    maxPages?: number;
   };
 }
 
-// Enrichment data structure aligned with EnrichmentService's conciseResponseFields
+
+
 export interface EnrichmentData {
   geo?: {
     country_name: string;
@@ -77,12 +246,14 @@ export interface EnrichmentData {
     city: string;
     lat: number;
     lon: number;
+    source?: { service: string; fetched_at: string };
   };
   whois?: {
     domainName: string;
     registrarName: string;
     createdDate: string;
     expiresDate: string;
+    source?: { service: string; fetched_at: string };
   };
   virustotal?: {
     data: {
@@ -96,6 +267,7 @@ export interface EnrichmentData {
         reputation: number;
       };
     };
+    source?: { service: string; fetched_at: string };
   };
   abuseipdb?: {
     data: {
@@ -103,11 +275,13 @@ export interface EnrichmentData {
       countryCode: string;
       totalReports: number;
     };
+    source?: { service: string; fetched_at: string };
   };
   shodan?: {
     ip: string;
     org: string;
     os: string | null;
+    source?: { service: string; fetched_at: string };
   };
   threatfox?: {
     query_status: string;
@@ -115,25 +289,31 @@ export interface EnrichmentData {
       threat_type: string;
       malware: string;
     };
+    source?: { service: string; fetched_at: string };
   };
   dns?: {
+    Status: number;
     Answer: Array<{
       data: string;
       type: string;
       TTL: number;
     }>;
+    source?: { source: string; fetched_at: string };
   };
   ssl?: {
     host: string;
     endpoints: Array<{
       serverName: string;
-      grade: string;
+      grade?: string;
+      statusMessage?: string;
     }>;
+    source?: { service: string; fetched_at: string };
   };
   asn?: {
+    ip?: string;
     asn: string;
     org: string;
-    ip?: string;
+    source?: { service: string; fetched_at: string };
   };
   hybrid?: {
     result: {
@@ -141,11 +321,13 @@ export interface EnrichmentData {
       threat_score: number;
       submissions: number;
     };
+    source?: { service: string; fetched_at: string };
   };
   threatcrowd?: {
     response_code: string;
     hashes: string[];
     domains: string[];
+    source?: { service: string; fetched_at: string };
   };
   misp?: {
     response: {
@@ -155,76 +337,43 @@ export interface EnrichmentData {
         category: string;
       }>;
     };
+    source?: { service: string; fetched_at: string };
   };
 }
 
-// Generic indicator structure (updated for STIX 2.1 compliance)
-export interface GenericStixObject extends Partial<CommonProperties> {
-  id?: string; // Provider-specific ID (optional)
-  indicator?: string; // Optional IOC value (e.g., for 'indicator' type)
-  type: StixType; // STIX 2.1 type
-  value?: string; // For SCOs like 'url', 'domain-name', 'ipv4-addr'
-  name?: string; // For SDOs like 'malware', 'threat-actor'
-  description?: string;
-  created?: string;
-  modified?: string;
-  valid_from?: string;
-  expiration?: string;
-  validated?: boolean;
-  reputation?: number;
-  references?: string[];
-  labels?: string[];
-  sensitivity?: 'low' | 'medium' | 'high' | 'critical';
-  sharing?: 'public' | 'community' | 'limited' | 'restricted';
-  hashes?: Record<'MD5' | 'SHA-1' | 'SHA-256' | 'SHA-512', string>; // Restrict hash types
-  malwareTypes?: string[]; // For 'malware'
-  threatActorTypes?: string[]; // For 'threat-actor'
-  aliases?: string[];
-  roles?: string[];
-  actorSophistication?: 'none' | 'minimal' | 'intermediate' | 'advanced' | 'expert' | 'unknown';
-  resourceLevel?: 'individual' | 'group' | 'organization' | 'government' | 'unknown';
-  malwareCapabilities?: string[];
-  architectureExecutionEnvs?: string[];
-  relatedIndicators?: string[];
-  relatedFiles?: string[];
-  indicatorRelationships?: string[];
-  relatedThreatActors?: string[];
-  validationErrors?: string[]; // Track validation issues (e.g., "invalid TLD")
-  enrichment?: EnrichmentData;
-  sourceConfigId?: string; // Added to fix TS2339 errors
-  // --- Added for STIX compatibility ---
-  published?: string; // For 'report'
-  pattern?: string; // For 'indicator'
-  pattern_type?: string; // For 'indicator'
-  resolves_to_refs?: string[]; // For 'domain-name'
-  number?: number; // For 'autonomous-system'
-  malware_types?: string[]; // For 'malware' (legacy, mapped to malwareTypes)
-  threat_actor_types?: string[]; // For 'threat-actor' (legacy, mapped to threatActorTypes)
-  dst_ref?: string; // For 'network-traffic'
-  dst_port?: number; // For 'network-traffic'
-  key?: string; // For 'windows-registry-key'
-  values?: any[]; // For 'windows-registry-key'
-  account_login?: string; // For 'user-account'
-  account_type?: string; // For 'user-account'
-  identity_class?: string; // For 'identity'
-  infrastructure_types?: string[]; // For 'infrastructure'
-  payload_bin?: string; // For 'artifact'
-  content?: string; // For 'note'
-  arguments?: string[]; // For 'process'
-  first_observed?: string; // For 'observed-data'
-  last_observed?: string; // For 'observed-data'
-  object_refs?: string[]; // For 'observed-data'
-  number_observed?: number; // For observed-data
-  // --- Added for relationships ---
-  source_ref?: string;
-  target_ref?: string;
-  relationship_type?: string;
+export interface EnrichmentInput {
+  indicator: string;
+  type: StixType;
+  sourceConfigId?: string;
 }
 
-// TLP Marking Definition
-export interface TLPMarkingDefinition extends MarkingDefinition {
-  // Added property to allow spec_version
+export interface GenericStixObject {
+  id: string;
+  type: StixType;
   spec_version: string;
+  created?: string;
+  modified?: string;
+  labels?: string[];
+  confidence?: number;
+  external_references?: Array<{
+    source_name: string;
+    description?: string;
+    url?: string;
+    external_id?: string;
+  }>;
+  object_marking_refs?: string[];
+  sourceConfigId?: string;
+  extensions?: Record<string, any>;
+  indicator?: string;
+  value?: string;
+  name?: string;
+  hashes?: Record<string, string>; // Add type for hashes
+  pattern?: string;
+  pattern_type?: string;
+  [key: string]: any;
+}
+export interface TLPMarkingDefinition extends GenericStixObject {
+  spec_version: '2.1';
   definition_type: 'tlp';
   definition: {
     tlp: 'white' | 'green' | 'amber' | 'red';

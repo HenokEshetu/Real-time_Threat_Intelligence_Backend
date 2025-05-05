@@ -6,11 +6,23 @@ import { StixValidationError } from '../../../core/exception/custom-exceptions';
 import { SearchSightingInput } from './sighting.resolver';
 import { Sighting } from './sighting.entity';
 
+
+
+import { v5 as uuidv5 } from 'uuid';
+
+// Define the UUID namespace 
+const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
+// Utility function to generate STIX-compliant IDs
+const generateStixId = (type: string, value: string): string => {
+  return `${type}--${uuidv5(value, NAMESPACE)}`;
+};
+
 @Injectable()
 export class SightingService implements OnModuleInit {
   private readonly index = 'sightings';
   private readonly openSearchService: Client;
-
+  logger: any;
   constructor() {
     const clientOptions: ClientOptions = {
       node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
@@ -30,38 +42,63 @@ export class SightingService implements OnModuleInit {
   }
 
   async create(createSightingInput: CreateSightingInput): Promise<Sighting> {
-    this.validateSighting(createSightingInput);
-
-    const sighting: Sighting = {
-      ...createSightingInput,
-      id: `sighting--${uuidv4()}`,
-      type: 'sighting' as const,
-      spec_version: '2.1',
-      created: new Date().toISOString(),
-      modified: new Date().toISOString(),
-      sighting_of_ref: createSightingInput.sighting_of_ref, // Required field
-     
-    };
-
     try {
+      this.validateSighting(createSightingInput);
+
+      // Generate a deterministic ID based on the sighting properties
+      const idSeed = [
+        createSightingInput.sighting_of_ref,
+        createSightingInput.first_seen,
+        createSightingInput.last_seen,
+        Date.now().toString() // Add timestamp to ensure uniqueness
+      ].join('|');
+      
+      const sighting: Sighting = {
+        ...createSightingInput,
+        id: createSightingInput.id || generateStixId('sighting', idSeed),
+        type: 'sighting',
+        spec_version: '2.1',
+        created: new Date().toISOString(),
+        modified: new Date().toISOString(),
+        sighting_of_ref: createSightingInput.sighting_of_ref,
+        first_seen: new Date(createSightingInput.first_seen).toISOString(),
+        last_seen: new Date(createSightingInput.last_seen).toISOString(),
+      };
+
       const response = await this.openSearchService.index({
         index: this.index,
         id: sighting.id,
         body: sighting,
         refresh: 'wait_for',
+      }).catch(error => {
+        throw new Error(`OpenSearch error: ${this.safeGetErrorMessage(error)}`);
       });
 
-      if (response.body.result !== 'created') {
-        throw new Error('Failed to index sighting');
+      if (!['created', 'updated'].includes(response.body?.result)) {
+        throw new Error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
       }
+
       return sighting;
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Failed to create sighting',
-        details: error.meta?.body?.error || error.message,
+        details: this.safeGetErrorMessage(error),
+        objectId: createSightingInput?.id || 'unknown',
+        input: createSightingInput
       });
     }
   }
+
+
+private safeGetErrorMessage(error: any): string {
+  if (typeof error === 'string') return error;
+  if (error?.message) return error.message;
+  if (error?.response?.data?.error) return error.response.data.error;
+  if (error?.body?.error) return JSON.stringify(error.body.error);
+  return 'Unknown error occurred';
+}
+
+
 
   async findOne(id: string): Promise<Sighting> {
     try {
@@ -78,10 +115,9 @@ export class SightingService implements OnModuleInit {
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        sighting_of_ref: source.sighting_of_ref, // Required field
-        first_seen:source.first_seen,
-        last_seen:source.last_seen,
-        
+        sighting_of_ref: source.sighting_of_ref, 
+        first_seen: source.first_seen,
+        last_seen: source.last_seen,
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -101,9 +137,17 @@ export class SightingService implements OnModuleInit {
         ...existingSighting,
         ...updateSightingInput,
         modified: new Date().toISOString(),
+        // Convert first_seen from string input to a Date
+        first_seen: new Date(updateSightingInput.first_seen).toISOString(),
+            last_seen: new Date(updateSightingInput.last_seen).toISOString(),
       };
 
-      this.validateSighting(updatedSighting);
+      this.validateSighting({
+        ...updatedSighting,
+        spec_version: '2.1', 
+        first_seen: updatedSighting.first_seen,
+        last_seen: updatedSighting.last_seen,
+      });
 
       const response = await this.openSearchService.update({
         index: this.index,
@@ -221,10 +265,9 @@ export class SightingService implements OnModuleInit {
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
-          first_seen:hit._source.first_seen,
-          last_seen:hit._source.last_seen,
+          first_seen: hit._source.first_seen,
+          last_seen: hit._source.last_seen,
           sighting_of_ref: hit._source.sighting_of_ref, // Required field
-          
         })),
       };
     } catch (error) {
@@ -271,41 +314,76 @@ export class SightingService implements OnModuleInit {
   }
 
   private validateSighting(input: CreateSightingInput | UpdateSightingInput): void {
-    // Required field validation
-    if (!('sighting_of_ref' in input) || !input.sighting_of_ref) {
-      throw new StixValidationError('sighting_of_ref is required');
-    }
-
-    // Date validation
-    if (input.first_seen && input.last_seen) {
-      const firstSeen = input.first_seen instanceof Date ? input.first_seen : new Date(input.first_seen);
-      const lastSeen = input.last_seen instanceof Date ? input.last_seen : new Date(input.last_seen);
-      if (firstSeen > lastSeen) {
-        throw new StixValidationError('first_seen must be earlier than or equal to last_seen');
+    try {
+      if (!input.sighting_of_ref) {
+        throw new StixValidationError('sighting_of_ref is required');
       }
-    }
 
-    // Count validation
-    if (input.count !== undefined && (typeof input.count !== 'number' || input.count < 0 || !Number.isInteger(input.count))) {
-      throw new StixValidationError('count must be a non-negative integer');
-    }
+      // Validate STIX reference format
+      this.validateStixReference(input.sighting_of_ref, 'sighting_of_ref');
 
-    // STIX reference validation
-    this.validateStixReference(input.sighting_of_ref, 'sighting_of_ref');
-    
-    if (input.observed_data_refs) {
-      input.observed_data_refs.forEach((ref) => this.validateStixReference(ref, 'observed_data_refs'));
-    }
-    
-    if (input.where_sighted_refs) {
-      input.where_sighted_refs.forEach((ref) => this.validateStixReference(ref, 'where_sighted_refs'));
+      // Validate dates
+      if (input.first_seen && input.last_seen) {
+        const firstSeen = new Date(input.first_seen);
+        const lastSeen = new Date(input.last_seen);
+        
+        if (isNaN(firstSeen.getTime()) ){
+          throw new StixValidationError('Invalid first_seen date format');
+        }
+        if (isNaN(lastSeen.getTime())) {
+          throw new StixValidationError('Invalid last_seen date format');
+        }
+        if (firstSeen > lastSeen) {
+          throw new StixValidationError('first_seen must be earlier than or equal to last_seen');
+        }
+      }
+
+      // Validate count
+      if (input.count !== undefined) {
+        if (typeof input.count !== 'number' || input.count < 0 || !Number.isInteger(input.count)) {
+          throw new StixValidationError('count must be a non-negative integer');
+        }
+      }
+
+      // Validate reference arrays
+      this.validateReferenceArray(input.observed_data_refs, 'observed_data_refs');
+      this.validateReferenceArray(input.where_sighted_refs, 'where_sighted_refs');
+
+    } catch (error) {
+      if (error instanceof StixValidationError) {
+        throw error;
+      }
+      throw new StixValidationError(`Validation failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
+  private validateReferenceArray(refs: string[] | undefined, fieldName: string): void {
+    if (!refs) return;
+    
+    refs.forEach((ref, index) => {
+      try {
+        this.validateStixReference(ref, `${fieldName}[${index}]`);
+      } catch (error) {
+        throw new StixValidationError(`Invalid reference in ${fieldName} at position ${index}: ${error.message}`);
+      }
+    });
+  }
+
+  
+
   private validateStixReference(ref: string, fieldName: string): void {
-    const stixIdPattern = /^[a-z][a-z0-9-]*--[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    // More permissive STIX ID pattern that accepts all valid STIX objects
+    const stixIdPattern = /^([a-z][a-z0-9-]*)--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (!ref) {
+      throw new StixValidationError(`Empty reference in ${fieldName}`);
+    }
+
     if (!stixIdPattern.test(ref)) {
       throw new StixValidationError(`Invalid STIX reference format in ${fieldName}: ${ref}`);
     }
+
+    // Additional type validation can be added here if needed
   }
+
 }

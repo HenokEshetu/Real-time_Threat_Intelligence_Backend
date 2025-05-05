@@ -37,7 +37,7 @@ export class NetworkTrafficService implements OnModuleInit{
 
     const doc: NetworkTraffic = {
       ...createNetworkTrafficInput,
-      ...(createNetworkTrafficInput.enrichment ? { enrichment: createNetworkTrafficInput.enrichment } : {}),
+     
       id,
       type: 'network-traffic' as const,
       spec_version: '2.1',

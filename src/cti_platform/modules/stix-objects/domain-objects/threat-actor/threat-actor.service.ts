@@ -32,7 +32,7 @@ export class ThreatActorService implements OnModuleInit {
   async create(createThreatActorInput: CreateThreatActorInput): Promise<ThreatActor> {
     const threatActor: ThreatActor = {
       ...createThreatActorInput,
-      ...(createThreatActorInput.enrichment ? { enrichment: createThreatActorInput.enrichment } : {}),
+     
       id: `threat-actor--${uuidv4()}`,
       type: 'threat-actor' as const,
       spec_version: '2.1',

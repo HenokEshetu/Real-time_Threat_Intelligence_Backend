@@ -30,7 +30,7 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
   async create(createWindowsRegistryKeyInput: CreateWindowsRegistryKeyInput): Promise<WindowsRegistryKey> {
     const windowsRegistryKey: WindowsRegistryKey = {
       ...createWindowsRegistryKeyInput,
-      ...(createWindowsRegistryKeyInput.enrichment ? { enrichment: createWindowsRegistryKeyInput.enrichment } : {}),
+     
       id: `windows-registry-key--${uuidv4()}`,
       type: 'windows-registry-key' as const,
       spec_version: '2.1',

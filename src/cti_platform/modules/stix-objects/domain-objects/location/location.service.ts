@@ -30,7 +30,7 @@ export class LocationService implements OnModuleInit {
   async create(createLocationInput: CreateLocationInput): Promise<Location> {
     const location: Location = {
       ...createLocationInput,
-      ...(createLocationInput.enrichment ? { enrichment: createLocationInput.enrichment } : {}),
+
       id: `location--${uuidv4()}`,
       type: 'location' as const,
       spec_version: '2.1',

@@ -83,11 +83,24 @@ import { ConfigModule } from '@nestjs/config';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '@opensearch-project/opensearch';
 import opensearchConfig from 'src/cti_platform/config/opensearch.config';
+import { OpenSearchModule } from 'config/opensearch.module';
+import { PubSubModule } from 'src/cti_platform/modules/pubsub.module';
+import { MarkingDefinitionService } from './marking-definition/marking-definition.service';
+import { MarkingDefinitionResolver } from './marking-definition/marking-definition.resolver';
+
+
+
 @Module({
-  imports: [// Global Configuration
+  imports: [
+    // Global Configuration
+    PubSubModule,
         ConfigModule.forRoot({
           load: [opensearchConfig],
-        }),],
+        }),
+        PubSubModule,
+        OpenSearchModule,
+        // Add other modules here as needed
+      ],
   providers:[
     {
       provide: 'OPENSEARCH_CLIENT',
@@ -98,6 +111,8 @@ import opensearchConfig from 'src/cti_platform/config/opensearch.config';
       },
       inject: [ConfigService],
     },
+    
+    MarkingDefinitionService, MarkingDefinitionResolver,
     BundleService, BundleResolver,
     ArtifactService, ArtifactResolver,
     AutonomousSystemService, AutonomousSystemResolver,
@@ -138,8 +153,11 @@ import opensearchConfig from 'src/cti_platform/config/opensearch.config';
     ToolService, ToolResolver,
     VulnerabilityService, VulnerabilityResolver,
     SightingResolver, SightingService,
+    
   ],
-  exports: ['OPENSEARCH_CLIENT'],
+  exports: [
+    'OPENSEARCH_CLIENT',
+  ],
 })
 export class StixObjectsModule {}
 

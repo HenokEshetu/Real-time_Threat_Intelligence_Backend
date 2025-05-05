@@ -1,5 +1,5 @@
 import { Field, InputType } from '@nestjs/graphql';
-import GraphQLJSON from 'graphql-type-json';
+import { GraphQLJSONObject } from 'graphql-scalars';
 import { Dictionary } from '../../../../core/types/common-data-types';
 import {  CyberObservableCommonInput } from '../../../../core/types/common-data-types';
 
@@ -38,10 +38,10 @@ export class CreateProcessInput extends CyberObservableCommonInput{
   @Field(() => [String], { nullable: true })
   child_refs?: string[];
 
-  @Field(() => GraphQLJSON, { nullable: true })
+  @Field(() => GraphQLJSONObject, { nullable: true })
   arguments?: Dictionary;
 
-  @Field(() => GraphQLJSON, { nullable: true })
+  @Field(() => GraphQLJSONObject, { nullable: true })
   service_dll_refs?: Dictionary;
 }
 

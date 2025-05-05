@@ -1,6 +1,5 @@
 import { Field, ObjectType } from '@nestjs/graphql';
-import GraphQLJSON from 'graphql-type-json';
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { GraphQLJSONObject } from 'graphql-scalars';
 import { CyberObservableCommonProperties, Dictionary } from '../../../../core/types/common-data-types';
 
 @ObjectType()
@@ -65,7 +64,7 @@ export class EmailMessage extends CyberObservableCommonProperties {
   
   received_lines?: string[];
 
-  @Field(() => GraphQLJSON, { nullable: true })
+  @Field(() => GraphQLJSONObject, { nullable: true })
   
   additional_header_fields?: Dictionary;
 

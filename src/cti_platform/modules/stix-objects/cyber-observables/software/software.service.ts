@@ -32,7 +32,7 @@ export class SoftwareService implements OnModuleInit {
 
     const software: Software = {
       ...createSoftwareInput,
-      ...(createSoftwareInput.enrichment ? { enrichment: createSoftwareInput.enrichment } : {}),
+      
       type: 'software' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),

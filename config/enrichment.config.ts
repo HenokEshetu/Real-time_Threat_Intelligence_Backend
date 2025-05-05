@@ -67,7 +67,7 @@ export const enrichmentConfig: EnrichmentConfig = {
     threatfox: {
       url: 'https://threatfox-api.abuse.ch/api/v1',
       method: 'post',
-      requiredKey: false,
+      requiredKey: true,
       timeout: 15000,
       rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
       retryPolicy: { maxRetries: 3, baseDelay: 1000, maxDelay: 10000 },
@@ -110,7 +110,7 @@ export const enrichmentConfig: EnrichmentConfig = {
     threatcrowd: {
       url: 'https://www.threatcrowd.org/searchApi/v2',
       apiKeyEnv: 'THREATCROWD_API_KEY',
-      requiredKey: false,
+      requiredKey: true,
       rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
       timeout: 15000,
     },

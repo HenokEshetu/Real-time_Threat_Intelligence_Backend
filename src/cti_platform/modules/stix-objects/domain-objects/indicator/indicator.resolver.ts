@@ -1,35 +1,19 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int, Subscription, Context } from '@nestjs/graphql';
 import { IndicatorService } from './indicator.service';
 import { Indicator } from './indicator.entity';
-import { CreateIndicatorInput, UpdateIndicatorInput } from './indicator.input';
-import { ObjectType, Field } from '@nestjs/graphql';
-import { PartialType } from '@nestjs/graphql';
-
-@InputType()
-export class SearchIndicatorInput extends PartialType(CreateIndicatorInput){}
-
-@ObjectType()
-export class IndicatorSearchResult {
-  @Field(() => Int)
-  page: number;
-  @Field(() => Int)
-  pageSize: number;
-  @Field(() => Int)
-  total: number;
-  @Field(() => Int)
-  totalPages: number;
-  @Field(() => [Indicator])
-  results: Indicator[];
-}
+import { CreateIndicatorInput, UpdateIndicatorInput, SearchIndicatorInput, IndicatorSearchResult } from './indicator.input';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @Resolver(() => Indicator)
-export class IndicatorResolver {
-  constructor(private readonly indicatorService: IndicatorService) {}
-
+export class IndicatorResolver extends BaseStixResolver(Indicator) {
+  public typeName = 'indicator';
+  
+  constructor(private readonly indicatorService: IndicatorService) {
+    super();
+  }
+  
   @Mutation(() => Indicator)
-  async createIndicator(
-    @Args('input') createIndicatorInput: CreateIndicatorInput,
-  ): Promise<Indicator> {
+  async createIndicator(@Args('input') createIndicatorInput: CreateIndicatorInput): Promise<Indicator> {
     return this.indicatorService.create(createIndicatorInput);
   }
 
@@ -41,7 +25,7 @@ export class IndicatorResolver {
   ): Promise<IndicatorSearchResult> {
     return this.indicatorService.searchWithFilters(filters, page, pageSize);
   }
-
+  
   @Query(() => Indicator, { nullable: true })
   async indicator(@Args('id') id: string): Promise<Indicator> {
     return this.indicatorService.findOne(id);
@@ -59,4 +43,7 @@ export class IndicatorResolver {
   async deleteIndicator(@Args('id') id: string): Promise<boolean> {
     return this.indicatorService.remove(id);
   }
+
 }
+
+export { SearchIndicatorInput };

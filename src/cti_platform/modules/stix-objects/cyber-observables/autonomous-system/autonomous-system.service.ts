@@ -4,6 +4,11 @@ import { CreateAutonomousSystemInput, UpdateAutonomousSystemInput } from './auto
 import { AutonomousSystem } from './autonomous-system.entity';
 import { SearchAutonomousSystemInput } from './autonomous-system.resolver';
 
+import { v5 as uuidv5 } from 'uuid';
+
+  // Define the UUID namespace 
+  const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
 @Injectable()
 export class AutonomousSystemService implements OnModuleInit {
   private readonly index = 'autonomous-systems';
@@ -107,22 +112,23 @@ export class AutonomousSystemService implements OnModuleInit {
       });
     }
   }
-
+  
+  
   async create(createAutonomousSystemInput: CreateAutonomousSystemInput): Promise<AutonomousSystem> {
-   
     const now = new Date().toISOString();
-
+  
+    // Generate ID if not provided
+    const id = createAutonomousSystemInput.id || uuidv5(JSON.stringify(createAutonomousSystemInput), NAMESPACE);
+  
     const doc: AutonomousSystem = {
       ...createAutonomousSystemInput,
-      ...(createAutonomousSystemInput.enrichment ? { enrichment: createAutonomousSystemInput.enrichment } : {}), // Optional enrichment
-      id :createAutonomousSystemInput.id,
+      id,
       type: 'autonomous-system' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
-      
     };
-
+  
     try {
       const response = await this.openSearchClient.index({
         index: this.index,
@@ -130,7 +136,7 @@ export class AutonomousSystemService implements OnModuleInit {
         body: doc,
         refresh: 'wait_for',
       });
-
+  
       if (response.body.result !== 'created') {
         throw new Error('Failed to index document');
       }

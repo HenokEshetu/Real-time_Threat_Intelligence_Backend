@@ -33,7 +33,7 @@ export class UrlService implements OnModuleInit {
 
     const doc: Url = {
       ...createUrlInput,
-      ...(createUrlInput.enrichment ? { enrichment: createUrlInput.enrichment } : {}),
+     
       id,
       type: 'url' as const,
       spec_version: '2.1',

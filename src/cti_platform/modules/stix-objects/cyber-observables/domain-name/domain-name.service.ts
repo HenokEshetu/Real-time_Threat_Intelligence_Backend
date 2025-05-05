@@ -32,7 +32,6 @@ export class DomainNameService  implements OnModuleInit {
 
     const doc: DomainName = {
       ...createDomainNameInput,
-      ...(createDomainNameInput.enrichment ? { enrichment: createDomainNameInput.enrichment } : {}),
       id,
       type: 'domain-name' as const,
       spec_version: '2.1',

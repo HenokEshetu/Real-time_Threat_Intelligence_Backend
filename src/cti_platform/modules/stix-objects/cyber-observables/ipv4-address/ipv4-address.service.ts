@@ -32,7 +32,7 @@ export class IPv4AddressService implements OnModuleInit{
 
     const doc: IPv4Address = {
       ...createIPv4AddressInput,
-      ...(createIPv4AddressInput.enrichment ? { enrichment: createIPv4AddressInput.enrichment } : {}),
+      
       id,
       type: 'ipv4-addr' as const,
       spec_version: '2.1',

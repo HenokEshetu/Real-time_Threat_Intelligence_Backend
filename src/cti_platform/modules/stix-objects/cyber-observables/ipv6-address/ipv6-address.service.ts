@@ -32,7 +32,7 @@ export class IPv6AddressService implements OnModuleInit {
 
     const doc: IPv6Address = {
       ...createIPv6AddressInput,
-      ...(createIPv6AddressInput.enrichment ? { enrichment: createIPv6AddressInput.enrichment } : {}),
+      
       id,
       type: 'ipv6-addr' as const,
       spec_version: '2.1',

@@ -34,8 +34,7 @@ export class MACAddressService implements OnModuleInit {
 
     const doc: MACAddress = {
       ...createMACAddressInput,
-      ...(createMACAddressInput.enrichment ? { enrichment: createMACAddressInput.enrichment } : {}),
-      id,
+      
       type: 'mac-addr' as const,
       spec_version: '2.1',
       created: now,

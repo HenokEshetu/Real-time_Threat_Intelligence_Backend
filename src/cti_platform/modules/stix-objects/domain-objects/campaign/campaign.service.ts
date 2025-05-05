@@ -30,7 +30,7 @@ export class CampaignService implements OnModuleInit {
   async create(createCampaignInput: CreateCampaignInput): Promise<Campaign> {
     const campaign: Campaign = {
       ...createCampaignInput,
-      ...(createCampaignInput.enrichment ? { enrichment: createCampaignInput.enrichment } : {}),
+      
       id: `campaign--${uuidv4()}`,
       type: 'campaign' as const,
       spec_version: '2.1',

@@ -32,7 +32,7 @@ export class UserAccountService implements OnModuleInit {
   async create(createUserAccountInput: CreateUserAccountInput): Promise<UserAccount> {
     const userAccount: UserAccount = {
       ...createUserAccountInput,
-      ...(createUserAccountInput.enrichment ? { enrichment: createUserAccountInput.enrichment } : {}),
+      
       id: `user-account--${uuidv4()}`,
       type: 'user-account' as const,
       spec_version: '2.1',

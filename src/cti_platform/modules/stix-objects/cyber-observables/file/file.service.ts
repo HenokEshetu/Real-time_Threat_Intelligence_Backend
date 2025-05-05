@@ -33,7 +33,7 @@ export class FileService implements OnModuleInit {
     
       const doc: File = {
         ...createFileInput,
-        ...(createFileInput.enrichment ? { enrichment: createFileInput.enrichment } : {}),
+     
         id,
         type: 'file' as const,
         spec_version: '2.1',

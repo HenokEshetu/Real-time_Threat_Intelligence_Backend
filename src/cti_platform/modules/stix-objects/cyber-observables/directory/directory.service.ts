@@ -3,6 +3,11 @@ import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { Directory } from './directory.entity';
 import { CreateDirectoryInput, UpdateDirectoryInput } from './directory.input';
 import { SearchDirectoryInput } from './directory.resolver';
+import { v5 as uuidv5 } from 'uuid';
+
+  // Define the UUID namespace 
+  const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
 
 @Injectable()
 export class DirectoryService implements OnModuleInit{
@@ -33,7 +38,6 @@ export class DirectoryService implements OnModuleInit{
 
     const doc: Directory = {
       ...createDirectoryInput,
-      ...(createDirectoryInput.enrichment ? { enrichment: createDirectoryInput.enrichment } : {}),
       id: createDirectoryInput.id,
       type: 'directory' as const,
       spec_version: '2.1',

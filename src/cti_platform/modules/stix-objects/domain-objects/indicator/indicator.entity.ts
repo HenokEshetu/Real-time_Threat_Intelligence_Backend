@@ -7,7 +7,7 @@ export class Indicator extends CommonProperties {
   @Field(() => String)
   type: string = 'indicator';
   @Field(() => String)
-  name: string;
+  name?: string;
   @Field(() => String, { nullable: true })
   description?: string;
   @Field(() => [IndicatorType], { nullable: true })  
@@ -18,8 +18,8 @@ export class Indicator extends CommonProperties {
   pattern_type: PatternType;
   @Field(() => String, { nullable: true })  
   pattern_version?: string;
-  @Field(() => Date)
-  valid_from: Date;
+  @Field(() => Date, { nullable: true })
+  valid_from?: Date;
   @Field(() => Date, { nullable: true })
   valid_until?: Date;
   @Field(() => [KillChainPhase], { nullable: true })

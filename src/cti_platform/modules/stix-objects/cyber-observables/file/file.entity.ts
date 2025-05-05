@@ -1,5 +1,5 @@
 import { Field, ObjectType } from '@nestjs/graphql';
-import GraphQLJSON from 'graphql-type-json';
+import { GraphQLJSONObject } from 'graphql-scalars';
 import { CyberObservableCommonProperties, Hashes, Dictionary } from '../../../../core/types/common-data-types';
 
 @ObjectType()
@@ -68,10 +68,10 @@ class WindowsPEBinaryFileExtension {
   @Field(() => String, { nullable: true })
   imphash?: string;
 
-  @Field(() => GraphQLJSON,  { nullable: true })
+  @Field(() => GraphQLJSONObject,  { nullable: true })
   optional_header?: Dictionary;
 
-  @Field(() => [GraphQLJSON], { nullable: true })
+  @Field(() => [GraphQLJSONObject], { nullable: true })
   sections?: Dictionary[];
 }
 

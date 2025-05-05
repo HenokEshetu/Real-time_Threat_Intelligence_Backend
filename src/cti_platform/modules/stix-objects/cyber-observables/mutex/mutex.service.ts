@@ -34,7 +34,7 @@ export class MutexService implements OnModuleInit  {
 
     const doc: Mutex = {
       ...createMutexInput,
-      ...(createMutexInput.enrichment ? { enrichment: createMutexInput.enrichment } : {}),
+     
       id,
       type: 'mutex' as const,
       spec_version: '2.1',

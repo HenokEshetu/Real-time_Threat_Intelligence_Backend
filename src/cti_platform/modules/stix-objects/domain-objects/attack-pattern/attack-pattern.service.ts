@@ -31,7 +31,7 @@ export class AttackPatternService implements OnModuleInit{
   async create(createAttackPatternInput: CreateAttackPatternInput): Promise<AttackPattern> {
     const attackPattern: AttackPattern = {
       ...createAttackPatternInput,
-      ...(createAttackPatternInput.enrichment ? { enrichment: createAttackPatternInput.enrichment } : {}),
+      
       id: `attack-pattern--${uuidv4()}`,
       type: 'attack-pattern' as const,
       spec_version: '2.1',

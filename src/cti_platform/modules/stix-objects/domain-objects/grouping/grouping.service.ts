@@ -32,7 +32,7 @@ export class GroupingService implements OnModuleInit {
   async create(createGroupingInput: CreateGroupingInput): Promise<Grouping> {
     const grouping: Grouping = {
       ...createGroupingInput,
-      ...(createGroupingInput.enrichment ? { enrichment: createGroupingInput.enrichment } : {}),
+      
       id: `grouping--${uuidv4()}`,
       type: 'grouping' as const,
       spec_version: '2.1',

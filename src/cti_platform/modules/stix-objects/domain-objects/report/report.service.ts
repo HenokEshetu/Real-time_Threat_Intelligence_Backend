@@ -31,12 +31,14 @@ export class ReportService implements OnModuleInit {
   async create(createReportInput: CreateReportInput): Promise<Report> {
     const report: Report = {
       ...createReportInput,
-      ...(createReportInput.enrichment ? { enrichment: createReportInput.enrichment } : {}),
+      
       id: `report--${uuidv4()}`,
       type: 'report' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
+      // Changed published from a string to a Date
+      published: new Date(createReportInput.published), 
       name: createReportInput.name, // Required field
       
     };
@@ -99,6 +101,8 @@ export class ReportService implements OnModuleInit {
       const updatedReport: Report = {
         ...existingReport,
         ...updateReportInput,
+        // Changed published from a string to a Date
+        published: new Date(updateReportInput.published),
         modified: new Date().toISOString(),
       };
 

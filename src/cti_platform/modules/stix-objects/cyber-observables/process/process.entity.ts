@@ -1,6 +1,5 @@
 import { Field, ObjectType } from '@nestjs/graphql';
-import GraphQLJSON from 'graphql-type-json';
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { GraphQLJSONObject } from 'graphql-scalars';
 import { CyberObservableCommonProperties, Dictionary } from '../../../../core/types/common-data-types';
 
 
@@ -50,11 +49,11 @@ export class Process extends CyberObservableCommonProperties {
  
   child_refs?: string[];
 
-  @Field(() => GraphQLJSON, { nullable: true })
+  @Field(() => GraphQLJSONObject, { nullable: true })
   
   arguments?: Dictionary;
 
-  @Field(() => GraphQLJSON, { nullable: true })
+  @Field(() => GraphQLJSONObject, { nullable: true })
   
   service_dll_refs?: Dictionary;
 }

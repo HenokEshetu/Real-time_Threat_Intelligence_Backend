@@ -3,7 +3,10 @@ import { Client } from '@opensearch-project/opensearch';
 import { Bundle } from './bundle.entity';
 import { CreateBundleInput, UpdateBundleInput } from './bundle.input';
 import { SearchBundleInput } from './bundle.resolver';
-import { v4 as uuidv4 } from 'uuid';
+import { v5 as uuidv5 } from 'uuid';
+
+// Define the UUID namespace (DNS namespace in this example)
+const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 @Injectable()
 export class BundleService implements OnModuleInit {
@@ -30,35 +33,82 @@ export class BundleService implements OnModuleInit {
     return this.client;
   }
   async create(createBundleInput: CreateBundleInput): Promise<Bundle> {
-    const id = `bundle--${uuidv4()}`;
-    const timestamp = new Date().toISOString();
-    const bundle: Bundle = {
-      ...createBundleInput,
-      id,
-      type: 'bundle'
-      
-    };
-
     try {
+      // Validate input first
+      this.validateBundleInput(createBundleInput);
+
+      // Generate deterministic ID based on bundle content
+      const idSeed = [
+        createBundleInput.objects?.length.toString() || '0',
+        createBundleInput.spec_version || '2.1',
+        JSON.stringify(createBundleInput.objects?.map(obj => obj.type) || []),
+        Date.now().toString() // Ensure uniqueness
+      ].join('|');
+
+      const timestamp = new Date().toISOString();
+      const bundle: Bundle = {
+        ...createBundleInput,
+        id: createBundleInput.id || `bundle--${uuidv5(idSeed, NAMESPACE)}`,
+        type: 'bundle',
+        spec_version: createBundleInput.spec_version || '2.1',
+        created: timestamp,
+        modified: timestamp
+      };
+
+      // Validate the complete bundle before saving
+      this.validateStixBundle(bundle);
+
       const response = await this.client.index({
         index: this.index,
-        id,
+        id: bundle.id,
         body: bundle,
-        refresh: true, // Make document available for search immediately
+        refresh: 'wait_for', // Wait for refresh to ensure consistency
+      }).catch(error => {
+        throw new Error(`OpenSearch error: ${this.safeGetErrorMessage(error)}`);
       });
 
-      if (response.body.result !== 'created') {
-        throw new Error('Failed to create document');
+      if (!['created', 'updated'].includes(response.body?.result)) {
+        throw new Error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
       }
 
       return bundle;
     } catch (error) {
       throw new InternalServerErrorException({
-        message: 'Error creating bundle',
-        error: error.message,
+        message: 'Failed to create bundle',
+        details: this.safeGetErrorMessage(error),
+        objectId: createBundleInput?.id || 'unknown',
+        input: createBundleInput
       });
     }
   }
+
+  private validateBundleInput(input: CreateBundleInput): void {
+    if (!input.objects || input.objects.length === 0) {
+      throw new Error('Bundle must contain at least one object');
+    }
+
+    if (input.spec_version && input.spec_version !== '2.1') {
+      throw new Error('Only STIX 2.1 bundles are supported');
+    }
+  }
+
+  private validateStixBundle(bundle: Bundle): void {
+    // Validate all objects in the bundle
+    bundle.objects?.forEach(obj => {
+      if (!obj.id || !obj.type || !obj.spec_version) {
+        throw new Error('Invalid STIX object in bundle - missing required fields');
+      }
+    });
+  }
+
+  private safeGetErrorMessage(error: any): string {
+    if (typeof error === 'string') return error;
+    if (error?.message) return error.message;
+    if (error?.response?.data?.error) return error.response.data.error;
+    if (error?.body?.error) return JSON.stringify(error.body.error);
+    return 'Unknown error occurred';
+  }
+
 
   async findOne(id: string): Promise<Bundle> {
     try {

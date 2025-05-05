@@ -1,11 +1,12 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, InputType, Int, ObjectType, PartialType } from '@nestjs/graphql';
 import { PatternType, IndicatorType, RelationshipCommonInput, RelationshipCommonProperties, 
   KillChainPhaseInput, CommonInput, KillChainPhase } from '../../../../core/types/common-data-types';
+import { Indicator } from './indicator.entity';
 
 @InputType()
 export class CreateIndicatorInput extends CommonInput{
   @Field(() => String)
-  name: string;
+  name?: string;
   @Field(() => String, { nullable: true })
   description?: string;
   @Field(() => [IndicatorType], { nullable: true })
@@ -16,8 +17,8 @@ export class CreateIndicatorInput extends CommonInput{
   pattern_type: PatternType;
   @Field(() => String, { nullable: true })
   pattern_version?: string;
-  @Field(() => Date)
-  valid_from: Date;
+  @Field(() => Date, { nullable: true })
+  valid_from?: Date;
   @Field(() => Date, { nullable: true })
   valid_until?: Date;
   @Field(() => [RelationshipCommonInput], { nullable: true })
@@ -31,3 +32,22 @@ export class CreateIndicatorInput extends CommonInput{
 export class UpdateIndicatorInput extends CreateIndicatorInput {
   
 }
+
+@InputType()
+export class SearchIndicatorInput extends PartialType(CreateIndicatorInput){}
+
+
+@ObjectType()
+export class IndicatorSearchResult {
+  @Field(() => Int)
+  page: number;
+  @Field(() => Int)
+  pageSize: number;
+  @Field(() => Int)
+  total: number;
+  @Field(() => Int)
+  totalPages: number;
+  @Field(() => [Indicator])
+  results: Indicator[];
+}
+

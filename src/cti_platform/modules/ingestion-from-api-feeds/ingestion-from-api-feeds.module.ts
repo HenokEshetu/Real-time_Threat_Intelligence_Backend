@@ -46,7 +46,9 @@ import { EnrichmentService } from '../enrichment/enrichment.service';
 import { EnrichmentModule } from '../enrichment/enrichment.module';
 import { LookupService } from 'src/cti_platform/core/utils/lookup.service';
 import { FeedConfigService } from './feeds/feed-config.service';
-
+import { StixObjectsModule } from '../stix-objects/stix-objects.module';
+import { MarkingDefinitionService } from '../stix-objects/marking-definition/marking-definition.service';
+import { MarkingDefinitionResolver } from '../stix-objects/marking-definition/marking-definition.resolver';
 @Module({
   imports: [
     BullModule.forRoot({
@@ -59,8 +61,11 @@ import { FeedConfigService } from './feeds/feed-config.service';
       name: 'feedQueue', // Ensure this matches the queue name in @InjectQueue
     }),
     HttpModule, // Added to provide HttpService for EnrichmentService
+    StixObjectsModule,
   ],
   providers: [
+    MarkingDefinitionService,
+    MarkingDefinitionResolver,
     BundleService,
     ArtifactService,
     AutonomousSystemService,

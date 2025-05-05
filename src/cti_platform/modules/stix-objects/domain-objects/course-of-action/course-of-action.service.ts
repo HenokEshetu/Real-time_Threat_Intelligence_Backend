@@ -31,7 +31,7 @@ export class CourseOfActionService implements OnModuleInit {
   async create(createCourseOfActionInput: CreateCourseOfActionInput): Promise<CourseOfAction> {
     const courseOfAction: CourseOfAction = {
       ...createCourseOfActionInput,
-      ...(createCourseOfActionInput.enrichment ? { enrichment: createCourseOfActionInput.enrichment } : {}),
+     
       id: `course-of-action--${uuidv4()}`,
       type: 'course-of-action' as const,
       spec_version: '2.1',

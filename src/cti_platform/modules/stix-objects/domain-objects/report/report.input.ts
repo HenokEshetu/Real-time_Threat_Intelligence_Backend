@@ -15,8 +15,8 @@ export class CreateReportInput extends CommonInput {
   @Field(() => [String])
   report_types: string[];
 
-  @Field(() => Date)
-  published: Date;
+  @Field(() => String)
+  published: string;
 
   @Field(() => [String])
   object_refs: string[];

@@ -37,7 +37,7 @@ export class ProcessService implements OnModuleInit {
 
     const process: Process = {
       ...createProcessInput,
-      ...(createProcessInput.enrichment ? { enrichment: createProcessInput.enrichment } : {}),
+      
       id,
       type: 'process' as const,
       spec_version: '2.1',

@@ -31,7 +31,7 @@ export class IdentityService implements OnModuleInit {
   async create(createIdentityInput: CreateIdentityInput): Promise<Identity> {
     const identity: Identity = {
       ...createIdentityInput,
-      ...(createIdentityInput.enrichment ? { enrichment: createIdentityInput.enrichment } : {}),
+      
       id: `identity--${uuidv4()}`,
       type: 'identity' as const,
       spec_version: '2.1',

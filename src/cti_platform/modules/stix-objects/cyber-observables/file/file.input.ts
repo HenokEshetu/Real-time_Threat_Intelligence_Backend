@@ -1,6 +1,6 @@
 import { Field, InputType } from '@nestjs/graphql';
 import { HashesInput, Dictionary } from '../../../../core/types/common-data-types';
-import GraphQLJSON from 'graphql-type-json';
+import { GraphQLJSONObject } from 'graphql-scalars';
 import {  CyberObservableCommonInput } from '../../../../core/types/common-data-types';
 @InputType()
 class NTFSFileExtensionInput extends CyberObservableCommonInput {
@@ -43,7 +43,7 @@ class PDFFileExtensionInput extends CyberObservableCommonInput {
   @Field(() => Boolean, { nullable: true })
   is_optimized?: boolean;
 
-  @Field(() => GraphQLJSON, { nullable: true })
+  @Field(() => GraphQLJSONObject, { nullable: true })
   document_info_dict?: Dictionary;
 
   @Field(() => String, { nullable: true })
@@ -64,7 +64,7 @@ class RasterImageFileExtensionInput extends CyberObservableCommonInput {
   @Field(() => Number, { nullable: true })
   bits_per_pixel?: number;
 
-  @Field(() => GraphQLJSON, { nullable: true })
+  @Field(() => GraphQLJSONObject, { nullable: true })
   exif_tags?: Dictionary;
 }
 
@@ -76,7 +76,7 @@ class WindowsPEBinaryFileExtensionInput extends CyberObservableCommonInput{
   @Field(() => String, { nullable: true })
   imphash?: string;
 
-  @Field(() => GraphQLJSON, { nullable: true })
+  @Field(() => GraphQLJSONObject, { nullable: true })
   optional_header?: Dictionary;
 
   @Field(() => [WindowsPESectionInput], { nullable: true })

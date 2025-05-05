@@ -31,7 +31,6 @@ export class NoteService implements OnModuleInit {
   async create(createNoteInput: CreateNoteInput): Promise<Note> {
     const note: Note = {
       ...createNoteInput,
-      ...(createNoteInput.enrichment ? { enrichment: createNoteInput.enrichment } : {}),
       id: `note--${uuidv4()}`,
       type: 'note' as const,
       spec_version: '2.1',

@@ -30,7 +30,6 @@ export class IntrusionSetService implements OnModuleInit {
   async create(createIntrusionSetInput: CreateIntrusionSetInput): Promise<IntrusionSet> {
     const intrusionSet: IntrusionSet = {
       ...createIntrusionSetInput,
-      ...(createIntrusionSetInput.enrichment ? { enrichment: createIntrusionSetInput.enrichment } : {}),
       id: `intrusion-set--${uuidv4()}`,
       type: 'intrusion-set' as const,
       spec_version: '2.1',

@@ -12,12 +12,12 @@
     },
     "data": {
       "returnFormat": "json",
-      "withAttachments": false,
-      "limit": 50,
+      "withAttachments": true,
+      "limit": 10,
       "published": true
     },
     "responsePath": "response",
-    "indicatorMapper": "misp",
+    "objectMapper": "misp",
     "batchSize": 50,
     "rateLimitDelay": 3000,
     "timeout": 90000,
@@ -42,10 +42,10 @@
       "Accept": "application/json"
     },
     "params": {
-      "limit": 50
+      "limit": 10
     },
     "responsePath": "results",
-    "indicatorMapper": "alienVaultOTX",
+    "objectMapper": "alienVaultOTX",
     "batchSize": 50,
     "rateLimitDelay": 2000,
     "timeout": 60000,
@@ -55,7 +55,7 @@
       "paramType": "params",
       "pageKey": "page",
       "totalCountKey": "count",
-      "maxPages": 50
+      "maxPages": 10
     }
   },
 
@@ -72,10 +72,10 @@
       "Accept": "application/json"
     },
     "params": {
-      "limit": 50
+      "limit": 10
     },
     "responsePath": "data",
-    "indicatorMapper": "hybridAnalysis",
+    "objectMapper": "hybridAnalysis",
     "batchSize": 50,
     "rateLimitDelay": 2000,
     "timeout": 60000,
