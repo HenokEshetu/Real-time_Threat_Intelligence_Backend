@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateIndicatorInput, UpdateIndicatorInput } from './indicator.input';
@@ -13,13 +18,17 @@ export class IndicatorService implements OnModuleInit {
   constructor() {
     const clientOptions: ClientOptions = {
       node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
+      ssl:
+        process.env.OPENSEARCH_SSL === 'true'
+          ? { rejectUnauthorized: false }
+          : undefined,
+      auth:
+        process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+          ? {
+              username: process.env.OPENSEARCH_USERNAME,
+              password: process.env.OPENSEARCH_PASSWORD,
+            }
+          : undefined,
     };
     this.openSearchService = new Client(clientOptions);
   }
@@ -31,14 +40,15 @@ export class IndicatorService implements OnModuleInit {
   async create(createIndicatorInput: CreateIndicatorInput): Promise<Indicator> {
     const indicator: Indicator = {
       ...createIndicatorInput,
-      ...(createIndicatorInput.enrichment ? { enrichment: createIndicatorInput.enrichment } : {}),
-      id: `indicator--${uuidv4()}`,
+      ...(createIndicatorInput.enrichment
+        ? { enrichment: createIndicatorInput.enrichment }
+        : {}),
+      id: createIndicatorInput.id || `indicator--${uuidv4()}`,
       type: 'indicator' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createIndicatorInput.name, // Required field
-      
     };
 
     try {
@@ -75,12 +85,16 @@ export class IndicatorService implements OnModuleInit {
         type: 'indicator' as const,
         spec_version: source.spec_version || '2.1',
         pattern: source.pattern,
-        pattern_type:source.pattern_type,
-        valid_from:source.valid_from,
+        pattern_type: source.pattern_type,
+        valid_from: source.valid_from
+          ? new Date(source.valid_from)
+          : new Date(),
+        valid_until: source.valid_until
+          ? new Date(source.valid_until)
+          : new Date(),
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-       
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -93,7 +107,10 @@ export class IndicatorService implements OnModuleInit {
     }
   }
 
-  async update(id: string, updateIndicatorInput: UpdateIndicatorInput): Promise<Indicator> {
+  async update(
+    id: string,
+    updateIndicatorInput: UpdateIndicatorInput,
+  ): Promise<Indicator> {
     try {
       const existingIndicator = await this.findOne(id);
       const updatedIndicator: Indicator = {
@@ -146,7 +163,7 @@ export class IndicatorService implements OnModuleInit {
   async searchWithFilters(
     filters: SearchIndicatorInput = {},
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10,
   ): Promise<{
     page: number;
     pageSize: number;
@@ -168,28 +185,42 @@ export class IndicatorService implements OnModuleInit {
           queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
         } else if (typeof value === 'boolean' || typeof value === 'number') {
           queryBuilder.query.bool.filter.push({ term: { [key]: value } });
-        } else if (['created', 'modified', 'valid_from', 'valid_until'].includes(key)) {
+        } else if (
+          ['created', 'modified', 'valid_from', 'valid_until'].includes(key)
+        ) {
           if (typeof value === 'object' && ('gte' in value || 'lte' in value)) {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: {
+                [key]: { gte: value.toISOString(), lte: value.toISOString() },
+              },
             });
           }
         } else if (typeof value === 'string') {
           if (value.includes('*')) {
-            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
+            queryBuilder.query.bool.must.push({
+              wildcard: { [key]: value.toLowerCase() },
+            });
           } else if (value.includes('~')) {
             queryBuilder.query.bool.should.push({
-              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
+              fuzzy: {
+                [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' },
+              },
             });
           } else {
-            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
+            queryBuilder.query.bool.must.push({
+              match_phrase: { [key]: value },
+            });
           }
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length &&
+        !queryBuilder.query.bool.should.length
+      ) {
         queryBuilder.query = { match_all: {} };
       } else if (queryBuilder.query.bool.should.length > 0) {
         queryBuilder.query.bool.minimum_should_match = 1;
@@ -202,9 +233,10 @@ export class IndicatorService implements OnModuleInit {
         body: queryBuilder,
       });
 
-      const total = typeof response.body.hits.total === 'number'
-        ? response.body.hits.total
-        : response.body.hits.total?.value ?? 0;
+      const total =
+        typeof response.body.hits.total === 'number'
+          ? response.body.hits.total
+          : (response.body.hits.total?.value ?? 0);
 
       return {
         page,
@@ -215,14 +247,18 @@ export class IndicatorService implements OnModuleInit {
           ...hit._source,
           id: hit._id,
           type: 'indicator' as const,
-           pattern: hit._source.pattern,
-           pattern_type:hit._source.pattern_type,
-          valid_from:hit._source.valid_from,
-           spec_version: hit._source.spec_version || '2.1',
+          pattern: hit._source.pattern,
+          pattern_type: hit._source.pattern_type,
+          valid_from: hit._source.valid_from
+            ? new Date(hit._source.valid_from)
+            : new Date(),
+          valid_until: hit._source.valid_until
+            ? new Date(hit._source.valid_until)
+            : new Date(),
+          spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
           name: hit._source.name, // Required field
-          
         })),
       };
     } catch (error) {
@@ -235,7 +271,9 @@ export class IndicatorService implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchService.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({
+        index: this.index,
+      });
       if (!exists.body) {
         await this.openSearchService.indices.create({
           index: this.index,

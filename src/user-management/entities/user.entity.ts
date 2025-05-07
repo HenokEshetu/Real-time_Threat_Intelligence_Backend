@@ -7,12 +7,12 @@ import { Role } from './role.entity';
 export class User {
   @Field(() => ID)
   @PrimaryGeneratedColumn('uuid')
-  id: string;
+  userId: string;
 
   @Field()
   @Column({ unique: true })
   email: string;
-  
+
   @Column()
   password: string;
 

@@ -1,29 +1,27 @@
 import { Resolver, Mutation, Args, Context } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
 import { AuthService } from 'src/user-management/services/auth/auth.service';
 import { AuthSessionService } from 'src/user-management/services/auth/auth-session.service';
 import { LoginDto } from 'src/user-management/dto/login.dto';
 import { ChangePasswordDto } from 'src/user-management/dto/change-password.dto';
-import { JwtAuthGuard } from 'src/user-management/guards/jwt-auth.guard';
 import { SignOutDto } from 'src/user-management/dto/sign-out.dto';
 import { LoginResponse, AuthResponse } from 'src/user-management/types/auth.types';
+import { Public } from '../decorators/public.decorator';
 
 @Resolver()
 export class AuthResolver {
   constructor(private readonly authService: AuthService,
-    private readonly authSessionService: AuthSessionService 
   ) {}
- 
+
 
   @Mutation(() => LoginResponse)
+  @Public()
   async login(
     @Args('input') loginDto: LoginDto
   ): Promise<LoginResponse> {
     return this.authService.login(loginDto);
   }
-  
+
   @Mutation(() => AuthResponse)
-  @UseGuards(JwtAuthGuard)
   async signOut(
     @Args('input') signOutDto: SignOutDto,
     @Context() context,
@@ -40,7 +38,7 @@ export class AuthResolver {
     };
   }
   @Mutation(() => AuthResponse)
-  @UseGuards(JwtAuthGuard)
+  @Public()
   async changePassword(
     @Args('input') changePasswordDto: ChangePasswordDto,
     @Context() context,
@@ -55,4 +53,3 @@ export class AuthResolver {
 
 
 
-  

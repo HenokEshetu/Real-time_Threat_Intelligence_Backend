@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { v4 as uuidv4 } from 'uuid';
 import { CreateReportInput, UpdateReportInput } from './report.input';
@@ -13,13 +18,17 @@ export class ReportService implements OnModuleInit {
   constructor() {
     const clientOptions: ClientOptions = {
       node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
+      ssl:
+        process.env.OPENSEARCH_SSL === 'true'
+          ? { rejectUnauthorized: false }
+          : undefined,
+      auth:
+        process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+          ? {
+              username: process.env.OPENSEARCH_USERNAME,
+              password: process.env.OPENSEARCH_PASSWORD,
+            }
+          : undefined,
     };
     this.openSearchService = new Client(clientOptions);
   }
@@ -31,14 +40,15 @@ export class ReportService implements OnModuleInit {
   async create(createReportInput: CreateReportInput): Promise<Report> {
     const report: Report = {
       ...createReportInput,
-      ...(createReportInput.enrichment ? { enrichment: createReportInput.enrichment } : {}),
-      id: `report--${uuidv4()}`,
+      ...(createReportInput.enrichment
+        ? { enrichment: createReportInput.enrichment }
+        : {}),
+      id: createReportInput.id || `report--${uuidv4()}`,
       type: 'report' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createReportInput.name, // Required field
-      
     };
 
     try {
@@ -73,14 +83,13 @@ export class ReportService implements OnModuleInit {
         ...source,
         id: response.body._id,
         type: 'report' as const,
-        report_types:source.report_types,
+        report_types: source.report_types,
         published: source.published,
         object_refs: source.object_refs,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
         name: source.name, // Required field
-       
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -93,7 +102,10 @@ export class ReportService implements OnModuleInit {
     }
   }
 
-  async update(id: string, updateReportInput: UpdateReportInput): Promise<Report> {
+  async update(
+    id: string,
+    updateReportInput: UpdateReportInput,
+  ): Promise<Report> {
     try {
       const existingReport = await this.findOne(id);
       const updatedReport: Report = {
@@ -146,7 +158,7 @@ export class ReportService implements OnModuleInit {
   async searchWithFilters(
     filters: SearchReportInput = {},
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10,
   ): Promise<{
     page: number;
     pageSize: number;
@@ -173,23 +185,35 @@ export class ReportService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: {
+                [key]: { gte: value.toISOString(), lte: value.toISOString() },
+              },
             });
           }
         } else if (typeof value === 'string') {
           if (value.includes('*')) {
-            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
+            queryBuilder.query.bool.must.push({
+              wildcard: { [key]: value.toLowerCase() },
+            });
           } else if (value.includes('~')) {
             queryBuilder.query.bool.should.push({
-              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
+              fuzzy: {
+                [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' },
+              },
             });
           } else {
-            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
+            queryBuilder.query.bool.must.push({
+              match_phrase: { [key]: value },
+            });
           }
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length &&
+        !queryBuilder.query.bool.should.length
+      ) {
         queryBuilder.query = { match_all: {} };
       } else if (queryBuilder.query.bool.should.length > 0) {
         queryBuilder.query.bool.minimum_should_match = 1;
@@ -202,9 +226,10 @@ export class ReportService implements OnModuleInit {
         body: queryBuilder,
       });
 
-      const total = typeof response.body.hits.total === 'number'
-        ? response.body.hits.total
-        : response.body.hits.total?.value ?? 0;
+      const total =
+        typeof response.body.hits.total === 'number'
+          ? response.body.hits.total
+          : (response.body.hits.total?.value ?? 0);
 
       return {
         page,
@@ -215,14 +240,19 @@ export class ReportService implements OnModuleInit {
           ...hit._source,
           id: hit._id,
           type: 'report' as const,
-          report_types:hit._source.report_types,
-          published: hit._source.published,
-          object_refs:hit._source.object_refs,
+          report_types: hit._source.report_types,
+          published: hit._source.published
+            ? new Date(hit._source.published)
+            : new Date(),
+          object_refs: hit._source.object_refs,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created
+            ? new Date(hit._source.created).toISOString()
+            : new Date().toISOString(),
+          modified: hit._source.modified
+            ? new Date(hit._source.modified).toISOString()
+            : new Date().toISOString(),
           name: hit._source.name, // Required field
-          
         })),
       };
     } catch (error) {
@@ -235,7 +265,9 @@ export class ReportService implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchService.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({
+        index: this.index,
+      });
       if (!exists.body) {
         await this.openSearchService.indices.create({
           index: this.index,

@@ -1,10 +1,25 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { StixRelationship } from './relationship.entity';
-import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
+import {
+  CreateRelationshipInput,
+  UpdateRelationshipInput,
+} from './relationship.input';
 import { StixValidationError } from '../../../core/exception/custom-exceptions';
 import { v4 as uuidv4 } from 'uuid';
 import { SearchRelationshipInput } from './relationship.resolver';
+import { StixObject } from '../stix-object.union';
+
+export interface ExpandedRelationship {
+  relationship: StixRelationship;
+  source_object: typeof StixObject | undefined;
+  target_object: typeof StixObject | undefined;
+}
 
 @Injectable()
 export class RelationshipService implements OnModuleInit {
@@ -13,42 +28,137 @@ export class RelationshipService implements OnModuleInit {
 
   private readonly validRelationships = new Map<string, Set<string>>([
     ['attack-pattern', new Set(['delivers', 'targets', 'uses'])],
-    ['campaign', new Set(['attributed-to', 'compromises', 'originates-from', 'targets', 'uses'])],
+    [
+      'campaign',
+      new Set([
+        'attributed-to',
+        'compromises',
+        'originates-from',
+        'targets',
+        'uses',
+      ]),
+    ],
     ['course-of-action', new Set(['investigates', 'mitigates'])],
     ['identity', new Set(['located-at'])],
     ['indicator', new Set(['indicates', 'based-on'])],
-    ['infrastructure', new Set(['communicates-with', 'consists-of', 'controls', 'delivers', 'has', 'hosts', 'located-at', 'uses'])],
-    ['intrusion-set', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'originates-from', 'targets', 'uses'])],
-    ['malware', new Set(['authored-by', 'beacons-to', 'exfiltrate-to', 'communicates-with', 'controls', 'downloads', 'drops', 'exploits', 'originates-from', 'targets', 'uses', 'variant-of'])],
-    ['malware-analysis', new Set(['characterizes', 'analysis-of', 'static-analysis-of', 'dynamic-analysis-of'])],
-    ['threat-actor', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'impersonates', 'located-at', 'targets', 'uses'])],
+    [
+      'infrastructure',
+      new Set([
+        'communicates-with',
+        'consists-of',
+        'controls',
+        'delivers',
+        'has',
+        'hosts',
+        'located-at',
+        'uses',
+      ]),
+    ],
+    [
+      'intrusion-set',
+      new Set([
+        'attributed-to',
+        'compromises',
+        'hosts',
+        'owns',
+        'originates-from',
+        'targets',
+        'uses',
+      ]),
+    ],
+    [
+      'malware',
+      new Set([
+        'authored-by',
+        'beacons-to',
+        'exfiltrate-to',
+        'communicates-with',
+        'controls',
+        'downloads',
+        'drops',
+        'exploits',
+        'originates-from',
+        'targets',
+        'uses',
+        'variant-of',
+      ]),
+    ],
+    [
+      'malware-analysis',
+      new Set([
+        'characterizes',
+        'analysis-of',
+        'static-analysis-of',
+        'dynamic-analysis-of',
+      ]),
+    ],
+    [
+      'threat-actor',
+      new Set([
+        'attributed-to',
+        'compromises',
+        'hosts',
+        'owns',
+        'impersonates',
+        'located-at',
+        'targets',
+        'uses',
+      ]),
+    ],
     ['tool', new Set(['delivers', 'drops', 'has', 'targets'])],
   ]);
 
   private readonly validTargets = new Map<string, Set<string>>([
     ['delivers', new Set(['malware'])],
-    ['targets', new Set(['identity', 'location', 'vulnerability', 'infrastructure'])],
+    [
+      'targets',
+      new Set(['identity', 'location', 'vulnerability', 'infrastructure']),
+    ],
     ['uses', new Set(['attack-pattern', 'infrastructure', 'malware', 'tool'])],
     ['attributed-to', new Set(['intrusion-set', 'threat-actor', 'identity'])],
     ['compromises', new Set(['infrastructure'])],
     ['originates-from', new Set(['location'])],
     ['investigates', new Set(['indicator'])],
-    ['mitigates', new Set(['attack-pattern', 'indicator', 'malware', 'tool', 'vulnerability'])],
+    [
+      'mitigates',
+      new Set([
+        'attack-pattern',
+        'indicator',
+        'malware',
+        'tool',
+        'vulnerability',
+      ]),
+    ],
     ['located-at', new Set(['location'])],
-    ['indicates', new Set(['attack-pattern', 'campaign', 'infrastructure', 'intrusion-set', 'malware', 'threat-actor', 'tool'])],
+    [
+      'indicates',
+      new Set([
+        'attack-pattern',
+        'campaign',
+        'infrastructure',
+        'intrusion-set',
+        'malware',
+        'threat-actor',
+        'tool',
+      ]),
+    ],
     ['based-on', new Set(['observed-data'])],
   ]);
 
   constructor() {
     const clientOptions: ClientOptions = {
       node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
+      ssl:
+        process.env.OPENSEARCH_SSL === 'true'
+          ? { rejectUnauthorized: false }
+          : undefined,
+      auth:
+        process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+          ? {
+              username: process.env.OPENSEARCH_USERNAME,
+              password: process.env.OPENSEARCH_PASSWORD,
+            }
+          : undefined,
     };
     this.client = new Client(clientOptions);
   }
@@ -57,12 +167,13 @@ export class RelationshipService implements OnModuleInit {
     await this.ensureIndex();
   }
 
-
-  async create(createRelationshipInput: CreateRelationshipInput): Promise<StixRelationship> {
+  async create(
+    createRelationshipInput: CreateRelationshipInput,
+  ): Promise<StixRelationship> {
     this.validateRelationship(
       createRelationshipInput.source_ref,
       createRelationshipInput.relationship_type,
-      createRelationshipInput.target_ref
+      createRelationshipInput.target_ref,
     );
 
     const relationship: StixRelationship = {
@@ -70,8 +181,12 @@ export class RelationshipService implements OnModuleInit {
       id: `relationship--${uuidv4()}`,
       type: 'relationship' as const,
       spec_version: '2.1',
-      start_time: createRelationshipInput.start_time ? new Date(createRelationshipInput.start_time).toISOString() : undefined,
-      stop_time: createRelationshipInput.stop_time ? new Date(createRelationshipInput.stop_time).toISOString() : undefined,
+      start_time: createRelationshipInput.start_time
+        ? new Date(createRelationshipInput.start_time).toISOString()
+        : undefined,
+      stop_time: createRelationshipInput.stop_time
+        ? new Date(createRelationshipInput.stop_time).toISOString()
+        : undefined,
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
     };
@@ -114,7 +229,6 @@ export class RelationshipService implements OnModuleInit {
         source_ref: source.source_ref,
         target_ref: source.target_ref,
         relationship_type: source.relationship_type,
-        
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -127,21 +241,32 @@ export class RelationshipService implements OnModuleInit {
     }
   }
 
-  async update(id: string, updateRelationshipInput: UpdateRelationshipInput): Promise<StixRelationship> {
+  async update(
+    id: string,
+    updateRelationshipInput: UpdateRelationshipInput,
+  ): Promise<StixRelationship> {
     try {
-      if (updateRelationshipInput.source_ref && updateRelationshipInput.relationship_type && updateRelationshipInput.target_ref) {
+      if (
+        updateRelationshipInput.source_ref &&
+        updateRelationshipInput.relationship_type &&
+        updateRelationshipInput.target_ref
+      ) {
         this.validateRelationship(
           updateRelationshipInput.source_ref,
           updateRelationshipInput.relationship_type,
-          updateRelationshipInput.target_ref
+          updateRelationshipInput.target_ref,
         );
       }
 
       const existingRelationship = await this.findOne(id);
       const updatedFields = {
         ...updateRelationshipInput,
-        start_time: updateRelationshipInput.start_time ? new Date(updateRelationshipInput.start_time).toISOString() : existingRelationship.start_time,
-        stop_time: updateRelationshipInput.stop_time ? new Date(updateRelationshipInput.stop_time).toISOString() : existingRelationship.stop_time,
+        start_time: updateRelationshipInput.start_time
+          ? new Date(updateRelationshipInput.start_time).toISOString()
+          : existingRelationship.start_time,
+        stop_time: updateRelationshipInput.stop_time
+          ? new Date(updateRelationshipInput.stop_time).toISOString()
+          : existingRelationship.stop_time,
         modified: new Date().toISOString(),
       };
 
@@ -219,21 +344,25 @@ export class RelationshipService implements OnModuleInit {
     }
   }
 
-  private validateRelationship(sourceRef: string, relationshipType: string, targetRef: string): void {
+  private validateRelationship(
+    sourceRef: string,
+    relationshipType: string,
+    targetRef: string,
+  ): void {
     const sourceType = sourceRef.split('--')[0];
     const targetType = targetRef.split('--')[0];
 
     const validRelationshipsForSource = this.validRelationships.get(sourceType);
     if (!validRelationshipsForSource?.has(relationshipType)) {
       throw new StixValidationError(
-        `Invalid relationship: ${sourceType} cannot have relationship type '${relationshipType}'`
+        `Invalid relationship: ${sourceType} cannot have relationship type '${relationshipType}'`,
       );
     }
 
     const validTargetTypes = this.validTargets.get(relationshipType);
     if (validTargetTypes && !validTargetTypes.has(targetType)) {
       throw new StixValidationError(
-        `Invalid relationship target: ${relationshipType} relationship cannot target ${targetType}`
+        `Invalid relationship target: ${relationshipType} relationship cannot target ${targetType}`,
       );
     }
   }
@@ -243,7 +372,7 @@ export class RelationshipService implements OnModuleInit {
     page: number = 1,
     pageSize: number = 10,
     sortField: keyof StixRelationship = 'modified',
-    sortOrder: 'asc' | 'desc' = 'desc'
+    sortOrder: 'asc' | 'desc' = 'desc',
   ): Promise<{
     page: number;
     pageSize: number;
@@ -265,28 +394,45 @@ export class RelationshipService implements OnModuleInit {
           queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
         } else if (typeof value === 'boolean' || typeof value === 'number') {
           queryBuilder.query.bool.filter.push({ term: { [key]: value } });
-        } else if (['start_time', 'stop_time', 'created', 'modified'].includes(key)) {
-          if (typeof value === 'object' && ('gte' in value || 'lte' in value || 'gt' in value || 'lt' in value)) {
+        } else if (
+          ['start_time', 'stop_time', 'created', 'modified'].includes(key)
+        ) {
+          if (
+            typeof value === 'object' &&
+            ('gte' in value || 'lte' in value || 'gt' in value || 'lt' in value)
+          ) {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: {
+                [key]: { gte: value.toISOString(), lte: value.toISOString() },
+              },
             });
           }
         } else if (typeof value === 'string') {
           if (value.includes('*')) {
-            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
+            queryBuilder.query.bool.must.push({
+              wildcard: { [key]: value.toLowerCase() },
+            });
           } else if (value.includes('~')) {
             queryBuilder.query.bool.should.push({
-              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
+              fuzzy: {
+                [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' },
+              },
             });
           } else {
-            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
+            queryBuilder.query.bool.must.push({
+              match_phrase: { [key]: value },
+            });
           }
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length &&
+        !queryBuilder.query.bool.should.length
+      ) {
         queryBuilder.query = { match_all: {} };
       } else if (queryBuilder.query.bool.should.length > 0) {
         queryBuilder.query.bool.minimum_should_match = 1;
@@ -299,9 +445,10 @@ export class RelationshipService implements OnModuleInit {
         body: queryBuilder,
       });
 
-      const total = typeof response.body.hits.total === 'number'
-        ? response.body.hits.total
-        : response.body.hits.total?.value ?? 0;
+      const total =
+        typeof response.body.hits.total === 'number'
+          ? response.body.hits.total
+          : (response.body.hits.total?.value ?? 0);
 
       return {
         page,
@@ -320,7 +467,6 @@ export class RelationshipService implements OnModuleInit {
           modified: hit._source.modified || new Date().toISOString(),
           start_time: hit._source.start_time,
           stop_time: hit._source.stop_time,
-         
         })),
       };
     } catch (error) {
@@ -360,7 +506,6 @@ export class RelationshipService implements OnModuleInit {
         modified: hit._source.modified || new Date().toISOString(),
         start_time: hit._source.start_time,
         stop_time: hit._source.stop_time,
-        
       }));
     } catch (error) {
       throw new InternalServerErrorException({
@@ -370,56 +515,61 @@ export class RelationshipService implements OnModuleInit {
     }
   }
 
-  async findExpandedRelatedObjects(objectId: string): Promise<any[]> {
+  async findExpandedRelatedObjects(
+    objectId: string,
+  ): Promise<ExpandedRelationship[]> {
     try {
-      // Fetch relationships
       const relationships = await this.findRelatedObjects(objectId);
       if (!relationships.length) return [];
 
-      // Collect unique related object IDs
-      const relatedObjectIds = new Set<string>();
+      const relatedIds = new Set<string>();
       relationships.forEach((rel) => {
-        relatedObjectIds.add(rel.source_ref);
-        relatedObjectIds.add(rel.target_ref);
+        if (rel.source_ref !== objectId) relatedIds.add(rel.source_ref);
+        if (rel.target_ref !== objectId) relatedIds.add(rel.target_ref);
       });
-      relatedObjectIds.delete(objectId);
 
-      if (relatedObjectIds.size === 0) return [];
+      const objects = await this.getObjectsByIds(Array.from(relatedIds));
 
-      const relatedIdsArray = Array.from(relatedObjectIds);
-      const chunkSize = 1000; // Configurable based on OpenSearch limits
-      const results: any[] = [];
+      const objectMap = new Map<string, typeof StixObject>(
+        objects.map((o) => [o.id, o]),
+      );
 
-      // Process in batches
-      for (let i = 0; i < relatedIdsArray.length; i += chunkSize) {
-        const chunk = relatedIdsArray.slice(i, i + chunkSize);
-
-        const response = await this.client.search({
-          index: 'stix-objects',
-          body: {
-            query: {
-              terms: { id: chunk },
-            },
-            // Only fetch necessary fields to reduce payload
-            _source: ['id', 'type', 'name', 'created', 'modified'],
-          },
-        });
-
-        const chunkResults = response.body.hits.hits.map((hit) => ({
-          ...hit._source,
-          id: hit._id,
-          
-        }));
-
-        results.push(...chunkResults);
-      }
-
-      return results;
+      return relationships.map((rel) => ({
+        relationship: rel,
+        source_object: objectMap.get(rel.source_ref),
+        target_object: objectMap.get(rel.target_ref),
+      }));
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Failed to fetch expanded related objects',
         details: error.meta?.body?.error || error.message,
       });
     }
+  }
+
+  async getObjectsByIds(ids: string[]): Promise<(typeof StixObject)[]> {
+    if (!ids.length) return [];
+
+    const response = await this.client.search({
+      index: '*',
+      body: {
+        query: { terms: { id: ids } },
+        size: ids.length,
+      },
+    });
+
+    return response.body.hits.hits.map(
+      (hit) =>
+        ({
+          ...hit._source,
+          id: hit._id,
+          valid_from: hit._source.valid_from
+            ? new Date(hit._source.valid_from)
+            : new Date(),
+          valid_until: hit._source.valid_until
+            ? new Date(hit._source.valid_until)
+            : new Date(),
+        }) as typeof StixObject,
+    );
   }
 }

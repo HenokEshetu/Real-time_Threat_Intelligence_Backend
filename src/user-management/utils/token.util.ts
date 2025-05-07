@@ -3,7 +3,7 @@ import { User } from '../entities/user.entity';
 import { TokenPayload } from '../types/auth.types';
 
 export const createTokenPayload = (user: User): TokenPayload => ({
-  sub: user.id,
+  sub: user.userId,
   email: user.email,
   roles: user.roles.map(role => role.name),
 });

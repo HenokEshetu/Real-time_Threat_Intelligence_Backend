@@ -2,8 +2,8 @@ import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/co
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { PasswordReset } from 'src/user-management/entities/password-reset.entity';
-import { UserQueryService } from 'src/user-management/services/user-query/user-query.service';
-import { UserCommandService } from 'src/user-management/services/user-command/user-command.service';
+import { UserQueryService } from 'src/user-management/services/user-query.service';
+import { UserCommandService } from 'src/user-management/services/user-command.service';
 import { PasswordResetTokenService } from './password-reset-token.service';
 import { hashPassword } from 'src/user-management/utils/password.util';
 
@@ -19,7 +19,7 @@ export class PasswordResetService {
 
   async createPasswordReset(email: string): Promise<{ token: string }> {
     const user = await this.userQueryService.findUserByEmail(email);
-    
+
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -34,7 +34,7 @@ export class PasswordResetService {
 
     const passwordReset = this.passwordResetRepository.create({
       token,
-      userId: user.id,
+      userId: user.userId,
       expiresAt,
     });
 

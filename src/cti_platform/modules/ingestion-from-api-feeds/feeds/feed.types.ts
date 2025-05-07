@@ -1,5 +1,8 @@
 // src/cti_platform/modules/ingestion-from-api-feeds/feeds/feed.types.ts
-import { CommonProperties, MarkingDefinition } from '../../../core/types/common-data-types';
+import {
+  CommonProperties,
+  MarkingDefinition,
+} from '../../../core/types/common-data-types';
 
 // STIX 2.1 object types supported by the project (verified complete per STIX 2.1 spec)
 export type StixType =
@@ -181,8 +184,19 @@ export interface GenericStixObject extends Partial<CommonProperties> {
   threatActorTypes?: string[]; // For 'threat-actor'
   aliases?: string[];
   roles?: string[];
-  actorSophistication?: 'none' | 'minimal' | 'intermediate' | 'advanced' | 'expert' | 'unknown';
-  resourceLevel?: 'individual' | 'group' | 'organization' | 'government' | 'unknown';
+  actorSophistication?:
+    | 'none'
+    | 'minimal'
+    | 'intermediate'
+    | 'advanced'
+    | 'expert'
+    | 'unknown';
+  resourceLevel?:
+    | 'individual'
+    | 'group'
+    | 'organization'
+    | 'government'
+    | 'unknown';
   malwareCapabilities?: string[];
   architectureExecutionEnvs?: string[];
   relatedIndicators?: string[];
@@ -194,6 +208,7 @@ export interface GenericStixObject extends Partial<CommonProperties> {
   sourceConfigId?: string; // Added to fix TS2339 errors
   // --- Added for STIX compatibility ---
   published?: string; // For 'report'
+  report_types?: string[]; // For 'report'
   pattern?: string; // For 'indicator'
   pattern_type?: string; // For 'indicator'
   resolves_to_refs?: string[]; // For 'domain-name'

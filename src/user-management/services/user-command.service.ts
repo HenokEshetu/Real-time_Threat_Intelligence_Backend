@@ -5,7 +5,7 @@ import { User } from 'src/user-management/entities/user.entity';
 import { CreateUserDto } from 'src/user-management/dto/create-user.dto';
 import { UpdateUserDto } from 'src/user-management/dto/update-user.dto';
 import { hashPassword } from 'src/user-management/utils/password.util';
-import { UserQueryService } from 'src/user-management/services/user-query/user-query.service';
+import { UserQueryService } from 'src/user-management/services/user-query.service';
 
 @Injectable()
 export class UserCommandService {
@@ -42,7 +42,7 @@ export class UserCommandService {
   async updateUser(id: string, updateUserDto: UpdateUserDto): Promise<User> {
     try {
       const user = await this.userQueryService.findUserById(id);
-      
+
       if (updateUserDto.password) {
         updateUserDto.password = await hashPassword(updateUserDto.password);
       }

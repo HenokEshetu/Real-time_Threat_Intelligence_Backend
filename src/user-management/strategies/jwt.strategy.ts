@@ -1,19 +1,46 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { UserService } from 'src/user-management/services/user/user.service';
+import { Request } from 'express';
+import { UserService } from 'src/user-management/services/user.service';
+
+export interface JwtAuthPayload {
+  sub: string;
+  email: string;
+  roles: string[];
+  iat: number;
+  exp: number;
+}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
-  constructor(private userService: UserService) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
+  constructor(
+    private userService: UserService,
+    private configService: ConfigService
+  ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: Request) => {
+          const token = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+          return token;
+        }
+      ]),
       ignoreExpiration: false,
-      secretOrKey: process.env.JWT_SECRET || 'your-secret-key',
+      secretOrKey: configService.get('auth.jwtSecret') || 'your-secret-key',
     });
   }
 
-  async validate(payload: any) {
-    return this.userService.findOne(payload.sub);
+  async validate(payload: JwtAuthPayload) {
+    const user = await this.userService.findOne(payload.sub);
+
+    if (!user) {
+      this.logger.warn(`User not found for sub: ${payload.sub}`);
+      throw new Error('User not found');
+    }
+
+    return user;
   }
 }

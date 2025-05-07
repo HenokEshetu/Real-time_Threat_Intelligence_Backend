@@ -1,4 +1,9 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateUrlInput, UpdateUrlInput } from './url.input';
 import { Url } from './url.entity';
@@ -13,19 +18,24 @@ export class UrlService implements OnModuleInit {
   constructor() {
     const clientOptions: ClientOptions = {
       node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
+      ssl:
+        process.env.OPENSEARCH_SSL === 'true'
+          ? { rejectUnauthorized: false }
+          : undefined,
+      auth:
+        process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
+          ? {
+              username: process.env.OPENSEARCH_USERNAME,
+              password: process.env.OPENSEARCH_PASSWORD,
+            }
+          : undefined,
     };
     this.openSearchClient = new Client(clientOptions);
   }
 
   async onModuleInit() {
-    await this.ensureIndex();}
+    await this.ensureIndex();
+  }
 
   async create(createUrlInput: CreateUrlInput): Promise<Url> {
     const id = `url--${uuidv4()}`;
@@ -33,14 +43,15 @@ export class UrlService implements OnModuleInit {
 
     const doc: Url = {
       ...createUrlInput,
-      ...(createUrlInput.enrichment ? { enrichment: createUrlInput.enrichment } : {}),
+      ...(createUrlInput.enrichment
+        ? { enrichment: createUrlInput.enrichment }
+        : {}),
       id,
       type: 'url' as const,
       spec_version: '2.1',
       created: now,
       modified: now,
       value: createUrlInput.value,
-      
     };
 
     try {
@@ -65,7 +76,10 @@ export class UrlService implements OnModuleInit {
 
   async findOne(id: string): Promise<Url> {
     try {
-      const response = await this.openSearchClient.get({ index: this.index, id });
+      const response = await this.openSearchClient.get({
+        index: this.index,
+        id,
+      });
       const source = response.body._source;
       return {
         ...source,
@@ -74,8 +88,11 @@ export class UrlService implements OnModuleInit {
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date().toISOString(),
         modified: source.modified || new Date().toISOString(),
-        value: source.value,
-       
+        value:
+          source.value ||
+          source.created_by_ref
+            .replaceAll('identity--', '')
+            .replaceAll('-', ''),
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -119,7 +136,10 @@ export class UrlService implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({ index: this.index, id });
+      const response = await this.openSearchClient.delete({
+        index: this.index,
+        id,
+      });
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -135,7 +155,7 @@ export class UrlService implements OnModuleInit {
   async searchWithFilters(
     searchParams: SearchUrlInput = {},
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10,
   ): Promise<{
     page: number;
     pageSize: number;
@@ -163,7 +183,9 @@ export class UrlService implements OnModuleInit {
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: {
+                  [key]: { gte: value.toISOString(), lte: value.toISOString() },
+                },
               });
             }
             break;
@@ -174,7 +196,10 @@ export class UrlService implements OnModuleInit {
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length
+      ) {
         queryBuilder.query = { match_all: {} };
       }
 
@@ -185,9 +210,10 @@ export class UrlService implements OnModuleInit {
         body: queryBuilder,
       });
 
-      const total = typeof response.body.hits.total === 'object'
-        ? response.body.hits.total.value
-        : response.body.hits.total;
+      const total =
+        typeof response.body.hits.total === 'object'
+          ? response.body.hits.total.value
+          : response.body.hits.total;
 
       return {
         page,
@@ -201,8 +227,11 @@ export class UrlService implements OnModuleInit {
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date().toISOString(),
           modified: hit._source.modified || new Date().toISOString(),
-          value: hit._source.value,
-          
+          value:
+            hit._source.value ||
+            hit._source.created_by_ref
+              .replaceAll('identity--', '')
+              .replaceAll('-', ''),
         })),
       };
     } catch (error) {
@@ -215,7 +244,9 @@ export class UrlService implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchClient.indices.exists({
+        index: this.index,
+      });
       if (!exists.body) {
         await this.openSearchClient.indices.create({
           index: this.index,

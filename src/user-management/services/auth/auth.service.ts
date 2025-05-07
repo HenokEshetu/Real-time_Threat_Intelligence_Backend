@@ -1,19 +1,15 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { UserService } from 'src/user-management/services/user/user.service';
+import { UserService } from 'src/user-management/services/user.service';
 import { LoginDto } from 'src/user-management/dto/login.dto';
 import { ChangePasswordDto } from 'src/user-management/dto/change-password.dto';
 import { LoginResponse } from 'src/user-management/types/auth.types';
-import { comparePasswords, hashPassword } from 'src/user-management/utils/password.util';
+import { comparePasswords } from 'src/user-management/utils/password.util';
 import { createTokenPayload, generateToken } from 'src/user-management/utils/token.util';
-import { AuthenticationError, handleAuthError } from '../../utils/error.util';
-import {InternalServerErrorException } from '@nestjs/common';
+import { AuthenticationError } from '../../utils/error.util';
 import { SignOutDto } from 'src/user-management/dto/sign-out.dto';
-import { AuthValidationService } from 'src/user-management/services/auth/auth-validation/auth-validation.service';
-import { AuthTokenService } from 'src/user-management/services/auth/auth-token/auth-token.service';
-import { UserCommandService } from 'src/user-management/services/user-command/user-command.service';
-import { TokenBlacklistService } from 'src/user-management/services/auth/auth-token/token-blacklist.service';
 import { AuthSessionService } from './auth-session.service';
+import { User } from 'src/user-management/entities/user.entity';
 
 @Injectable()
 export class AuthService {
@@ -21,12 +17,9 @@ export class AuthService {
     private userService: UserService,
     private jwtService: JwtService,
     private authSessionService: AuthSessionService,
-    private authValidationService: AuthValidationService,
-    private authTokenService: AuthTokenService,
-    private userCommandService: UserCommandService,
   ) {}
 
-  async validateUser(email: string, password: string): Promise<any> {
+  async validateUser(email: string, password: string): Promise<User> {
     try {
       const user = await this.userService.findByEmail(email);
       if (!user) {
@@ -38,8 +31,7 @@ export class AuthService {
         return null;
       }
 
-      const { password: _, ...result } = user;
-      return result;
+      return user;
     } catch (error) {
       console.error('Error validating user:', error);
       return null;
@@ -55,6 +47,8 @@ export class AuthService {
 
       const payload = createTokenPayload(user);
       const access_token = generateToken(this.jwtService, payload);
+
+      console.log()
 
       return {
         access_token,
@@ -73,7 +67,7 @@ export class AuthService {
     if (!token) {
       throw new AuthenticationError('Token is required');
     }
-    
+
     await this.authSessionService.signOut(token);
   }
 
@@ -90,7 +84,7 @@ export class AuthService {
         throw new UnauthorizedException('Current password is incorrect');
       }
 
-      const hashedPassword =changePasswordDto.newPassword;
+      const hashedPassword = changePasswordDto.newPassword;
       await this.userService.update(userId, { password: hashedPassword });
     } catch (error) {
       console.error('Change password error:', error);

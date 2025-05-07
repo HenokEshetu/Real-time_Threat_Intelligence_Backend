@@ -2082,7 +2082,6 @@ type Mutation {
   updateVulnerability(id: String!, input: UpdateVulnerabilityInput!): Vulnerability!
   updateWindowsRegistryKey(id: String!, input: UpdateWindowsRegistryKeyInput!): WindowsRegistryKey!
   updateX509Certificate(id: String!, input: UpdateX509CertificateInput!): X509Certificate!
-  verifyEmail(token: String!): User!
 }
 
 type Mutex {
@@ -2374,7 +2373,6 @@ type Query {
   expandedRelatedObjects(objectId: String!): [StixRelationship!]
   file(id: String!): File
   filesByHash(hashValue: String!): [File!]!
-  getObjectsByIDs(ids: [String!]!): [StixObject!]!
   grouping(id: String!): Grouping
   identity(id: String!): Identity
   incident(id: String!): Incident
@@ -3608,8 +3606,6 @@ type SoftwareSearchResult {
   totalPages: Int!
 }
 
-union StixObject = Artifact | AttackPattern | AutonomousSystem | Campaign | CourseOfAction | Directory | DomainName | EmailAddress | EmailMessage | File | Grouping | IPv4Address | IPv6Address | Identity | Incident | Indicator | Infrastructure | IntrusionSet | Location | MACAddress | Malware | MalwareAnalysis | Mutex | NetworkTraffic | Note | ObservedData | Opinion | Process | Report | Sighting | Software | ThreatActor | Tool | Url | UserAccount | Vulnerability | WindowsRegistryKey | X509Certificate
-
 type StixRelationship {
   confidence: Float
   created: String!
@@ -4759,11 +4755,11 @@ type User {
   createdAt: DateTime!
   email: String!
   firstName: String!
+  id: ID!
   isEmailVerified: Boolean!
   lastName: String!
   roles: [Role!]!
   updatedAt: DateTime!
-  userId: ID!
 }
 
 type UserAccount {

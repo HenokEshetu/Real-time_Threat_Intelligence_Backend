@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { TokenBlacklistService } from 'src/user-management/services/auth/auth-token/token-blacklist.service';
+import { TokenBlacklistService } from 'src/user-management/services/auth/token-blacklist.service';
 import { AuthenticationError } from '../../utils/error.util';
 import { SignOutDto } from 'src/user-management/dto/sign-out.dto';
 

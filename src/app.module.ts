@@ -3,6 +3,8 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { CtiPlatformModule } from './cti_platform/cti_platform.module';
 import { UserManagementModule } from './user-management/user-management.module';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './user-management/guards/jwt-auth.guard';
 import { join } from 'path';
 
 @Module({
@@ -20,12 +22,6 @@ import { join } from 'path';
     CtiPlatformModule,
     UserManagementModule,
   ],
-  providers: [
-    // Apply JWT Auth Guard globally for all routes, including GraphQL
-    
-      
-       // Apply the JwtAuthGuard globally
-   
-  ],
+  providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
 })
 export class AppModule {}
