@@ -1,21 +1,28 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { StixRelationship } from './relationship.entity';
 import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
 import { StixValidationError } from '../../../core/exception/custom-exceptions';
 import { SearchRelationshipInput } from './relationship.resolver';
+import { BaseStixService } from '../base-stix.service';
+import { PUB_SUB } from '../../pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { StixObject } from '../stix-objects-union';
 
-import { v5 as uuidv5 } from 'uuid';
+export interface ExpandedRelationship {
+  relationship: StixRelationship;
+  source_object: typeof StixObject | undefined;
+  target_object: typeof StixObject | undefined;
+}
 
-// Define the UUID namespace (DNS namespace in this example)
-const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
 
 @Injectable()
-export class RelationshipService implements OnModuleInit {
-  private readonly client: Client;
+export class RelationshipService extends BaseStixService<StixRelationship> implements OnModuleInit {
+  protected typeName = 'stix-relationship';
   private readonly index = 'stix-relationships';
 
-  
+
   private readonly validRelationships = new Map<string, Set<string>>([
     ['attack-pattern', new Set(['delivers', 'targets', 'uses'])],
     ['campaign', new Set(['attributed-to', 'compromises', 'originates-from', 'targets', 'uses'])],
@@ -29,7 +36,9 @@ export class RelationshipService implements OnModuleInit {
     ['threat-actor', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'impersonates', 'located-at', 'targets', 'uses'])],
     ['tool', new Set(['delivers', 'drops', 'has', 'targets'])],
   ]);
-  
+
+  private readonly logger = new Logger(RelationshipService.name);
+
   private readonly validTargets = new Map<string, Set<string>>([
     ['delivers', new Set(['malware'])],
     ['targets', new Set(['identity', 'location', 'vulnerability', 'infrastructure'])],
@@ -80,19 +89,15 @@ export class RelationshipService implements OnModuleInit {
     ['owns', new Set(['infrastructure'])],
     ['impersonates', new Set(['identity'])],
   ]);
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.client = new Client(clientOptions);
+
+
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
+
 
   async onModuleInit() {
     await this.ensureIndex();
@@ -108,35 +113,44 @@ export class RelationshipService implements OnModuleInit {
         createRelationshipInput.target_ref
       );
 
-      // Generate deterministic ID based on relationship properties
-      const idSeed = [
-        createRelationshipInput.source_ref,
-        createRelationshipInput.relationship_type,
-        createRelationshipInput.target_ref,
-        createRelationshipInput.start_time || '',
-        createRelationshipInput.stop_time || '',
-        Date.now().toString() // Ensure uniqueness for concurrent requests
-      ].join('|');
+     
+
+      // Current timestamp for created/modified
+      const now = new Date();
 
       const relationship: StixRelationship = {
         ...createRelationshipInput,
-        id: createRelationshipInput.id || `relationship--${uuidv5(idSeed, NAMESPACE)}`,
+        id: createRelationshipInput.id,
         type: 'relationship',
         spec_version: '2.1',
-        start_time: createRelationshipInput.start_time 
-          ? new Date(createRelationshipInput.start_time).toISOString() 
-          : undefined,
-        stop_time: createRelationshipInput.stop_time 
-          ? new Date(createRelationshipInput.stop_time).toISOString() 
-          : undefined,
-        created: new Date().toISOString(),
-        modified: new Date().toISOString(),
+        start_time: this.safeParseDate(createRelationshipInput.start_time).toISOString(),
+        stop_time: this.safeParseDate(createRelationshipInput.stop_time)?.toISOString(),
+        created: now.toISOString(),
+        modified: now.toISOString(),
       };
+       // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: relationship.id,
+    });
 
-      const response = await this.client.index({
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: relationship.id });
+      
+      const existingDoc = await this.findOne(relationship.id);
+      return existingDoc;
+    }
+
+      const response = await this.openSearchService.index({
         index: this.index,
         id: relationship.id,
-        body: relationship,
+        body: {
+          ...relationship,
+          start_time: relationship.start_time,
+          stop_time: relationship.stop_time,
+          created: relationship.created,
+          modified: relationship.modified,
+        },
         refresh: 'wait_for',
       }).catch(error => {
         throw new Error(`OpenSearch error: ${this.safeGetErrorMessage(error)}`);
@@ -146,7 +160,9 @@ export class RelationshipService implements OnModuleInit {
         throw new Error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
       }
 
+      await this.publishCreated(relationship);
       return relationship;
+
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Failed to create relationship',
@@ -156,6 +172,20 @@ export class RelationshipService implements OnModuleInit {
       });
     }
   }
+
+  // Helper method for safe date parsing (returns Date or undefined)
+  private safeParseDate(dateInput?: Date | string | number): Date | undefined {
+    if (!dateInput) return undefined;
+
+    try {
+      const date = dateInput instanceof Date ? dateInput : new Date(dateInput);
+      return isNaN(date.getTime()) ? undefined : date;
+    } catch {
+      return undefined;
+    }
+  }
+
+
 
   private safeGetErrorMessage(error: any): string {
     if (typeof error === 'string') return error;
@@ -167,7 +197,7 @@ export class RelationshipService implements OnModuleInit {
 
   async findOne(id: string): Promise<StixRelationship> {
     try {
-      const response = await this.client.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
@@ -178,12 +208,12 @@ export class RelationshipService implements OnModuleInit {
         id: response.body._id,
         type: 'relationship' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         source_ref: source.source_ref,
         target_ref: source.target_ref,
         relationship_type: source.relationship_type,
-        
+
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -209,12 +239,12 @@ export class RelationshipService implements OnModuleInit {
       const existingRelationship = await this.findOne(id);
       const updatedFields = {
         ...updateRelationshipInput,
-        start_time: updateRelationshipInput.start_time ? new Date(updateRelationshipInput.start_time).toISOString() : existingRelationship.start_time,
-        stop_time: updateRelationshipInput.stop_time ? new Date(updateRelationshipInput.stop_time).toISOString() : existingRelationship.stop_time,
-        modified: new Date().toISOString(),
+        start_time: updateRelationshipInput.start_time ? new Date(updateRelationshipInput.start_time) : existingRelationship.start_time,
+        stop_time: updateRelationshipInput.stop_time ? new Date(updateRelationshipInput.stop_time) : existingRelationship.stop_time,
+        modified: new Date(),
       };
 
-      const response = await this.client.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedFields },
@@ -225,8 +255,17 @@ export class RelationshipService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update relationship');
       }
+      const updatedRelationship: StixRelationship = {
+        ...existingRelationship,
+        ...updatedFields,
+        spec_version: existingRelationship.spec_version || '2.1',
+        start_time: updatedFields.start_time instanceof Date ? updatedFields.start_time.toISOString() : updatedFields.start_time,
+        stop_time: updatedFields.stop_time instanceof Date ? updatedFields.stop_time.toISOString() : updatedFields.stop_time,
+        modified: updatedFields.modified instanceof Date ? updatedFields.modified.toISOString() : updatedFields.modified,
+      };
 
-      return await this.findOne(id);
+      await this.publishUpdated(updatedRelationship);
+      return updatedRelationship;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException({
@@ -238,13 +277,18 @@ export class RelationshipService implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.client.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
         refresh: 'wait_for',
       });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
-    } catch (error) {
+    }
+    catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
       }
@@ -257,9 +301,9 @@ export class RelationshipService implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.client.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.client.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {
@@ -273,7 +317,7 @@ export class RelationshipService implements OnModuleInit {
                 description: { type: 'text' },
                 created: { type: 'date' },
                 modified: { type: 'date' },
-                start_time: { type: 'date' },
+                start_time: { type: 'text' },
                 stop_time: { type: 'date' },
               },
             },
@@ -339,7 +383,7 @@ export class RelationshipService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -361,7 +405,7 @@ export class RelationshipService implements OnModuleInit {
         queryBuilder.query.bool.minimum_should_match = 1;
       }
 
-      const response = await this.client.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -385,11 +429,11 @@ export class RelationshipService implements OnModuleInit {
           source_ref: hit._source.source_ref,
           target_ref: hit._source.target_ref,
           relationship_type: hit._source.relationship_type,
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           start_time: hit._source.start_time,
           stop_time: hit._source.stop_time,
-         
+
         })),
       };
     } catch (error) {
@@ -402,7 +446,7 @@ export class RelationshipService implements OnModuleInit {
 
   async findRelatedObjects(objectId: string): Promise<StixRelationship[]> {
     try {
-      const response = await this.client.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         body: {
           query: {
@@ -429,7 +473,6 @@ export class RelationshipService implements OnModuleInit {
         modified: hit._source.modified || new Date().toISOString(),
         start_time: hit._source.start_time,
         stop_time: hit._source.stop_time,
-        
       }));
     } catch (error) {
       throw new InternalServerErrorException({
@@ -439,56 +482,61 @@ export class RelationshipService implements OnModuleInit {
     }
   }
 
-  async findExpandedRelatedObjects(objectId: string): Promise<any[]> {
+  async findExpandedRelatedObjects(
+    objectId: string,
+  ): Promise<ExpandedRelationship[]> {
     try {
-      // Fetch relationships
       const relationships = await this.findRelatedObjects(objectId);
       if (!relationships.length) return [];
 
-      // Collect unique related object IDs
-      const relatedObjectIds = new Set<string>();
+      const relatedIds = new Set<string>();
       relationships.forEach((rel) => {
-        relatedObjectIds.add(rel.source_ref);
-        relatedObjectIds.add(rel.target_ref);
+        if (rel.source_ref !== objectId) relatedIds.add(rel.source_ref);
+        if (rel.target_ref !== objectId) relatedIds.add(rel.target_ref);
       });
-      relatedObjectIds.delete(objectId);
 
-      if (relatedObjectIds.size === 0) return [];
+      const objects = await this.getObjectsByIds(Array.from(relatedIds));
 
-      const relatedIdsArray = Array.from(relatedObjectIds);
-      const chunkSize = 1000; // Configurable based on OpenSearch limits
-      const results: any[] = [];
+      const objectMap = new Map<string, typeof StixObject>(
+        objects.map((o) => [o.id, o]),
+      );
 
-      // Process in batches
-      for (let i = 0; i < relatedIdsArray.length; i += chunkSize) {
-        const chunk = relatedIdsArray.slice(i, i + chunkSize);
-
-        const response = await this.client.search({
-          index: 'stix-objects',
-          body: {
-            query: {
-              terms: { id: chunk },
-            },
-            // Only fetch necessary fields to reduce payload
-            _source: ['id', 'type', 'name', 'created', 'modified'],
-          },
-        });
-
-        const chunkResults = response.body.hits.hits.map((hit) => ({
-          ...hit._source,
-          id: hit._id,
-          
-        }));
-
-        results.push(...chunkResults);
-      }
-
-      return results;
+      return relationships.map((rel) => ({
+        relationship: rel,
+        source_object: objectMap.get(rel.source_ref),
+        target_object: objectMap.get(rel.target_ref),
+      }));
     } catch (error) {
       throw new InternalServerErrorException({
         message: 'Failed to fetch expanded related objects',
         details: error.meta?.body?.error || error.message,
       });
     }
+  }
+
+  async getObjectsByIds(ids: string[]): Promise<(typeof StixObject)[]> {
+    if (!ids.length) return [];
+
+    const response = await this.openSearchService.search({
+      index: '*',
+      body: {
+        query: { terms: { id: ids } },
+        size: ids.length,
+      },
+    });
+
+    return response.body.hits.hits.map(
+      (hit) =>
+        ({
+          ...hit._source,
+          id: hit._id,
+          valid_from: hit._source.valid_from
+            ? new Date(hit._source.valid_from)
+            : new Date(),
+          valid_until: hit._source.valid_until
+            ? new Date(hit._source.valid_until)
+            : new Date(),
+        }) as typeof StixObject,
+    );
   }
 }

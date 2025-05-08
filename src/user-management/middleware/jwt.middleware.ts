@@ -1,7 +1,7 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '@nestjs/jwt';
-import { UserService } from '../services/user/user.service';
+import { UserService } from '../services/user.service';
 
 @Injectable()
 export class JwtMiddleware implements NestMiddleware {
@@ -9,7 +9,7 @@ export class JwtMiddleware implements NestMiddleware {
     private jwtService: JwtService,
     private userService: UserService,
   ) {}
-  
+
   async use(req: Request, res: Response, next: NextFunction) {
     const authHeader = req.headers.authorization;
     if (authHeader && authHeader.startsWith('Bearer ')) {

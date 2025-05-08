@@ -4,6 +4,7 @@ import { NetworkTraffic } from './network-traffic.entity';
 import { CreateNetworkTrafficInput, UpdateNetworkTrafficInput } from './network-traffic.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchNetworkTrafficInput extends PartialType(CreateNetworkTrafficInput) {}
 
@@ -22,8 +23,11 @@ export class NetworkTrafficSearchResult {
 }
 
 @Resolver(() => NetworkTraffic)
-export class NetworkTrafficResolver {
-  constructor(private readonly networkTrafficService: NetworkTrafficService) {}
+export class NetworkTrafficResolver extends BaseStixResolver(NetworkTraffic) {
+  public typeName = ' network-traffic';
+  constructor(private readonly networkTrafficService: NetworkTrafficService) {
+    super()
+  }
 
   @Mutation(() => NetworkTraffic)
   async createNetworkTraffic(

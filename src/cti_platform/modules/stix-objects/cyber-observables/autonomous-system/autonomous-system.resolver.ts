@@ -3,6 +3,7 @@ import { AutonomousSystemService } from './autonomous-system.service';
 import { AutonomousSystem } from './autonomous-system.entity';
 import { CreateAutonomousSystemInput, UpdateAutonomousSystemInput } from './autonomous-system.input';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchAutonomousSystemInput extends PartialType(CreateAutonomousSystemInput) {}
 
@@ -21,8 +22,11 @@ export class AutonomousSystemSearchResult  {
 }
 
 @Resolver(() => AutonomousSystem)
-export class AutonomousSystemResolver {
-  constructor(private readonly autonomousSystemService: AutonomousSystemService) {}
+export class AutonomousSystemResolver extends BaseStixResolver(AutonomousSystem) {
+  public typeName = 'autonomous-system';
+  constructor(private readonly autonomousSystemService: AutonomousSystemService) {
+    super()
+  }
 
   @Mutation(() => AutonomousSystem)
   async createAutonomousSystem(

@@ -4,6 +4,7 @@ import { ThreatActor } from './threat-actor.entity';
 import { CreateThreatActorInput, UpdateThreatActorInput } from './threat-actor.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchThreatActorInput extends PartialType(CreateThreatActorInput){}
@@ -23,8 +24,12 @@ export class ThreatActorSearchResult {
 }
 
 @Resolver(() => ThreatActor)
-export class ThreatActorResolver {
-  constructor(private readonly threatActorService: ThreatActorService) {}
+export class ThreatActorResolver extends BaseStixResolver(ThreatActor) {
+  public typeName = 'threat-actor';
+  
+  constructor(private readonly threatActorService: ThreatActorService) {
+    super()
+  }
 
   @Mutation(() => ThreatActor)
   async createThreatActor(

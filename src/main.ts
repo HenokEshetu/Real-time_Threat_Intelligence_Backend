@@ -4,17 +4,21 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Enable CORS
+  // Allow ALL origins (for testing only)
   app.enableCors({
-    origin: '*', // Allow frontend origin
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
-    credentials: true,
+    origin: true,  
+    methods: ['GET', 'POST', 'OPTIONS'],
+    allowedHeaders: ['Content-Type'],
   });
 
-  const port = process.env.PORT ?? 4000;
-  await app.listen(port);
+  const port = 3000;
+  await app.listen(port, '0.0.0.0'); // Listen on all network interfaces
 
-  console.log(` Server running at http://localhost:${port}`);
-  console.log(`GraphQL Playground available at http://localhost:${port}/graphql`);
+  console.log(`
+   Backend is running on:
+  - Local: http://localhost:${port}
+  - Network: http://10.161.173.25:${port}
+  - GraphQL Playground: http://10.161.173.25:${port}/graphql
+  `);
 }
 bootstrap();

@@ -6,6 +6,7 @@ import { ObjectType, Field } from '@nestjs/graphql';
 
 
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchAttackPatternInput extends PartialType(CreateAttackPatternInput){}
@@ -26,8 +27,11 @@ export class AttackPatternSearchResult {
 }
 
 @Resolver(() => AttackPattern)
-export class AttackPatternResolver {
-  constructor(private readonly attackPatternService: AttackPatternService) {}
+export class AttackPatternResolver extends BaseStixResolver(AttackPattern){
+  public typeName = 'attack-pattern';
+  constructor(private readonly attackPatternService: AttackPatternService) {
+    super();
+  }
 
   @Mutation(() => AttackPattern)
   async createAttackPattern(

@@ -9,6 +9,7 @@ export class SearchIPv6AddressInput extends PartialType(CreateIPv6AddressInput) 
 
 
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @ObjectType()
 export class IPv6AddressSearchResult {
@@ -29,8 +30,11 @@ export class IPv6AddressSearchResult {
 }
 
 @Resolver(() => IPv6Address)
-export class IPv6AddressResolver {
-  constructor(private readonly ipv6AddressService: IPv6AddressService) {}
+export class IPv6AddressResolver extends BaseStixResolver(IPv6Address) {
+  public typeName = ' ipv6-addr';
+  constructor(private readonly ipv6AddressService: IPv6AddressService) {
+    super()
+  }
 
   @Mutation(() => IPv6Address)
   async createIPv6Address(

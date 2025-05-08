@@ -634,7 +634,6 @@ const STIX_SDO_TYPES: StixType[] = [
   
 ];
 const STIX_RELATIONSHIP_TYPES: StixType[] = ['relationship', 'sighting'];
-
 function* processMispObject(mispObject: any, eventTimestamp: number): Generator<GenericStixObject, void, unknown> {
   console.log(`Processing MISP object: ${JSON.stringify(mispObject, null, 2).substring(0, 500)}`);
   const timestamp = mispObject.timestamp || eventTimestamp;
@@ -848,7 +847,7 @@ function* processMispObject(mispObject: any, eventTimestamp: number): Generator<
             ipObj.id,
             'resolves-to',
             timestamp,
-            'Domain resolves to IP address',
+            'Domain resolves to IP address'
           );
           yield domainObj;
           yield ipObj;
@@ -1199,6 +1198,7 @@ function* processMispObject(mispObject: any, eventTimestamp: number): Generator<
           name: mispObject.attributes?.find((a: any) => a.object_relation === 'title')?.value || 'Unknown Report',
           description: mispObject.attributes?.find((a: any) => a.object_relation === 'description')?.value,
           published: moment(timestamp * 1000).toISOString(),
+          report_types: ['threat-report'], // Set to a valid STIX report type
           object_refs: [],
           created: moment(timestamp * 1000).toISOString(),
           modified: moment(timestamp * 1000).toISOString(),
@@ -1423,14 +1423,22 @@ export function* processMispData(raw: any): Generator<GenericStixObject, void, u
     if (isEvent) {
       const tlpMarking = createTLPMarking('white', eventTimestamp);
       const reportId = generateStixId('report', event.uuid || uuidv5('misp-event', NAMESPACE));
+      // Define valid STIX report types
+      const validReportTypes = ['threat-report', 'campaign-report', 'attack-pattern-report', 'malware-report', 'vulnerability-report'];
+      const reportTypes = event.Tag
+        ? event.Tag
+            .filter((t: any) => t.name.startsWith('report-type:'))
+            .map((t: any) => t.name.split(':')[1])
+            .filter((type: string) => validReportTypes.includes(type))
+        : ['threat-report'];
+
       report = {
         id: reportId,
         type: 'report',
         spec_version: STIX_VERSION,
         name: event.info || 'MISP Event Report',
         description: event.extended_info || event.info || 'Report generated from MISP event',
-        report_types: event.Tag?.filter((t: any) => t.name.startsWith('report-type:'))
-          .map((t: any) => t.name.split(':')[1]) || ['threat-report'],
+        report_types: reportTypes.length > 0 ? reportTypes : ['threat-report'], // Ensure array of valid report types
         published: event.publish_timestamp
           ? moment(event.publish_timestamp * 1000).toISOString()
           : moment(event.date * 1000).toISOString(),
@@ -1457,7 +1465,7 @@ export function* processMispData(raw: any): Generator<GenericStixObject, void, u
     for (const attr of attributes) {
       try {
         console.log(`Processing MISP attribute: ${JSON.stringify(attr, null, 2)}`);
-        const mapping = MISP_TO_STIX_MAPPING[attr.type ] || MISP_TO_STIX_MAPPING.default ;
+        const mapping = MISP_TO_STIX_MAPPING[attr.type] || MISP_TO_STIX_MAPPING.default;
         const stixType: StixType = mapping.type;
         const isSDO = mapping.isSDO || false;
         const value = attr.value || '';
@@ -1569,6 +1577,7 @@ export function* processMispData(raw: any): Generator<GenericStixObject, void, u
           } else if (stixType === 'report') {
             objectToAdd.published = baseObject.created;
             objectToAdd.object_refs = [];
+            objectToAdd.report_types = ['threat-report']; // Set valid report type
           }
         } else {
           switch (stixType) {
@@ -1770,7 +1779,7 @@ export function* processMispData(raw: any): Generator<GenericStixObject, void, u
               id: generateStixId('indicator', attrUuid),
               type: 'indicator',
               pattern: objectToAdd.pattern || `[${stixType}:value = '${value.replace(/'/g, "\\'")}']`,
-              name:objectToAdd.value,
+              name: objectToAdd.value,
               pattern_type: 'stix',
               valid_from: baseObject.created,
               object_marking_refs: [tlpMarking.id],
@@ -1841,60 +1850,60 @@ export function* processMispData(raw: any): Generator<GenericStixObject, void, u
     }
 
     const processedPairs = new Set<string>();
-for (const sourceObj of Object.values(stixObjectMap)) {
-  const allowedRelationshipTypes = validRelationships.get(sourceObj.type) || new Set();
-  if (allowedRelationshipTypes.size === 0) continue;
+    for (const sourceObj of Object.values(stixObjectMap)) {
+      const allowedRelationshipTypes = validRelationships.get(sourceObj.type) || new Set();
+      if (allowedRelationshipTypes.size === 0) continue;
 
-  for (const targetObj of Object.values(stixObjectMap)) {
-    if (sourceObj.id === targetObj.id || STIX_RELATIONSHIP_TYPES.includes(targetObj.type)) continue;
+      for (const targetObj of Object.values(stixObjectMap)) {
+        if (sourceObj.id === targetObj.id || STIX_RELATIONSHIP_TYPES.includes(targetObj.type)) continue;
 
-    for (const relType of allowedRelationshipTypes) {
-      const allowedTargetsForRel = validTargets.get(relType) || new Set();
-      if (!allowedTargetsForRel.has(targetObj.type)) continue;
+        for (const relType of allowedRelationshipTypes) {
+          const allowedTargetsForRel = validTargets.get(relType) || new Set();
+          if (!allowedTargetsForRel.has(targetObj.type)) continue;
 
-      const pairKey = `${sourceObj.id}_${targetObj.id}_${relType}`;
-      if (processedPairs.has(pairKey)) continue;
+          const pairKey = `${sourceObj.id}_${targetObj.id}_${relType}`;
+          if (processedPairs.has(pairKey)) continue;
 
-      let inferredType: string | null = null;
-      if (sourceObj.type === 'malware' && targetObj.type === 'file' && sourceObj.labels?.includes('dropper')) {
-        inferredType = 'drops';
-      } else if (sourceObj.type === 'malware' && targetObj.type === 'file' && targetObj.labels?.includes('delivered')) {
-        inferredType = 'delivers';
-      } else if (sourceObj.type === 'threat-actor' && targetObj.type === 'campaign') {
-        inferredType = 'attributed-to';
-      } else if (sourceObj.type === 'indicator' && relType === 'indicates') {
-        // Explicitly validate that target is a valid SDO for 'indicates'
-        const validIndicatesTargets = new Set(['attack-pattern', 'campaign', 'infrastructure', 'intrusion-set', 'malware', 'threat-actor', 'tool']);
-        if (validIndicatesTargets.has(targetObj.type)) {
-          inferredType = 'indicates';
-        } else {
-          console.warn(`Skipping invalid 'indicates' relationship from indicator to ${targetObj.type}: ${sourceObj.id} -> ${targetObj.id}`);
-          continue;
-        }
-      }
+          let inferredType: string | null = null;
+          if (sourceObj.type === 'malware' && targetObj.type === 'file' && sourceObj.labels?.includes('dropper')) {
+            inferredType = 'drops';
+          } else if (sourceObj.type === 'malware' && targetObj.type === 'file' && targetObj.labels?.includes('delivered')) {
+            inferredType = 'delivers';
+          } else if (sourceObj.type === 'threat-actor' && targetObj.type === 'campaign') {
+            inferredType = 'attributed-to';
+          } else if (sourceObj.type === 'indicator' && relType === 'indicates') {
+            // Explicitly validate that target is a valid SDO for 'indicates'
+            const validIndicatesTargets = new Set(['attack-pattern', 'campaign', 'infrastructure', 'intrusion-set', 'malware', 'threat-actor', 'tool']);
+            if (validIndicatesTargets.has(targetObj.type)) {
+              inferredType = 'indicates';
+            } else {
+              console.warn(`Skipping invalid 'indicates' relationship from indicator to ${targetObj.type}: ${sourceObj.id} -> ${targetObj.id}`);
+              continue;
+            }
+          }
 
-      if (inferredType) {
-        const relationshipId = generateStixId('relationship', `${sourceObj.id}_${inferredType}_${targetObj.id}`);
-        if (!createdRelationships.has(relationshipId)) {
-          const relationship = createRelationship(
-            sourceObj.id,
-            targetObj.id,
-            inferredType,
-            eventTimestamp,
-            `Inferred: ${sourceObj.type} ${inferredType} ${targetObj.type}`,
-            moment(eventTimestamp * 1000).toISOString(),
-            undefined
-          );
-          console.log(`Creating inferred relationship: ${sourceObj.type} (${sourceObj.id}) ${inferredType} ${targetObj.type} (${targetObj.id})`);
-          yield relationship;
-          createdRelationships.add(relationshipId);
-          if (report) report.object_refs.push(relationship.id);
-          processedPairs.add(pairKey);
+          if (inferredType) {
+            const relationshipId = generateStixId('relationship', `${sourceObj.id}_${inferredType}_${targetObj.id}`);
+            if (!createdRelationships.has(relationshipId)) {
+              const relationship = createRelationship(
+                sourceObj.id,
+                targetObj.id,
+                inferredType,
+                eventTimestamp,
+                `Inferred: ${sourceObj.type} ${inferredType} ${targetObj.type}`,
+                moment(eventTimestamp * 1000).toISOString(),
+                undefined
+              );
+              console.log(`Creating inferred relationship: ${sourceObj.type} (${sourceObj.id}) ${inferredType} ${targetObj.type} (${targetObj.id})`);
+              yield relationship;
+              createdRelationships.add(relationshipId);
+              if (report) report.object_refs.push(relationship.id);
+              processedPairs.add(pairKey);
+            }
+          }
         }
       }
     }
-  }
-}
 
     // Process Domain-IP Relationships
     for (const obj of Object.values(stixObjectMap)) {
@@ -1976,7 +1985,11 @@ for (const sourceObj of Object.values(stixObjectMap)) {
   }
 }
 
+
 function* processAlienVaultOTXPulse(raw: any): Generator<GenericStixObject, void, unknown> {
+
+  
+  
   try {
     console.log(`[alienVaultOTX] Starting processing of AlienVault OTX pulse data: ${JSON.stringify(raw, null, 2).substring(0, 1000)}`);
     if (!raw || typeof raw !== 'object' || !raw.indicators || !Array.isArray(raw.indicators)) {
@@ -1997,7 +2010,7 @@ function* processAlienVaultOTXPulse(raw: any): Generator<GenericStixObject, void
     const attackIds = Array.isArray(raw.attack_ids) ? raw.attack_ids : [];
     const tlp = (raw.tlp || 'white') as 'white' | 'green' | 'amber' | 'red';
 
-    // Calculate confidence 
+    // Calculate confidence
     const confidence = Math.min(
       100,
       Math.max(
@@ -2010,7 +2023,7 @@ function* processAlienVaultOTXPulse(raw: any): Generator<GenericStixObject, void
       )
     );
 
-    // External references (unchanged)
+    // External references
     const externalReferences = raw.references && Array.isArray(raw.references)
       ? raw.references.map((ref: string, index: number) => ({
           source_name: 'AlienVault OTX Reference',
@@ -2028,28 +2041,76 @@ function* processAlienVaultOTXPulse(raw: any): Generator<GenericStixObject, void
       });
     }
 
+
+
+    
     // Create TLP marking
     const tlpMarking = createTLPMarking(tlp, timestamp);
     console.log(`[alienVaultOTX] Created TLP marking for pulse ${pulseId}: TLP ${tlp}, ID ${tlpMarking.id}`);
     yield tlpMarking;
     stixObjectMap[tlpMarking.id] = tlpMarking;
 
-    // Create STIX report
-    const report: GenericStixObject = {
-      id: generateStixId('report', pulseId),
-      type: 'report',
-      spec_version: STIX_VERSION,
-      name: pulseName,
-      description: pulseDescription,
-      published: created,
-      object_refs: [],
-      labels: ['alienvault-otx', 'osint', ...tags, ...(adversary ? [`adversary:${adversary}`] : [])],
-      created,
-      modified,
-      confidence,
-      external_references: externalReferences.length > 0 ? externalReferences : undefined,
-      object_marking_refs: [tlpMarking.id],
+
+    const determineReportTypes = () => {
+      const types = new Set<string>(['threat-report']); // Default mandatory type
+      
+      // 1. Check for MITRE ATT&CK content
+      if (attackIds.length > 0) {
+        types.add('attack-pattern');
+      }
+    
+      // 2. Analyze adversary information
+      if (adversary) {
+        types.add('campaign');
+        if (adversary.toLowerCase().includes('apt')) {
+          types.add('intrusion-set');
+        }
+      }
+    
+      // 3. Process tags for specific threats
+      const tagMapping: Record<string, string> = {
+        'malware': 'malware',
+        'ransomware': 'malware',
+        'phishing': 'phishing',
+        'vulnerability': 'vulnerability',
+        'botnet': 'tool',
+        'apt': 'intrusion-set',
+        'campaign': 'campaign',
+        'threat-actor': 'threat-actor'
+      };
+    
+      tags.forEach(tag => {
+        const normalizedTag = tag.toLowerCase();
+        if (tagMapping[normalizedTag]) {
+          types.add(tagMapping[normalizedTag]);
+        }
+      });
+    
+      // 4. Special case for indicators-heavy reports
+      if (raw.indicators.length > 5) { // Arbitrary threshold for "indicator-heavy"
+        types.add('indicator');
+      }
+    
+      return Array.from(types);
     };
+
+// Create STIX report
+const report: GenericStixObject = {
+  id: generateStixId('report', pulseId),
+  type: 'report',
+  spec_version: STIX_VERSION,
+  name: pulseName,
+  description: pulseDescription,
+  published: created,
+  object_refs: [],
+  report_types: determineReportTypes(), 
+  labels: ['alienvault-otx', 'osint', ...tags, ...(adversary ? [`adversary:${adversary}`] : [])],
+  created,
+  modified,
+  confidence,
+  external_references: externalReferences.length > 0 ? externalReferences : undefined,
+  object_marking_refs: [tlpMarking.id],
+};
     console.log(`[alienVaultOTX] Created STIX report for pulse ${pulseId}: ${report.id}, ${report.name}`);
     yield report;
     stixObjectMap[report.id] = report;
@@ -2250,11 +2311,7 @@ function* processAlienVaultOTXPulse(raw: any): Generator<GenericStixObject, void
   }
 }
 
-
-
-
 function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, unknown> {
-
   const isValidMd5 = (hash: string): boolean => {
     return /^[0-9a-fA-F]{32}$/.test(hash);
   };
@@ -2266,36 +2323,6 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
   const isValidSha256 = (hash: string): boolean => {
     return /^[0-9a-fA-F]{64}$/.test(hash);
   };
-  
-  // Valid Relationships and Targets (from MISP mapper)
-  const validRelationships = new Map<string, Set<string>>([
-    ['attack-pattern', new Set(['delivers', 'targets', 'uses'])],
-    ['campaign', new Set(['attributed-to', 'compromises', 'originates-from', 'targets', 'uses'])],
-    ['course-of-action', new Set(['investigates', 'mitigates'])],
-    ['identity', new Set(['located-at'])],
-    ['indicator', new Set(['indicates', 'based-on'])],
-    ['infrastructure', new Set(['communicates-with', 'consists-of', 'controls', 'delivers', 'has', 'hosts', 'located-at', 'uses'])],
-    ['intrusion-set', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'originates-from', 'targets', 'uses'])],
-    ['malware', new Set(['authored-by', 'beacons-to', 'exfiltrate-to', 'communicates-with', 'controls', 'downloads', 'drops', 'exploits', 'originates-from', 'targets', 'uses', 'variant-of'])],
-    ['malware-analysis', new Set(['characterizes', 'analysis-of', 'static-analysis-of', 'dynamic-analysis-of'])],
-    ['threat-actor', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'impersonates', 'located-at', 'targets', 'uses'])],
-    ['tool', new Set(['delivers', 'drops', 'has', 'targets'])],
-  ]);
-  
-  const validTargets = new Map<string, Set<string>>([
-    ['delivers', new Set(['malware'])],
-    ['targets', new Set(['identity', 'location', 'vulnerability', 'infrastructure'])],
-    ['uses', new Set(['attack-pattern', 'infrastructure', 'malware', 'tool'])],
-    ['attributed-to', new Set(['intrusion-set', 'threat-actor', 'identity'])],
-    ['compromises', new Set(['infrastructure'])],
-    ['originates-from', new Set(['location'])],
-    ['investigates', new Set(['indicator'])],
-    ['mitigates', new Set(['attack-pattern', 'indicator', 'malware', 'tool', 'vulnerability'])],
-    ['located-at', new Set(['location'])],
-    ['indicates', new Set(['attack-pattern', 'campaign', 'infrastructure', 'intrusion-set', 'malware', 'threat-actor', 'tool'])],
-    ['based-on', new Set(['observed-data'])],
-  ]);
-
 
   try {
     console.log(`Processing Hybrid Analysis data: ${JSON.stringify(raw, null, 2).substring(0, 1000)}`);
@@ -2326,7 +2353,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
     const tags = Array.isArray(raw.tags) ? raw.tags.map((tag: string) => tag.toLowerCase()) : [];
     const tlp = (raw.tlp || 'white') as 'white' | 'green' | 'amber' | 'red';
 
-    // Calculate confidence (unchanged)
+    // Calculate confidence 
     const confidence = Math.min(
       100,
       Math.max(
@@ -2338,7 +2365,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
       )
     );
 
-    // Description (unchanged)
+    // Description
     const description = [
       `Hybrid Analysis sample: ${fileType}`,
       `Verdict: ${verdict}`,
@@ -2348,7 +2375,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
       tags.length > 0 ? `Tags: ${tags.join(', ')}` : null,
     ].filter(Boolean).join('; ');
 
-    // External references (unchanged)
+    // External references 
     const externalReferences = [];
     if (raw.sha256 || raw.md5 || jobId) {
       externalReferences.push({
@@ -2363,7 +2390,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
     const tlpMarking = createTLPMarking(tlp, timestamp);
     yield tlpMarking;
 
-    // Create STIX report
+    // Create STIX report 
     const report: GenericStixObject = {
       id: generateStixId('report', jobId),
       type: 'report',
@@ -2372,6 +2399,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
       description,
       published: created,
       object_refs: [],
+      report_types: ['threat-report'], 
       labels: ['hybrid-analysis', `verdict:${verdict.toLowerCase()}`, ...tags.map((tag: string) => `tag:${tag}`)],
       created,
       modified,
@@ -2469,7 +2497,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
       report.object_refs.push(urlObj.id);
 
       // Create relationship: file → url
-      if (primaryFileObj && validRelationships.get('file')?.has('downloaded-from')) {
+      if (primaryFileObj && this.validRelationships.get('file')?.has('downloaded-from')) {
         const relationship = createRelationship(
           primaryFileObj.id,
           urlObj.id,
@@ -2539,7 +2567,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
           report.object_refs.push(domainObj.id);
 
           // Create relationship: domain → file
-          if (primaryFileObj && validRelationships.get('domain-name')?.has('communicates-with')) {
+          if (primaryFileObj && this.validRelationships.get('domain-name')?.has('communicates-with')) {
             const relationship = createRelationship(
               domainObj.id,
               primaryFileObj.id,
@@ -2619,7 +2647,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
 
           // Create relationships: domain → IP
           for (const domain of domains) {
-            if (isValidDomain(domain) && validRelationships.get('domain-name')?.has('resolves-to')) {
+            if (isValidDomain(domain) && this.validRelationships.get('domain-name')?.has('resolves-to')) {
               const relationship = createRelationship(
                 generateStixId('domain-name', domain),
                 ipObj.id,
@@ -2635,7 +2663,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
           }
 
           // Create relationship: IP → file
-          if (primaryFileObj && validRelationships.get(ipObj.type)?.has('communicates-with')) {
+          if (primaryFileObj && this.validRelationships.get(ipObj.type)?.has('communicates-with')) {
             const relationship = createRelationship(
               ipObj.id,
               primaryFileObj.id,
@@ -2721,7 +2749,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
           report.object_refs.push(extractedFileObj.id);
 
           // Create relationship: extracted file → parent file
-          if (primaryFileObj && validRelationships.get('file')?.has('derived-from')) {
+          if (primaryFileObj && this.validRelationships.get('file')?.has('derived-from')) {
             const relationship = createRelationship(
               extractedFileObj.id,
               primaryFileObj.id,
@@ -2788,7 +2816,7 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
           report.object_refs.push(processFileObj.id);
 
           // Create relationship: process file → parent file
-          if (primaryFileObj && validRelationships.get('file')?.has('executed-by')) {
+          if (primaryFileObj && this.validRelationships.get('file')?.has('executed-by')) {
             const relationship = createRelationship(
               processFileObj.id,
               primaryFileObj.id,
@@ -2908,8 +2936,6 @@ function* processHybridAnalysis(raw: any): Generator<GenericStixObject, void, un
     });
   }
 }
-
-
 
 export const objectMappers: Record<string, 
   ((raw: any) => GenericStixObject | GenericStixObject[]) | 

@@ -4,6 +4,7 @@ import { Directory } from './directory.entity';
 import { CreateDirectoryInput, UpdateDirectoryInput } from './directory.input';
 
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchDirectoryInput extends PartialType(CreateDirectoryInput) {}
 
@@ -26,8 +27,11 @@ export class DirectorySearchResult {
 }
 
 @Resolver(() => Directory)
-export class DirectoryResolver {
-  constructor(private readonly directoryService: DirectoryService) {}
+export class DirectoryResolver extends BaseStixResolver(Directory) {
+  public typeName = 'directory';
+  constructor(private readonly directoryService: DirectoryService) {
+    super()
+  }
 
   @Mutation(() => Directory)
   async createDirectory(

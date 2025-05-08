@@ -4,6 +4,7 @@ import { UserAccount } from './user-account.entity';
 import { CreateUserAccountInput, UpdateUserAccountInput } from './user-account.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchUrlUserAccountInput extends PartialType(CreateUserAccountInput) {}
 
@@ -22,8 +23,11 @@ export class UserAccountSearchResult {
 }
 
 @Resolver(() => UserAccount)
-export class UserAccountResolver {
-  constructor(private readonly userAccountService: UserAccountService) {}
+export class UserAccountResolver extends BaseStixResolver(UserAccount) {
+  public typeName = ' user-account';
+  constructor(private readonly userAccountService: UserAccountService) {
+    super()
+  }
 
   @Mutation(() => UserAccount)
   async createUserAccount(

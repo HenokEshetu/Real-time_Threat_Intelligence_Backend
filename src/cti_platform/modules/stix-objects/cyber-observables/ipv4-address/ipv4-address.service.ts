@@ -1,53 +1,68 @@
-import { Injectable, InternalServerErrorException, NotFoundException,OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException,OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateIPv4AddressInput, UpdateIPv4AddressInput } from './ipv4-address.input';
 import { IPv4Address } from './ipv4-address.entity';
 import { SearchIPv4AddressInput } from './ipv4-address.resolver';
 
-@Injectable()
-export class IPv4AddressService implements OnModuleInit{
-  private readonly index = 'ipv4-addresses';
-  private readonly openSearchClient: Client;
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
-  }
+import { v5 as uuidv5 } from 'uuid';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
+@Injectable()
+export class IPv4AddressService extends BaseStixService<IPv4Address> implements OnModuleInit {
+  private readonly logger = console; // Replace with a proper logger if needed
+  protected typeName = ' ipv4-addr';
+  private readonly index = 'ipv4-addresses'
+
+  constructor(
+        @Inject(PUB_SUB) pubSub: RedisPubSub,
+        @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+      ) {
+        super(pubSub);
+      }
   
   async onModuleInit() {
     await this.ensureIndex();}
 
   async create(createIPv4AddressInput: CreateIPv4AddressInput): Promise<IPv4Address> {
-    const id = `ipv4-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date().toISOString();
+    
+    const now = new Date();
 
     const doc: IPv4Address = {
       ...createIPv4AddressInput,
       
-      id,
+      id: createIPv4AddressInput.id,
       type: 'ipv4-addr' as const,
       spec_version: '2.1',
-      created: now,
-      modified: now,
+      created: now.toISOString(),
+      modified: now.toISOString(),
       value: createIPv4AddressInput.value,
       resolves_to_refs: createIPv4AddressInput.resolves_to_refs || [],
       belongs_to_refs: createIPv4AddressInput.belongs_to_refs || [],
      
     };
 
+// Check if document already exists
+const exists = await this.openSearchService.exists({
+  index: this.index,
+  id: doc.id,
+});
+
+if (exists.body) {
+  this.logger?.warn(`Document already exists`, { id: doc.id });
+  
+  const existingDoc = await this.findOne(doc.id);
+  return existingDoc;
+  
+}
+
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
-        id,
+        id: doc.id,
         body: doc,
         refresh: 'wait_for',
       });
@@ -55,6 +70,7 @@ export class IPv4AddressService implements OnModuleInit{
       if (response.body.result !== 'created') {
         throw new Error('Failed to index document');
       }
+      await this.publishCreated(doc);
       return doc;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -78,7 +94,7 @@ export class IPv4AddressService implements OnModuleInit{
         modified: new Date().toISOString(),
       };
 
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedDoc },
@@ -89,7 +105,14 @@ export class IPv4AddressService implements OnModuleInit{
         throw new Error('Failed to update document');
       }
 
-      return { ...existing, ...updatedDoc };
+      const updatedIPv4Address: IPv4Address = {
+                ...existing,
+                ...updatedDoc,
+                
+                spec_version: existing.spec_version || '2.1',
+              };
+              await this.publishUpdated(updatedIPv4Address);
+      return updatedIPv4Address;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException({
@@ -101,7 +124,7 @@ export class IPv4AddressService implements OnModuleInit{
 
   async findOne(id: string): Promise<IPv4Address> {
     try {
-      const response = await this.openSearchClient.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
@@ -112,8 +135,8 @@ export class IPv4AddressService implements OnModuleInit{
         id,
         type: 'ipv4-addr' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         value: source.value,
         resolves_to_refs: source.resolves_to_refs || [],
         belongs_to_refs: source.belongs_to_refs || [],
@@ -132,10 +155,14 @@ export class IPv4AddressService implements OnModuleInit{
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
       });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -150,7 +177,7 @@ export class IPv4AddressService implements OnModuleInit{
 
   async findByValue(value: string): Promise<IPv4Address[]> {
     try {
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         body: {
           query: {
@@ -164,8 +191,8 @@ export class IPv4AddressService implements OnModuleInit{
         id: hit._id,
         type: 'ipv4-addr' as const,
         spec_version: hit._source.spec_version || '2.1',
-        created: hit._source.created || new Date().toISOString(),
-        modified: hit._source.modified || new Date().toISOString(),
+        created: hit._source.created || new Date(),
+        modified: hit._source.modified || new Date(),
         value: hit._source.value,
         resolves_to_refs: hit._source.resolves_to_refs || [],
         belongs_to_refs: hit._source.belongs_to_refs || [],
@@ -223,7 +250,7 @@ export class IPv4AddressService implements OnModuleInit{
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -238,7 +265,7 @@ export class IPv4AddressService implements OnModuleInit{
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -259,8 +286,8 @@ export class IPv4AddressService implements OnModuleInit{
           id: hit._id,
           type: 'ipv4-addr' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           value: hit._source.value,
           resolves_to_refs: hit._source.resolves_to_refs || [],
           belongs_to_refs: hit._source.belongs_to_refs || [],
@@ -277,9 +304,9 @@ export class IPv4AddressService implements OnModuleInit{
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

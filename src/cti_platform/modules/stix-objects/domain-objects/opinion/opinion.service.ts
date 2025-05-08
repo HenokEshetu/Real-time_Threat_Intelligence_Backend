@@ -1,48 +1,61 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateOpinionInput, UpdateOpinionInput } from './opinion.input';
 import { v4 as uuidv4 } from 'uuid';
 import { Opinion } from './opinion.entity';
 import { SearchOpinionInput } from './opinion.resolver';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class OpinionService implements OnModuleInit {
+export class OpinionService  extends BaseStixService<Opinion> implements OnModuleInit {
+  protected typeName = 'opinion';
   private readonly index = 'opinions';
-  private readonly opensearchClient: Client;
+  private readonly logger = console; // Add a logger property
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.opensearchClient = new Client(clientOptions);
-  }
-
+  constructor(
+          @Inject(PUB_SUB) pubSub: RedisPubSub,
+          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+        ) {
+          super(pubSub);
+        }
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createOpinionInput: CreateOpinionInput): Promise<Opinion> {
+
+    
     const opinion: Opinion = {
       ...createOpinionInput,
       ...(createOpinionInput.object_refs ? { object_refs: createOpinionInput.object_refs } : {}),
-      id: `opinion--${uuidv4()}`,
+      id: createOpinionInput.id,
       type: 'opinion' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
-      modified: new Date().toISOString(),
+      modified: new Date(). toISOString(),
       opinion: createOpinionInput.opinion, // Required field
       
     };
 
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: opinion.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: opinion.id });
+
+      const existingDoc = await this.findOne(opinion.id);
+      return existingDoc;
+
+    }
+
     try {
-      const response = await this.opensearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: opinion.id,
         body: opinion,
@@ -52,6 +65,7 @@ export class OpinionService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index opinion');
       }
+      await this.publishCreated(opinion);
       return opinion;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -63,7 +77,7 @@ export class OpinionService implements OnModuleInit {
 
   async findOne(id: string): Promise<Opinion> {
     try {
-      const response = await this.opensearchClient.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
@@ -77,8 +91,8 @@ export class OpinionService implements OnModuleInit {
         explanation:source.explanation,
         object_refs:source.object_refs,
 
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         opinion: source.opinion, // Required field
         
       };
@@ -99,10 +113,10 @@ export class OpinionService implements OnModuleInit {
       const updatedOpinion: Opinion = {
         ...existingOpinion,
         ...updateOpinionInput,
-        modified: new Date().toISOString(),
+        modified: new Date(). toISOString(),
       };
 
-      const response = await this.opensearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedOpinion },
@@ -113,7 +127,7 @@ export class OpinionService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update opinion');
       }
-
+      await this.publishUpdated(updatedOpinion);
       return updatedOpinion;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -126,12 +140,17 @@ export class OpinionService implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.opensearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
+
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -176,7 +195,7 @@ export class OpinionService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -208,7 +227,7 @@ export class OpinionService implements OnModuleInit {
         queryBuilder.query.bool.minimum_should_match = 1;
       }
 
-      const response = await this.opensearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -231,8 +250,8 @@ export class OpinionService implements OnModuleInit {
           spec_version: hit._source.spec_version || '2.1',
           explanation:hit._source.explanation,
           object_refs:hit._source.object_refs,
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           opinion: hit._source.opinion, // Required field
           
         })),
@@ -247,9 +266,9 @@ export class OpinionService implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.opensearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.opensearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

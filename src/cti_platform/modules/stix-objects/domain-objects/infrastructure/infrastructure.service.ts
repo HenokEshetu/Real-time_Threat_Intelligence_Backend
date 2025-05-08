@@ -1,38 +1,37 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, Inject } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Client,  } from '@opensearch-project/opensearch';
 import { CreateInfrastructureInput, UpdateInfrastructureInput } from './infrastructure.input';
 import { SearchInfrastructureInput } from './infrastructure.resolver';
 import { Infrastructure } from './infrastructure.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { generateStixId } from '../../stix-id-generator';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
-export class InfrastructureService implements OnModuleInit {
+export class InfrastructureService extends BaseStixService<Infrastructure> implements OnModuleInit {
+  private readonly logger = new Logger(InfrastructureService.name);
   private readonly index = 'infrastructures';
-  private readonly openSearchService: Client;
+  protected typeName = 'infrastructure';
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
-
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createInfrastructureInput: CreateInfrastructureInput): Promise<Infrastructure> {
+    
     const infrastructure: Infrastructure = {
       ...createInfrastructureInput,
      
-      id: `infrastructure--${uuidv4()}`,
+      id: createInfrastructureInput.id,
       type: 'infrastructure' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
@@ -40,6 +39,19 @@ export class InfrastructureService implements OnModuleInit {
       name: createInfrastructureInput.name, // Required field
       
     };
+    // Check if document already exists
+      const exists = await this.openSearchService.exists({
+        index: this.index,
+        id: infrastructure.id,
+      });
+
+      if (exists.body) {
+        this.logger?.warn(`Document already exists`, { id: infrastructure.id });
+
+        const existingDoc = await this.findOne(infrastructure.id);
+        return existingDoc;
+
+      }
 
     try {
       const response = await this.openSearchService.index({
@@ -52,6 +64,7 @@ export class InfrastructureService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index infrastructure');
       }
+      await this.publishCreated(infrastructure);
       return infrastructure;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -74,8 +87,8 @@ export class InfrastructureService implements OnModuleInit {
         id: response.body._id,
         type: 'infrastructure' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         name: source.name, // Required field
         
       };
@@ -110,7 +123,7 @@ export class InfrastructureService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update infrastructure');
       }
-
+      await this.publishUpdated(updatedInfrastructure);
       return updatedInfrastructure;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -128,7 +141,11 @@ export class InfrastructureService implements OnModuleInit {
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
+      return success;;
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -170,7 +187,7 @@ export class InfrastructureService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -213,8 +230,8 @@ export class InfrastructureService implements OnModuleInit {
           id: hit._id,
           type: 'infrastructure' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           name: hit._source.name, // Required field
          
         })),

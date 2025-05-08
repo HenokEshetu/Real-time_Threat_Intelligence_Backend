@@ -4,6 +4,7 @@ import { CreateIncidentInput, UpdateIncidentInput } from './incident.input';
 import { Incident } from './incident.entity';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchIncidentInput extends PartialType(CreateIncidentInput){}
@@ -23,8 +24,11 @@ export class IncidentSearchResult {
 }
 
 @Resolver(() => Incident)
-export class IncidentResolver {
-  constructor(private readonly incidentService: IncidentService) {}
+export class IncidentResolver extends BaseStixResolver(Incident) {
+  public typeName = 'incident';
+  constructor(private readonly incidentService: IncidentService) {
+    super()
+  }
 
   @Mutation(() => Incident)
   async createIncident(

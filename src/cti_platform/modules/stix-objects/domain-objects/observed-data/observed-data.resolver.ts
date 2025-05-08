@@ -4,6 +4,7 @@ import { ObservedData } from './observed-data.entity';
 import { CreateObservedDataInput, UpdateObservedDataInput } from './observed-data.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchObservedDataInput extends PartialType(CreateObservedDataInput){}
@@ -24,8 +25,12 @@ export class ObservedDataSearchResult {
 }
 
 @Resolver(() => ObservedData)
-export class ObservedDataResolver {
-  constructor(private readonly observedDataService: ObservedDataService) {}
+export class ObservedDataResolver extends BaseStixResolver(ObservedData) {
+  public typeName = 'observed-data';
+  
+  constructor(private readonly observedDataService: ObservedDataService) {
+    super()
+  }
 
   @Mutation(() => ObservedData)
   async createObservedData(

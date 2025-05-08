@@ -4,6 +4,7 @@ import { EmailMessage } from './email-message.entity';
 import { CreateEmailMessageInput, UpdateEmailMessageInput } from './email-message.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchEmailMessageInput extends PartialType(CreateEmailMessageInput) {}
@@ -24,8 +25,11 @@ export class EmailMessageSearchResult {
 }
 
 @Resolver(() => EmailMessage)
-export class EmailMessageResolver {
-  constructor(private readonly emailMessageService: EmailMessageService) {}
+export class EmailMessageResolver extends BaseStixResolver(EmailMessage) {
+  public typeName = 'email-message';
+  constructor(private readonly emailMessageService: EmailMessageService) {
+    super()
+  }
 
   @Mutation(() => EmailMessage)
   async createEmailMessage(
@@ -45,7 +49,7 @@ export class EmailMessageResolver {
 
   @Query(() => EmailMessage, { nullable: true })
   async emailMessage(@Args('id') id: string): Promise<EmailMessage> {
-    return this.emailMessageService.findByID(id);
+    return this.emailMessageService.findOne(id);
   }
 
   @Mutation(() => EmailMessage)

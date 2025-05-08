@@ -1,49 +1,62 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client,  } from '@opensearch-project/opensearch';
 import { CreateX509CertificateInput, UpdateX509CertificateInput } from './x509-certificate.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { SearchX509CertificateInput } from './x509-certificate.resolver';
 import { X509Certificate } from './x509-certificate.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+
 
 @Injectable()
-export class X509CertificateService implements OnModuleInit{
-  private readonly opensearchClient: Client;
+export class X509CertificateService extends BaseStixService<X509Certificate> implements OnModuleInit {
+  protected typeName = 'x509-certificate';
   private readonly index = 'x509-certificates';
+  private readonly logger = console; // Replace with a proper logger if needed
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.opensearchClient = new Client(clientOptions);
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
 
   async onModuleInit() {
-    await this.ensureIndex();}
+    await this.ensureIndex();
+  }
 
   async create(createX509CertificateInput: CreateX509CertificateInput): Promise<X509Certificate> {
     this.validateX509Certificate(createX509CertificateInput);
 
+
     const x509Certificate: X509Certificate = {
       ...createX509CertificateInput,
-      
-      id: `x509-certificate--${uuidv4()}`,
+
+      id: createX509CertificateInput.id,
       type: 'x509-certificate' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      
+
     };
 
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: x509Certificate.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: x509Certificate.id });
+
+      const existingDoc = await this.findOne(x509Certificate.id);
+      return existingDoc;
+
+    }
     try {
-      const response = await this.opensearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: x509Certificate.id,
         body: x509Certificate,
@@ -53,6 +66,8 @@ export class X509CertificateService implements OnModuleInit{
       if (response.body.result !== 'created') {
         throw new Error('Failed to index X.509 certificate');
       }
+
+      await (x509Certificate)
       return x509Certificate;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -96,7 +111,7 @@ export class X509CertificateService implements OnModuleInit{
           case 'validity_not_after':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -117,7 +132,7 @@ export class X509CertificateService implements OnModuleInit{
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.opensearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size,
@@ -138,9 +153,9 @@ export class X509CertificateService implements OnModuleInit{
           id: hit._id,
           type: 'x509-certificate' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
+
         })),
       };
     } catch (error) {
@@ -153,16 +168,16 @@ export class X509CertificateService implements OnModuleInit{
 
   async findOne(id: string): Promise<X509Certificate> {
     try {
-      const response = await this.opensearchClient.get({ index: this.index, id });
+      const response = await this.openSearchService.get({ index: this.index, id });
       const source = response.body._source;
       return {
         ...source,
         id: response.body._id,
         type: 'x509-certificate' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
-        
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
+
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -185,7 +200,7 @@ export class X509CertificateService implements OnModuleInit{
         modified: new Date().toISOString(),
       };
 
-      const response = await this.opensearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedDoc },
@@ -196,7 +211,12 @@ export class X509CertificateService implements OnModuleInit{
         throw new Error('Failed to update X.509 certificate');
       }
 
-      return { ...existing, ...updatedDoc };
+      const updatedX509Certificate: X509Certificate = {
+        ...existing,
+        spec_version: existing.spec_version || '2.1',
+      };
+      await this.publishUpdated(updatedX509Certificate);
+      return updatedX509Certificate;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException({
@@ -208,7 +228,11 @@ export class X509CertificateService implements OnModuleInit{
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.opensearchClient.delete({ index: this.index, id });
+      const response = await this.openSearchService.delete({ index: this.index, id });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -288,9 +312,9 @@ export class X509CertificateService implements OnModuleInit{
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.opensearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.opensearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

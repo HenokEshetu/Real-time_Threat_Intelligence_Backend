@@ -4,8 +4,11 @@ import { File } from './file.entity';
 import { CreateFileInput, UpdateFileInput } from './file.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
-export class SearchFileInput extends PartialType(CreateFileInput) {}
+export class SearchFileInput extends PartialType(CreateFileInput) {
+
+}
 
 @ObjectType()
 export class FileSearchResult {
@@ -22,8 +25,11 @@ export class FileSearchResult {
 }
 
 @Resolver(() => File)
-export class FileResolver {
-  constructor(private readonly fileService: FileService) {}
+export class FileResolver extends BaseStixResolver(File) {
+  public typeName = 'file';
+  constructor(private readonly fileService: FileService) {
+    super()
+  }
 
   @Mutation(() => File)
   async createFile(

@@ -1,37 +1,39 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateLocationInput, UpdateLocationInput } from './location.input';
-import { v4 as uuidv4 } from 'uuid';
 import { SearchLocationInput } from './location.resolver';
 import { Location } from './location.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { generateStixId } from '../../stix-id-generator';
+
+import { Logger } from '@nestjs/common';
 
 @Injectable()
-export class LocationService implements OnModuleInit {
+export class LocationService extends BaseStixService<Location> implements OnModuleInit {
+  private readonly logger = new Logger(LocationService.name);
+  protected typeName = 'location';
   private readonly index = 'locations';
-  private readonly openSearchService: Client;
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
+
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
+
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createLocationInput: CreateLocationInput): Promise<Location> {
+
     const location: Location = {
       ...createLocationInput,
 
-      id: `location--${uuidv4()}`,
+      id: createLocationInput.id,
       type: 'location' as const,
       spec_version: '2.1',
       location_type: createLocationInput.location_type,
@@ -39,8 +41,22 @@ export class LocationService implements OnModuleInit {
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
       name: createLocationInput.name, // Required field
-      
+
     };
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: location.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: location.id });
+
+      const existingDoc = await this.findOne(location.id);
+      return existingDoc;
+
+    }
 
     try {
       const response = await this.openSearchService.index({
@@ -53,6 +69,7 @@ export class LocationService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index location');
       }
+      await this.publishCreated(location);
       return location;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -75,12 +92,12 @@ export class LocationService implements OnModuleInit {
         id: response.body._id,
         type: 'location' as const,
         spec_version: source.spec_version || '2.1',
-        location_type:source.location_type,
+        location_type: source.location_type,
         default: source.default,
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         name: source.name, // Required field
-        
+
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -113,7 +130,7 @@ export class LocationService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update location');
       }
-
+      await this.publishUpdated(updatedLocation);
       return updatedLocation;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -131,7 +148,10 @@ export class LocationService implements OnModuleInit {
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -173,7 +193,7 @@ export class LocationService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -217,11 +237,11 @@ export class LocationService implements OnModuleInit {
           type: 'location' as const,
           spec_version: hit._source.spec_version || '2.1',
           location_type: hit._source.location_type,
-          default:hit._source.default,
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          default: hit._source.default,
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           name: hit._source.name, // Required field
-          
+
         })),
       };
     } catch (error) {

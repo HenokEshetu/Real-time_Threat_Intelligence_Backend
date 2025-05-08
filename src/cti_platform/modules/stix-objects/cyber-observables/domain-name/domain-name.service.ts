@@ -1,50 +1,66 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client,  } from '@opensearch-project/opensearch';
 import { DomainName } from './domain-name.entity';
 import { CreateDomainNameInput, UpdateDomainNameInput } from './domain-name.input';
 import { SearchDomainNameInput } from './domain-name.resolver';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { StixValidationError } from 'src/cti_platform/core/exception/custom-exceptions';
+
 
 @Injectable()
-export class DomainNameService  implements OnModuleInit {
+export class DomainNameService  extends BaseStixService<DomainName> implements OnModuleInit {
+  private readonly logger = console; // Replace with a proper logger if available
+  protected typeName = 'domain-name';
   private readonly index = 'domain-names';
-  private readonly openSearchClient: Client;
+ 
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
+  constructor(
+            @Inject(PUB_SUB) pubSub: RedisPubSub,
+            @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+          ) {
+            super(pubSub);
           }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
-  }
 
   async onModuleInit() {
     await this.ensureIndex();}
+    
+      
 
   async create(createDomainNameInput: CreateDomainNameInput): Promise<DomainName> {
-    const id = `domain-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date().toISOString();
+
+    
+    const now = new Date();
 
     const doc: DomainName = {
       ...createDomainNameInput,
-      id,
+      id: createDomainNameInput.id ,
       type: 'domain-name' as const,
       spec_version: '2.1',
-      created: now,
-      modified: now,
+      created: createDomainNameInput.created || now.toDateString(),
+      modified: createDomainNameInput.modified || now.toDateString(),
       value: createDomainNameInput.value,
       
     };
+    
+// Check if document already exists
+const exists = await this.openSearchService.exists({
+  index: this.index,
+  id: doc.id,
+});
 
+if (exists.body) {
+  this.logger?.warn(`Document already exists`, { id: doc.id });
+  
+  const existingDoc = await this.findOne(doc.id);
+  return existingDoc;
+  
+}
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
-        id,
+        id: doc.id,
         body: doc,
         refresh: 'wait_for',
       });
@@ -52,6 +68,7 @@ export class DomainNameService  implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index document');
       }
+      await this.publishCreated(doc);
       return doc;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -62,6 +79,8 @@ export class DomainNameService  implements OnModuleInit {
   }
 
   async update(id: string, updateDomainNameInput: UpdateDomainNameInput): Promise<DomainName> {
+    this.validateDomainName(updateDomainNameInput);
+
     try {
       const existing = await this.findOne(id);
       const updatedDoc: Partial<DomainName> = {
@@ -69,7 +88,7 @@ export class DomainNameService  implements OnModuleInit {
         modified: new Date().toISOString(),
       };
 
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedDoc },
@@ -77,10 +96,18 @@ export class DomainNameService  implements OnModuleInit {
       });
 
       if (response.body.result !== 'updated') {
-        throw new Error('Failed to update document');
+        throw new Error('Failed to update domain name');
       }
 
-      return { ...existing, ...updatedDoc };
+      const updatedDomainName: DomainName = {
+        ...existing,
+        ...updatedDoc,
+        type: 'domain-name' as const,
+        spec_version: existing.spec_version || '2.1',
+      };
+
+      await this.publishUpdated(updatedDomainName);
+      return updatedDomainName;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException({
@@ -90,9 +117,48 @@ export class DomainNameService  implements OnModuleInit {
     }
   }
 
+  private validateDomainName(input: CreateDomainNameInput | UpdateDomainNameInput): void {
+    if ('value' in input && input.value === undefined && !('id' in input)) {
+      throw new StixValidationError('Domain name value is required for creation');
+    }
+
+    if (input.value !== undefined && input.value !== null) {
+      if (typeof input.value !== 'string' || !this.isValidDomainName(input.value)) {
+        throw new StixValidationError(
+          'Invalid domain name. Must be a valid domain (e.g., example.com)'
+        );
+      }
+    }
+
+    if ('spec_version' in input && input.spec_version && input.spec_version !== '2.1') {
+      throw new StixValidationError('DomainName spec_version must be 2.1');
+    }
+
+    if ('resolves_to_refs' in input && input.resolves_to_refs) {
+      if (!Array.isArray(input.resolves_to_refs) || !input.resolves_to_refs.every(ref => typeof ref === 'string')) {
+        throw new StixValidationError('resolves_to_refs must be an array of valid STIX identifiers');
+      }
+    }
+  }
+
+  private isValidDomainName(domain: string): boolean {
+    if (!domain || domain.trim() === '') {
+      return false;
+    }
+
+    const domainRegex = /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
+
+    return (
+      domainRegex.test(domain) &&
+      !/[\x00-\x1F\x7F]/.test(domain) &&
+      domain.length <= 253 &&
+      !/^\.|\.$/.test(domain)
+    );
+  }
+
   async findOne(id: string): Promise<DomainName> {
     try {
-      const response = await this.openSearchClient.get({ index: this.index, id });
+      const response = await this.openSearchService.get({ index: this.index, id });
       const source = response.body._source;
 
       return {
@@ -100,8 +166,8 @@ export class DomainNameService  implements OnModuleInit {
         id,
         type: 'domain-name' as const,
         spec_version: '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         value: source.value,
         
       };
@@ -118,7 +184,7 @@ export class DomainNameService  implements OnModuleInit {
 
   async findByValue(value: string): Promise<DomainName[]> {
     try {
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         body: {
           query: { match: { value: { query: value, lenient: true } } },
@@ -130,8 +196,8 @@ export class DomainNameService  implements OnModuleInit {
         id: hit._id,
         type: 'domain-name' as const,
         spec_version: '2.1',
-        created: hit._source.created || new Date().toISOString(),
-        modified: hit._source.modified || new Date().toISOString(),
+        created: hit._source.created || new Date(),
+        modified: hit._source.modified || new Date(),
         value: hit._source.value,
         
       }));
@@ -179,7 +245,7 @@ export class DomainNameService  implements OnModuleInit {
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -194,7 +260,7 @@ export class DomainNameService  implements OnModuleInit {
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -216,8 +282,8 @@ export class DomainNameService  implements OnModuleInit {
           id: hit._id,
           type: 'domain-name' as const,
           spec_version: '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           value: hit._source.value,
           
         })),
@@ -232,10 +298,14 @@ export class DomainNameService  implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
       });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -250,9 +320,9 @@ export class DomainNameService  implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

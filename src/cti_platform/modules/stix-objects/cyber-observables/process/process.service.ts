@@ -1,55 +1,70 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateProcessInput, UpdateProcessInput } from './process.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { v4 as uuidv4 } from 'uuid';
 import { SearchProcessInput } from './process.resolver';
 import { Process } from './process.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class ProcessService implements OnModuleInit {
+export class ProcessService extends BaseStixService<Process> implements OnModuleInit {
+  protected typeName = ' process';
   private readonly index = 'process';
-  private readonly openSearchClient: Client;
+  private readonly logger = console; // Replace with a proper logger if needed
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
+
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
 
   async onModuleInit() {
-    await this.ensureIndex();}
+    await this.ensureIndex();
+  }
 
 
   async create(createProcessInput: CreateProcessInput): Promise<Process> {
     this.validateProcess(createProcessInput);
 
-    const id = `process-${uuidv4()}`;
-    const now = new Date().toISOString();
+   
+    const now = new Date();
 
     const process: Process = {
       ...createProcessInput,
-      
-      id,
+
+      id: createProcessInput.id ,
       type: 'process' as const,
       spec_version: '2.1',
-      created: now,
-      modified: now,
-      
+      created: now.toISOString(),
+      modified: now.toISOString(),
+
     };
 
+// Check if document already exists
+const exists = await this.openSearchService.exists({
+  index: this.index,
+  id: process.id,
+});
+
+if (exists.body) {
+  this.logger?.warn(`Document already exists`, { id: process.id });
+  
+  const existingDoc = await this.findOne(process.id);
+  return existingDoc;
+  
+}
+
+
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
-        id,
+        id: process.id,
         body: process,
         refresh: 'wait_for', // Ensures the document is available for search immediately
       });
@@ -58,16 +73,17 @@ export class ProcessService implements OnModuleInit {
         throw new InternalServerErrorException('Failed to index process document');
       }
 
+      await this.publishCreated(process)
       return process;
     } catch (error) {
       throw new StixValidationError(`Failed to create process: ${error.message}`);
     }
   }
 
- 
+
   async findOne(id: string): Promise<Process> {
     try {
-      const response = await this.openSearchClient.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
@@ -78,9 +94,9 @@ export class ProcessService implements OnModuleInit {
         id,
         type: 'process' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
-        
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
+
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -90,7 +106,7 @@ export class ProcessService implements OnModuleInit {
     }
   }
 
-  
+
   async update(id: string, updateProcessInput: UpdateProcessInput): Promise<Process> {
     this.validateProcess(updateProcessInput);
 
@@ -101,7 +117,7 @@ export class ProcessService implements OnModuleInit {
         modified: new Date().toISOString(),
       };
 
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedDoc },
@@ -112,7 +128,14 @@ export class ProcessService implements OnModuleInit {
         throw new InternalServerErrorException('Failed to update process document');
       }
 
-      return { ...existingProcess, ...updatedDoc };
+      const updatedProcess: Process = {
+        ...existingProcess,
+        ...updatedDoc,
+        spec_version: existingProcess.spec_version || '2.1',
+      };
+
+      await this.publishUpdated(updatedProcess);
+      return updatedProcess;
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
@@ -121,13 +144,17 @@ export class ProcessService implements OnModuleInit {
     }
   }
 
- 
+
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
       });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -137,7 +164,7 @@ export class ProcessService implements OnModuleInit {
     }
   }
 
- 
+
   private validateProcess(input: CreateProcessInput | UpdateProcessInput): void {
     if (input.pid !== undefined && (input.pid < 0 || !Number.isInteger(input.pid))) {
       throw new StixValidationError('Process ID must be a positive integer');
@@ -199,7 +226,7 @@ export class ProcessService implements OnModuleInit {
           case 'created_time':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -228,7 +255,7 @@ export class ProcessService implements OnModuleInit {
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size,
@@ -249,9 +276,9 @@ export class ProcessService implements OnModuleInit {
           id: hit._id,
           type: 'process' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
+
         })),
       };
     } catch (error) {
@@ -264,9 +291,9 @@ export class ProcessService implements OnModuleInit {
    */
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

@@ -1,37 +1,37 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateIncidentInput, UpdateIncidentInput } from './incident.input';
 import { SearchIncidentInput } from './incident.resolver';
 import { Incident } from './incident.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+
 
 @Injectable()
-export class IncidentService implements OnModuleInit {
+export class IncidentService extends BaseStixService<Incident> implements OnModuleInit {
+  protected typeName = 'incident';
   private readonly index = 'incidents';
-  private readonly openSearchService: Client;
+  private readonly logger = console; // Replace with a proper logger if needed
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
-  }
+  constructor(
+      @Inject(PUB_SUB) pubSub: RedisPubSub,
+      @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+    ) {
+      super(pubSub);
+    }
+
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createIncidentInput: CreateIncidentInput): Promise<Incident> {
+    
     const incident: Incident = {
       ...createIncidentInput,
       
-      id: `incident--${uuidv4()}`,
+      id: createIncidentInput.id,
       type: 'incident' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
@@ -39,6 +39,21 @@ export class IncidentService implements OnModuleInit {
       name: createIncidentInput.name, // Required field
      
     };
+
+// Check if document already exists
+const exists = await this.openSearchService.exists({
+  index: this.index,
+  id: incident.id,
+});
+
+if (exists.body) {
+  this.logger?.warn(`Document already exists`, { id: incident.id });
+
+  const existingDoc = await this.findOne(incident.id);
+  return existingDoc;
+
+}
+
 
     try {
       const response = await this.openSearchService.index({
@@ -51,6 +66,9 @@ export class IncidentService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index incident');
       }
+
+      await this.publishCreated(incident);
+      
       return incident;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -72,8 +90,8 @@ export class IncidentService implements OnModuleInit {
         id: response.body._id,
         type: 'incident' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         name: source.name, // Required field
         ...source,
       };
@@ -108,7 +126,7 @@ export class IncidentService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update incident');
       }
-
+await this.publishUpdated(updatedIncident);
       return updatedIncident;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -126,7 +144,10 @@ export class IncidentService implements OnModuleInit {
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -168,7 +189,7 @@ export class IncidentService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -210,8 +231,8 @@ export class IncidentService implements OnModuleInit {
           id: hit._id,
           type: 'incident' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           name: hit._source.name, // Required field
           ...hit._source,
         })),

@@ -6,7 +6,7 @@ import { CommonProperties, PatternType, RelationshipCommonProperties, IndicatorT
 export class Indicator extends CommonProperties {
   @Field(() => String)
   type: string = 'indicator';
-  @Field(() => String)
+  @Field(() => String, { nullable: true })
   name?: string;
   @Field(() => String, { nullable: true })
   description?: string;

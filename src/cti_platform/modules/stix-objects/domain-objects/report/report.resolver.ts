@@ -5,6 +5,7 @@ import { Report } from './report.entity';
 import { ObjectType, Field } from '@nestjs/graphql';
 
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchReportInput extends PartialType(CreateReportInput){}
@@ -24,8 +25,12 @@ export class ReportSearchResult {
 }
 
 @Resolver(() => Report)
-export class ReportResolver {
-  constructor(private readonly reportService: ReportService) {}
+export class ReportResolver extends BaseStixResolver(Report) {
+  public typeName = 'indicator';
+  
+  constructor(private readonly reportService: ReportService) {
+    super()
+  }
 
   @Mutation(() => Report)
   async createReport(

@@ -4,6 +4,7 @@ import { Location } from './location.entity';
 import { CreateLocationInput, UpdateLocationInput } from './location.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchLocationInput extends PartialType(CreateLocationInput){}
 @ObjectType()
@@ -21,8 +22,11 @@ export class LocationSearchResult {
 }
 
 @Resolver(() => Location)
-export class LocationResolver {
-  constructor(private readonly locationService: LocationService) {}
+export class LocationResolver extends BaseStixResolver(Location) {
+  public typeName = 'location';
+  constructor(private readonly locationService: LocationService) {
+    super()
+  }
 
   @Mutation(() => Location)
   async createLocation(

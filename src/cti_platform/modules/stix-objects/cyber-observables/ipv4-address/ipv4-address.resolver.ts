@@ -8,6 +8,7 @@ import { PartialType } from '@nestjs/graphql';
 export class SearchIPv4AddressInput extends PartialType(CreateIPv4AddressInput) {}
 
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @ObjectType()
 export class IPv4AddressSearchResult {
@@ -24,8 +25,11 @@ export class IPv4AddressSearchResult {
 }
 
 @Resolver(() => IPv4Address)
-export class IPv4AddressResolver {
-  constructor(private readonly ipv4AddressService: IPv4AddressService) {}
+export class IPv4AddressResolver  extends BaseStixResolver(IPv4Address) {
+  public typeName = ' ipv4-addr';
+  constructor(private readonly ipv4AddressService: IPv4AddressService) {
+    super()
+  }
 
   @Mutation(() => IPv4Address)
   async createIPv4Address(

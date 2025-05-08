@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, Int, Subscription, Context } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int,  } from '@nestjs/graphql';
 import { IndicatorService } from './indicator.service';
 import { Indicator } from './indicator.entity';
 import { CreateIndicatorInput, UpdateIndicatorInput, SearchIndicatorInput, IndicatorSearchResult } from './indicator.input';

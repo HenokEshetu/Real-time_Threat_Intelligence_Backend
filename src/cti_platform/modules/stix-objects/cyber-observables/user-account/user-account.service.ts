@@ -1,48 +1,65 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateUserAccountInput, UpdateUserAccountInput } from './user-account.input';
 import { UserAccount } from './user-account.entity';
 import { SearchUrlUserAccountInput } from './user-account.resolver';
+import { BaseStixService } from '../../base-stix.service';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class UserAccountService implements OnModuleInit {
+export class UserAccountService extends BaseStixService<UserAccount> implements OnModuleInit {
+  protected typeName = ' user-account';
   private readonly index = 'user-accounts';
-  private readonly openSearchClient: Client;
+  private readonly logger = console; // Replace with a proper logger if needed
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
+
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
 
 
   async onModuleInit() {
-    await this.ensureIndex();}
+    await this.ensureIndex();
+  }
 
 
   async create(createUserAccountInput: CreateUserAccountInput): Promise<UserAccount> {
+
+
     const userAccount: UserAccount = {
       ...createUserAccountInput,
-      
-      id: `user-account--${uuidv4()}`,
+
+      id: createUserAccountInput.id,
       type: 'user-account' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      
+
     };
 
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: userAccount.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: userAccount.id });
+
+      const existingDoc = await this.findOne(userAccount.id);
+      return existingDoc;
+
+    }
+
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: userAccount.id,
         body: userAccount,
@@ -52,6 +69,7 @@ export class UserAccountService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index user account document');
       }
+      await (userAccount)
       return userAccount;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -63,16 +81,16 @@ export class UserAccountService implements OnModuleInit {
 
   async findOne(id: string): Promise<UserAccount> {
     try {
-      const response = await this.openSearchClient.get({ index: this.index, id });
+      const response = await this.openSearchService.get({ index: this.index, id });
       const source = response.body._source;
       return {
         ...source,
         id: response.body._id,
         type: 'user-account' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
-        
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
+
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -94,7 +112,7 @@ export class UserAccountService implements OnModuleInit {
         modified: new Date().toISOString(),
       };
 
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedUser },
@@ -104,7 +122,7 @@ export class UserAccountService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update user account document');
       }
-
+      await (updatedUser)
       return updatedUser;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -117,7 +135,11 @@ export class UserAccountService implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({ index: this.index, id });
+      const response = await this.openSearchService.delete({ index: this.index, id });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -168,7 +190,7 @@ export class UserAccountService implements OnModuleInit {
           case 'account_last_login':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -191,7 +213,7 @@ export class UserAccountService implements OnModuleInit {
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -212,9 +234,9 @@ export class UserAccountService implements OnModuleInit {
           id: hit._id,
           type: 'user-account' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
+
         })),
       };
     } catch (error) {
@@ -227,9 +249,9 @@ export class UserAccountService implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

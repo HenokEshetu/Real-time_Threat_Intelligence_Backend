@@ -1,41 +1,27 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
-import { v4 as uuidv4 } from 'uuid';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateSightingInput, UpdateSightingInput } from './sighting.input';
 import { StixValidationError } from '../../../core/exception/custom-exceptions';
 import { SearchSightingInput } from './sighting.resolver';
 import { Sighting } from './sighting.entity';
+import { BaseStixService } from '../base-stix.service';
+import { PUB_SUB } from '../../pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
-
-
-import { v5 as uuidv5 } from 'uuid';
-
-// Define the UUID namespace 
-const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
-
-// Utility function to generate STIX-compliant IDs
-const generateStixId = (type: string, value: string): string => {
-  return `${type}--${uuidv5(value, NAMESPACE)}`;
-};
 
 @Injectable()
-export class SightingService implements OnModuleInit {
+export class SightingService extends BaseStixService<Sighting> implements OnModuleInit {
+  private readonly logger = new (console as any).constructor(); 
+  protected typeName = 'sighting';
   private readonly index = 'sightings';
-  private readonly openSearchService: Client;
-  logger: any;
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
-  }
+
+ 
+  constructor(
+          @Inject(PUB_SUB) pubSub: RedisPubSub,
+          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+        ) {
+          super(pubSub);
+        }
 
   async onModuleInit() {
     await this.ensureIndex();
@@ -55,7 +41,7 @@ export class SightingService implements OnModuleInit {
       
       const sighting: Sighting = {
         ...createSightingInput,
-        id: createSightingInput.id || generateStixId('sighting', idSeed),
+        id: createSightingInput.id ,
         type: 'sighting',
         spec_version: '2.1',
         created: new Date().toISOString(),
@@ -64,6 +50,18 @@ export class SightingService implements OnModuleInit {
         first_seen: new Date(createSightingInput.first_seen).toISOString(),
         last_seen: new Date(createSightingInput.last_seen).toISOString(),
       };
+        // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: sighting.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: sighting.id });
+      
+      const existingDoc = await this.findOne(sighting.id);
+      return existingDoc;
+    }
 
       const response = await this.openSearchService.index({
         index: this.index,
@@ -77,6 +75,7 @@ export class SightingService implements OnModuleInit {
       if (!['created', 'updated'].includes(response.body?.result)) {
         throw new Error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
       }
+      await this.publishCreated(sighting);
 
       return sighting;
     } catch (error) {
@@ -113,8 +112,8 @@ private safeGetErrorMessage(error: any): string {
         id: response.body._id,
         type: 'sighting' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         sighting_of_ref: source.sighting_of_ref, 
         first_seen: source.first_seen,
         last_seen: source.last_seen,
@@ -160,7 +159,7 @@ private safeGetErrorMessage(error: any): string {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update sighting');
       }
-
+     await this.publishUpdated(updatedSighting)
       return updatedSighting;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -178,7 +177,15 @@ private safeGetErrorMessage(error: any): string {
         id,
         refresh: 'wait_for',
       });
+
+      
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
+
+
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -220,7 +227,7 @@ private safeGetErrorMessage(error: any): string {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -263,8 +270,8 @@ private safeGetErrorMessage(error: any): string {
           id: hit._id,
           type: 'sighting' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           first_seen: hit._source.first_seen,
           last_seen: hit._source.last_seen,
           sighting_of_ref: hit._source.sighting_of_ref, // Required field
@@ -383,7 +390,6 @@ private safeGetErrorMessage(error: any): string {
       throw new StixValidationError(`Invalid STIX reference format in ${fieldName}: ${ref}`);
     }
 
-    // Additional type validation can be added here if needed
   }
 
 }

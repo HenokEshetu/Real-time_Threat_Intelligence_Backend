@@ -5,6 +5,7 @@ import { CreateSoftwareInput, UpdateSoftwareInput } from './software.input';
 
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchSoftwareInput extends PartialType(CreateSoftwareInput) {}
 
@@ -24,8 +25,11 @@ export class SoftwareSearchResult {
 }
 
 @Resolver(() => Software)
-export class SoftwareResolver {
-  constructor(private readonly softwareService: SoftwareService) {}
+export class SoftwareResolver extends BaseStixResolver(Software) {
+  public typeName = ' software';
+  constructor(private readonly softwareService: SoftwareService) {
+    super()
+  }
 
   @Mutation(() => Software)
   async createSoftware(

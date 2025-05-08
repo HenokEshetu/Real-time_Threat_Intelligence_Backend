@@ -4,6 +4,7 @@ import { Mutex } from './mutex.entity';
 import { CreateMutexInput, UpdateMutexInput } from './mutex.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchMutexInput extends PartialType(CreateMutexInput) {}
 
@@ -24,8 +25,11 @@ export class MutexSearchResult {
 }
 
 @Resolver(() => Mutex)
-export class MutexResolver {
-  constructor(private readonly mutexService: MutexService) {}
+export class MutexResolver extends BaseStixResolver(Mutex) {
+  public typeName = ' mutex';
+  constructor(private readonly mutexService: MutexService) {
+    super()
+  }
 
   @Mutation(() => Mutex)
   async createMutex(

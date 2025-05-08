@@ -4,6 +4,7 @@ import { Identity } from './identity.entity';
 import { CreateIdentityInput, UpdateIdentityInput } from './identity.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchIdentityInput extends PartialType(CreateIdentityInput){}
@@ -23,8 +24,12 @@ export class IdentitySearchResult {
 }
 
 @Resolver(() => Identity)
-export class IdentityResolver {
-  constructor(private readonly identityService: IdentityService) {}
+export class IdentityResolver extends BaseStixResolver(Identity) {
+  public typeName = 'identity';
+  constructor(private readonly identityService: IdentityService) {
+
+    super();
+  }
 
   @Mutation(() => Identity)
   async createIdentity(

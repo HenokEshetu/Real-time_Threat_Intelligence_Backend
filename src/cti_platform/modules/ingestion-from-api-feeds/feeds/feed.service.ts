@@ -694,7 +694,7 @@ export class FeedIngesterService implements OnModuleInit {
     }
   
     const limiter = this.limiters.get(config.id)!;
-    let page =50;
+    let page =1;
     const pageSize = config.data?.limit || config.params?.limit || 100;
     let hasMore = true;
   
@@ -1020,15 +1020,13 @@ export class FeedIngesterService implements OnModuleInit {
     input: any,
     object: GenericStixObject
   ): Promise<{ id: string }> {
-    const safeGetErrorInfo = (error: any) => {
-      return {
-        message: error?.message || error?.body?.error || String(error),
-        stack: error?.stack,
-        code: error?.code,
-        statusCode: error?.statusCode,
-        details: error?.response?.data || error?.meta?.body
-      };
-    };
+    const safeGetErrorInfo = (error: any) => ({
+      message: error?.message || error?.body?.error || String(error),
+      stack: error?.stack,
+      code: error?.code,
+      statusCode: error?.statusCode,
+      details: error?.response?.data || error?.meta?.body
+    });
   
     try {
       if (!this.logger) {
@@ -1056,6 +1054,7 @@ export class FeedIngesterService implements OnModuleInit {
           const errorInfo = safeGetErrorInfo(error);
           const isDuplicate = this.isDuplicateError(error);
   
+          // Handle duplicates immediately
           if (isDuplicate) {
             this.logger?.warn(`Duplicate ${type} detected`, { 
               objectId: object.id,
@@ -1064,20 +1063,28 @@ export class FeedIngesterService implements OnModuleInit {
             return { id: object.id };
           }
   
-          if (attempt === 3) {
-            this.logger?.error(`Final storage attempt failed`, { 
+          // Check if error is retryable (network issues or server errors)
+          const isRetryable = this.isRetryableError(error);
+          
+          // Final attempt or non-retryable error
+          if (attempt === 3 || !isRetryable) {
+            this.logger?.error(`Permanent storage failure`, { 
               objectId: object.id,
               error: errorInfo.message,
-              details: errorInfo.details
+              details: errorInfo.details,
+              retryable: isRetryable,
+              attempt
             });
             throw error;
           }
   
-          const delay = 1000 * attempt;
+          // Calculate backoff only for retryable errors
+          const delay = this.calculateBackoffDelay(attempt, 1000);
           this.logger?.warn(`Retrying in ${delay}ms`, {
             objectId: object.id,
             attempt,
-            error: errorInfo.message
+            error: errorInfo.message,
+            retryable: isRetryable
           });
           
           await new Promise(resolve => setTimeout(resolve, delay));
@@ -1103,13 +1110,26 @@ export class FeedIngesterService implements OnModuleInit {
       });
     }
   
-    // Fallback return (should never be reached due to loop structure)
+    // Fallback return (should never be reached)
     throw new InternalServerErrorException({
       message: `Unexpected error storing ${type} object`,
       objectId: object.id
     });
   }
   
+  private isRetryableError(error: any): boolean {
+    // Retry only on network errors or 5xx server errors
+    const statusCode = error?.statusCode || error?.response?.status;
+    return (
+      [
+        'ECONNRESET', 
+        'ETIMEDOUT', 
+        'ECONNREFUSED', 
+        'ENOTFOUND'
+      ].includes(error?.code) ||
+      (statusCode >= 500 && statusCode < 600)
+    );
+  }
   private isDuplicateError(error: any): boolean {
     const errorMessage = String(error?.message || error).toLowerCase();
     return [
@@ -1120,14 +1140,10 @@ export class FeedIngesterService implements OnModuleInit {
       'duplicate document'
     ].some(term => errorMessage.includes(term.toLowerCase()));
   }
-  
-  
-  
-  
+
+
   private calculateBackoffDelay(attempt: number, baseDelayMs: number): number {
-    // Exponential backoff with jitter
-    const exponentialBackoff = baseDelayMs * Math.pow(2, attempt - 1);
-    const jitter = Math.random() * baseDelayMs;
-    return Math.min(exponentialBackoff + jitter, 10000); // Cap at 10 seconds
-  }
+  const cappedAttempt = Math.min(attempt, 5);
+  return Math.floor(baseDelayMs * (2 ** cappedAttempt) + Math.random() * 500);
+}
     }

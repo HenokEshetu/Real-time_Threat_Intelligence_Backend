@@ -15,6 +15,7 @@ input AlternateDataStreamInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   size: Float
   spec_version: String!
@@ -119,8 +120,20 @@ type AutonomousSystemSearchResult {
 }
 
 type Bundle {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  extensions: JSONObject
+  external_references: [ExternalReference!]
   id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
   objects: [JSONObject!]!
+  pattern: String
+  revoked: Boolean
+  spec_version: String!
   type: String!
 }
 
@@ -208,6 +221,7 @@ input CreateArtifactInput {
   lang: String
   mime_type: String
   modified: String!
+  object_marking_refs: [String!]
   payload_bin: String
   revoked: Boolean
   spec_version: String!
@@ -230,6 +244,7 @@ input CreateAttackPatternInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -249,6 +264,7 @@ input CreateAutonomousSystemInput {
   modified: String!
   name: String
   number: Int!
+  object_marking_refs: [String!]
   revoked: Boolean
   rir: String
   spec_version: String!
@@ -256,8 +272,19 @@ input CreateAutonomousSystemInput {
 }
 
 input CreateBundleInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
   id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
   objects: [JSONObject!]!
+  revoked: Boolean
+  spec_version: String!
   type: String! = "bundle"
 }
 
@@ -277,6 +304,7 @@ input CreateCampaignInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   objective: String
   revoked: Boolean
   spec_version: String!
@@ -300,6 +328,7 @@ input CreateCourseOfActionInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -320,6 +349,7 @@ input CreateDirectoryInput {
   lang: String
   modified: String!
   mtime: DateTime
+  object_marking_refs: [String!]
   path: String!
   path_enc: String
   revoked: Boolean
@@ -338,6 +368,7 @@ input CreateDomainNameInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -358,6 +389,7 @@ input CreateEmailAddressInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -384,6 +416,7 @@ input CreateEmailMessageInput {
   lang: String
   message_id: String
   modified: String!
+  object_marking_refs: [String!]
   raw_email_ref: String
   received_lines: [String!]
   revoked: Boolean
@@ -416,6 +449,7 @@ input CreateFileInput {
   name: String
   name_enc: String
   ntfs_ext: NTFSFileExtensionInput
+  object_marking_refs: [String!]
   parent_directory_ref: [String!]
   pdf_ext: PDFFileExtensionInput
   raster_image_ext: RasterImageFileExtensionInput
@@ -441,6 +475,7 @@ input CreateGroupingInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -459,6 +494,7 @@ input CreateIPv4AddressInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -477,6 +513,7 @@ input CreateIPv6AddressInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String!
@@ -499,6 +536,7 @@ input CreateIdentityInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   roles: [String!]
   sectors: [IndustrySector!]
@@ -524,6 +562,7 @@ input CreateIncidentInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   severity: String
   source: String
@@ -547,6 +586,7 @@ input CreateIndicatorInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   pattern: String!
   pattern_type: PatternType!
   pattern_version: String
@@ -575,6 +615,7 @@ input CreateInfrastructureInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -598,6 +639,7 @@ input CreateIntrusionSetInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   primary_motivation: String
   resource_level: String
   revoked: Boolean
@@ -625,6 +667,7 @@ input CreateLocationInput {
   longitude: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   postal_code: String
   precision: String
   region: String
@@ -645,6 +688,7 @@ input CreateMACAddressInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -671,6 +715,7 @@ input CreateMalwareAnalysisInput {
   lang: String
   modified: String!
   modules: [String!]
+  object_marking_refs: [String!]
   operating_system_ref: [String!]!
   product: String!
   result: String!
@@ -704,6 +749,7 @@ input CreateMalwareInput {
   malware_types: [MalwareType!]!
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   operating_system_refs: [String!]
   revoked: Boolean
   sample_refs: String
@@ -744,6 +790,7 @@ input CreateMutexInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -770,6 +817,7 @@ input CreateNetworkTrafficInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   protocols: [String!]
   revoked: Boolean
   spec_version: String!
@@ -797,6 +845,7 @@ input CreateNoteInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -817,6 +866,7 @@ input CreateObservedDataInput {
   last_observed: DateTime!
   modified: String!
   number_observed: Float!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -836,6 +886,7 @@ input CreateOpinionInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   opinion: String!
   revoked: Boolean
@@ -863,6 +914,7 @@ input CreateProcessInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   opened_connection_refs: [String!]
   parent_ref: String
   pid: Float
@@ -908,6 +960,7 @@ input CreateReportInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   published: String!
   report_types: [String!]!
@@ -930,6 +983,7 @@ input CreateSightingInput {
   lang: String
   last_seen: DateTime!
   modified: String!
+  object_marking_refs: [String!]
   observed_data_refs: [String!]
   revoked: Boolean
   sighting_of_ref: String!
@@ -953,6 +1007,7 @@ input CreateSoftwareInput {
   languages: [String!]
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   swid: [String!]
@@ -978,6 +1033,7 @@ input CreateThreatActorInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   personal_motivations: String
   primary_motivation: String
   resource_level: String
@@ -1005,6 +1061,7 @@ input CreateToolInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   tool_types: [ToolType!]!
@@ -1023,6 +1080,7 @@ input CreateUrlInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1053,6 +1111,7 @@ input CreateUserAccountInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1085,6 +1144,7 @@ input CreateVulnerabilityInput {
   last_modified_date: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   published_date: DateTime
   references: [String!]
   revoked: Boolean
@@ -1108,6 +1168,7 @@ input CreateWindowsRegistryKeyInput {
   modified: String!
   modified_time: String
   number_of_subkeys: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1128,6 +1189,7 @@ input CreateX509CertificateInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   serial_number: String
   signature_algorithm: String
@@ -1252,6 +1314,7 @@ input EmailMIMEComponentInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -1301,7 +1364,7 @@ type EmailMessageSearchResult {
 type ExternalReference {
   description: String
   external_id: String
-  id: ID!
+  id: ID
   source_name: String!
   url: String
 }
@@ -1549,7 +1612,7 @@ type Indicator {
   labels: [String!]
   lang: String
   modified: String!
-  name: String!
+  name: String
   object_marking_refs: [String!]
   pattern: String!
   pattern_type: PatternType!
@@ -2060,6 +2123,7 @@ type Mutation {
   updateVulnerability(id: String!, input: UpdateVulnerabilityInput!): Vulnerability!
   updateWindowsRegistryKey(id: String!, input: UpdateWindowsRegistryKeyInput!): WindowsRegistryKey!
   updateX509Certificate(id: String!, input: UpdateX509CertificateInput!): X509Certificate!
+  verifyEmail(token: String!): User!
 }
 
 type Mutex {
@@ -2106,6 +2170,7 @@ input NTFSFileExtensionInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   sid: String
   spec_version: String!
@@ -2267,6 +2332,7 @@ input PDFFileExtensionInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   pdfid0: String
   pdfid1: String
   revoked: Boolean
@@ -2451,6 +2517,7 @@ input RasterImageFileExtensionInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -2519,7 +2586,7 @@ type Report {
   pattern: String
   published: DateTime!
   relationship: [RelationshipCommonProperties!]
-  report_types: [String!]!
+  report_types: [String]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -2562,6 +2629,7 @@ input SearchArtifactInput {
   lang: String
   mime_type: String
   modified: String
+  object_marking_refs: [String!]
   payload_bin: String
   revoked: Boolean
   spec_version: String
@@ -2584,6 +2652,7 @@ input SearchAttackPatternInput {
   lang: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2603,6 +2672,7 @@ input SearchAutonomousSystemInput {
   modified: String
   name: String
   number: Int
+  object_marking_refs: [String!]
   revoked: Boolean
   rir: String
   spec_version: String
@@ -2610,8 +2680,19 @@ input SearchAutonomousSystemInput {
 }
 
 input SearchBundleInput {
+  confidence: Float
+  created: String
+  created_by_ref: String
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
   id: ID
+  labels: [String!]
+  lang: String
+  modified: String
+  object_marking_refs: [String!]
   objects: [JSONObject!]
+  revoked: Boolean
+  spec_version: String
   type: String = "bundle"
 }
 
@@ -2631,6 +2712,7 @@ input SearchCampaignInput {
   last_seen: DateTime
   modified: String
   name: String
+  object_marking_refs: [String!]
   objective: String
   revoked: Boolean
   spec_version: String
@@ -2654,6 +2736,7 @@ input SearchCourseOfActionInput {
   lang: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2674,6 +2757,7 @@ input SearchDirectoryInput {
   lang: String
   modified: String
   mtime: DateTime
+  object_marking_refs: [String!]
   path: String
   path_enc: String
   revoked: Boolean
@@ -2692,6 +2776,7 @@ input SearchDomainNameInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -2712,6 +2797,7 @@ input SearchEmailAddressInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2738,6 +2824,7 @@ input SearchEmailMessageInput {
   lang: String
   message_id: String
   modified: String
+  object_marking_refs: [String!]
   raw_email_ref: String
   received_lines: [String!]
   revoked: Boolean
@@ -2770,6 +2857,7 @@ input SearchFileInput {
   name: String
   name_enc: String
   ntfs_ext: NTFSFileExtensionInput
+  object_marking_refs: [String!]
   parent_directory_ref: [String!]
   pdf_ext: PDFFileExtensionInput
   raster_image_ext: RasterImageFileExtensionInput
@@ -2795,6 +2883,7 @@ input SearchGroupingInput {
   lang: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   object_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -2813,6 +2902,7 @@ input SearchIPv4AddressInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -2831,6 +2921,7 @@ input SearchIPv6AddressInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String
@@ -2853,6 +2944,7 @@ input SearchIdentityInput {
   lang: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   roles: [String!]
   sectors: [IndustrySector!]
@@ -2878,6 +2970,7 @@ input SearchIncidentInput {
   last_seen: DateTime
   modified: String
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   severity: String
   source: String
@@ -2901,6 +2994,7 @@ input SearchIndicatorInput {
   lang: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   pattern: String
   pattern_type: PatternType
   pattern_version: String
@@ -2929,6 +3023,7 @@ input SearchInfrastructureInput {
   last_seen: DateTime
   modified: String
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -2952,6 +3047,7 @@ input SearchIntrusionSetInput {
   last_seen: DateTime
   modified: String
   name: String
+  object_marking_refs: [String!]
   primary_motivation: String
   resource_level: String
   revoked: Boolean
@@ -2979,6 +3075,7 @@ input SearchLocationInput {
   longitude: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   postal_code: String
   precision: String
   region: String
@@ -2999,6 +3096,7 @@ input SearchMACAddressInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -3025,6 +3123,7 @@ input SearchMalwareAnalysisInput {
   lang: String
   modified: String
   modules: [String!]
+  object_marking_refs: [String!]
   operating_system_ref: [String!]
   product: String
   result: String
@@ -3058,6 +3157,7 @@ input SearchMalwareInput {
   malware_types: [MalwareType!]
   modified: String
   name: String
+  object_marking_refs: [String!]
   operating_system_refs: [String!]
   revoked: Boolean
   sample_refs: String
@@ -3098,6 +3198,7 @@ input SearchMutexInput {
   lang: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -3124,6 +3225,7 @@ input SearchNetworkTrafficInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   protocols: [String!]
   revoked: Boolean
   spec_version: String
@@ -3151,6 +3253,7 @@ input SearchNoteInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   object_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -3171,6 +3274,7 @@ input SearchObservedDataInput {
   last_observed: DateTime
   modified: String
   number_observed: Float
+  object_marking_refs: [String!]
   object_refs: [String!]
   revoked: Boolean
   spec_version: String
@@ -3190,6 +3294,7 @@ input SearchOpinionInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   object_refs: [String!]
   opinion: String
   revoked: Boolean
@@ -3217,6 +3322,7 @@ input SearchProcessInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   opened_connection_refs: [String!]
   parent_ref: String
   pid: Float
@@ -3262,6 +3368,7 @@ input SearchReportInput {
   lang: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   object_refs: [String!]
   published: String
   report_types: [String!]
@@ -3292,6 +3399,7 @@ input SearchSightingInput {
   lang: String
   last_seen: DateTime
   modified: String
+  object_marking_refs: [String!]
   observed_data_refs: [String!]
   revoked: Boolean
   sighting_of_ref: String
@@ -3315,6 +3423,7 @@ input SearchSoftwareInput {
   languages: [String!]
   modified: String
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   swid: [String!]
@@ -3340,6 +3449,7 @@ input SearchThreatActorInput {
   last_seen: DateTime
   modified: String
   name: String
+  object_marking_refs: [String!]
   personal_motivations: String
   primary_motivation: String
   resource_level: String
@@ -3367,6 +3477,7 @@ input SearchToolInput {
   lang: String
   modified: String
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   tool_types: [ToolType!]
@@ -3385,6 +3496,7 @@ input SearchUrlInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -3415,6 +3527,7 @@ input SearchUrlUserAccountInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -3439,6 +3552,7 @@ input SearchVulnerabilityInput {
   last_modified_date: DateTime
   modified: String
   name: String
+  object_marking_refs: [String!]
   published_date: DateTime
   references: [String!]
   revoked: Boolean
@@ -3462,6 +3576,7 @@ input SearchWindowsRegistryKeyInput {
   modified: String
   modified_time: String
   number_of_subkeys: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String
   type: String
@@ -3482,6 +3597,7 @@ input SearchX509CertificateInput {
   labels: [String!]
   lang: String
   modified: String
+  object_marking_refs: [String!]
   revoked: Boolean
   serial_number: String
   signature_algorithm: String
@@ -3598,9 +3714,9 @@ type StixRelationshipSearchResult {
 }
 
 type Subscription {
-  created: Indicator!
+  created: Sighting!
   deleted: String!
-  updated: Indicator!
+  updated: Sighting!
 }
 
 type ThreatActor {
@@ -3719,6 +3835,7 @@ input UnixFileExtensionInput {
   lang: String
   mode: Float
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3740,6 +3857,7 @@ input UpdateArtifactInput {
   lang: String
   mime_type: String
   modified: String!
+  object_marking_refs: [String!]
   payload_bin: String
   revoked: Boolean
   spec_version: String!
@@ -3762,6 +3880,7 @@ input UpdateAttackPatternInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3781,6 +3900,7 @@ input UpdateAutonomousSystemInput {
   modified: String!
   name: String
   number: Int
+  object_marking_refs: [String!]
   revoked: Boolean
   rir: String
   spec_version: String!
@@ -3788,8 +3908,19 @@ input UpdateAutonomousSystemInput {
 }
 
 input UpdateBundleInput {
+  confidence: Float
+  created: String!
+  created_by_ref: String
+  extensions: JSONObject
+  external_references: [ExternalReferenceInput!]
   id: ID!
+  labels: [String!]
+  lang: String
+  modified: String!
+  object_marking_refs: [String!]
   objects: [JSONObject!]!
+  revoked: Boolean
+  spec_version: String!
   type: String! = "bundle"
 }
 
@@ -3809,6 +3940,7 @@ input UpdateCampaignInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   objective: String
   revoked: Boolean
   spec_version: String!
@@ -3832,6 +3964,7 @@ input UpdateCourseOfActionInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3852,6 +3985,7 @@ input UpdateDirectoryInput {
   lang: String
   modified: String!
   mtime: DateTime
+  object_marking_refs: [String!]
   path: String!
   path_enc: String
   revoked: Boolean
@@ -3870,6 +4004,7 @@ input UpdateDomainNameInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -3890,6 +4025,7 @@ input UpdateEmailAddressInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -3916,6 +4052,7 @@ input UpdateEmailMessageInput {
   lang: String
   message_id: String
   modified: String!
+  object_marking_refs: [String!]
   raw_email_ref: String
   received_lines: [String!]
   revoked: Boolean
@@ -3948,6 +4085,7 @@ input UpdateFileInput {
   name: String
   name_enc: String
   ntfs_ext: NTFSFileExtensionInput
+  object_marking_refs: [String!]
   parent_directory_ref: [String!]
   pdf_ext: PDFFileExtensionInput
   raster_image_ext: RasterImageFileExtensionInput
@@ -3973,6 +4111,7 @@ input UpdateGroupingInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -3991,6 +4130,7 @@ input UpdateIPv4AddressInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
   spec_version: String!
@@ -4009,6 +4149,7 @@ input UpdateIPv6AddressInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   resolves_to_refs: String
   revoked: Boolean
   spec_version: String!
@@ -4031,6 +4172,7 @@ input UpdateIdentityInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   roles: [String!]
   sectors: [IndustrySector!]
@@ -4056,6 +4198,7 @@ input UpdateIncidentInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   severity: String
   source: String
@@ -4079,6 +4222,7 @@ input UpdateIndicatorInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   pattern: String!
   pattern_type: PatternType!
   pattern_version: String
@@ -4107,6 +4251,7 @@ input UpdateInfrastructureInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4130,6 +4275,7 @@ input UpdateIntrusionSetInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   primary_motivation: String
   resource_level: String
   revoked: Boolean
@@ -4157,6 +4303,7 @@ input UpdateLocationInput {
   longitude: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   postal_code: String
   precision: String
   region: String
@@ -4177,6 +4324,7 @@ input UpdateMACAddressInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4203,6 +4351,7 @@ input UpdateMalwareAnalysisInput {
   lang: String
   modified: String!
   modules: [String!]
+  object_marking_refs: [String!]
   operating_system_ref: [String!]!
   product: String!
   result: String!
@@ -4236,6 +4385,7 @@ input UpdateMalwareInput {
   malware_types: [MalwareType!]!
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   operating_system_refs: [String!]
   revoked: Boolean
   sample_refs: String
@@ -4276,6 +4426,7 @@ input UpdateMutexInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4302,6 +4453,7 @@ input UpdateNetworkTrafficInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   protocols: [String!]
   revoked: Boolean
   spec_version: String!
@@ -4329,6 +4481,7 @@ input UpdateNoteInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -4349,6 +4502,7 @@ input UpdateObservedDataInput {
   last_observed: DateTime!
   modified: String!
   number_observed: Float!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   revoked: Boolean
   spec_version: String!
@@ -4368,6 +4522,7 @@ input UpdateOpinionInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   opinion: String!
   revoked: Boolean
@@ -4395,6 +4550,7 @@ input UpdateProcessInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   opened_connection_refs: [String!]
   parent_ref: String
   pid: Float
@@ -4440,6 +4596,7 @@ input UpdateReportInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   object_refs: [String!]!
   published: String!
   report_types: [String!]!
@@ -4462,6 +4619,7 @@ input UpdateSightingInput {
   lang: String
   last_seen: DateTime!
   modified: String!
+  object_marking_refs: [String!]
   observed_data_refs: [String!]
   revoked: Boolean
   sighting_of_ref: String!
@@ -4485,6 +4643,7 @@ input UpdateSoftwareInput {
   languages: [String!]
   modified: String!
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   swid: [String!]
@@ -4510,6 +4669,7 @@ input UpdateThreatActorInput {
   last_seen: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   personal_motivations: String
   primary_motivation: String
   resource_level: String
@@ -4537,6 +4697,7 @@ input UpdateToolInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   tool_types: [ToolType!]!
@@ -4555,6 +4716,7 @@ input UpdateUrlInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4585,6 +4747,7 @@ input UpdateUserAccountInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4614,6 +4777,7 @@ input UpdateVulnerabilityInput {
   last_modified_date: DateTime
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   published_date: DateTime
   references: [String!]
   revoked: Boolean
@@ -4637,6 +4801,7 @@ input UpdateWindowsRegistryKeyInput {
   modified: String!
   modified_time: String
   number_of_subkeys: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!
@@ -4657,6 +4822,7 @@ input UpdateX509CertificateInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   serial_number: String
   signature_algorithm: String
@@ -4703,11 +4869,11 @@ type User {
   createdAt: DateTime!
   email: String!
   firstName: String!
-  id: ID!
   isEmailVerified: Boolean!
   lastName: String!
   roles: [Role!]!
   updatedAt: DateTime!
+  userId: ID!
 }
 
 type UserAccount {
@@ -4805,6 +4971,7 @@ input WindowsPEBinaryFileExtensionInput {
   labels: [String!]
   lang: String
   modified: String!
+  object_marking_refs: [String!]
   optional_header: JSONObject
   pe_type: String
   revoked: Boolean
@@ -4827,6 +4994,7 @@ input WindowsPESectionInput {
   lang: String
   modified: String!
   name: String!
+  object_marking_refs: [String!]
   revoked: Boolean
   size: Float
   spec_version: String!
@@ -4884,6 +5052,7 @@ input WindowsRegistryValueInput {
   lang: String
   modified: String!
   name: String
+  object_marking_refs: [String!]
   revoked: Boolean
   spec_version: String!
   type: String!

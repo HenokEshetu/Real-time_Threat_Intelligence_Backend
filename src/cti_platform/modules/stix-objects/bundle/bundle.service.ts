@@ -1,118 +1,79 @@
-import { Injectable, NotFoundException, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, OnModuleInit, Inject } from '@nestjs/common';
 import { Client } from '@opensearch-project/opensearch';
 import { Bundle } from './bundle.entity';
 import { CreateBundleInput, UpdateBundleInput } from './bundle.input';
 import { SearchBundleInput } from './bundle.resolver';
-import { v5 as uuidv5 } from 'uuid';
-
-// Define the UUID namespace (DNS namespace in this example)
-const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+import { BaseStixService } from '../base-stix.service';
+import { PUB_SUB } from '../../pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { generateStixId } from '../stix-id-generator';
 
 @Injectable()
-export class BundleService implements OnModuleInit {
-  private client: Client;
+export class BundleService extends BaseStixService<Bundle> implements OnModuleInit {
+  protected typeName = 'bundle';
+  private readonly logger = console; // Replace with a proper logger if needed
+ 
   private readonly index = 'bundles';
   
-  constructor() {
-    this.client = new Client({
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-     
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD 
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
+  constructor(
+            @Inject(PUB_SUB) pubSub: RedisPubSub,
+            @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+          ) {
+            super(pubSub);
           }
-        : undefined,
-    });
-  }
 
   async onModuleInit() {
     await this.ensureIndexExists();
   }
   public getClient(): Client {
-    return this.client;
+    return this.openSearchService;
   }
   async create(createBundleInput: CreateBundleInput): Promise<Bundle> {
+  
+    const bundle: Bundle = {
+      ...createBundleInput,
+      id:createBundleInput.id,
+      type: 'bundle'
+      
+    };
+
+        // Check if document already exists
+        const exists = await this.openSearchService.exists({
+          index: this.index,
+          id: bundle.id,
+        });
+    
+        if (exists.body) {
+          this.logger?.warn(`Document already exists`, { id: bundle.id });
+          
+          const existingDoc = await this.findOne(bundle.id);
+          return existingDoc;
+        }
+
     try {
-      // Validate input first
-      this.validateBundleInput(createBundleInput);
-
-      // Generate deterministic ID based on bundle content
-      const idSeed = [
-        createBundleInput.objects?.length.toString() || '0',
-        createBundleInput.spec_version || '2.1',
-        JSON.stringify(createBundleInput.objects?.map(obj => obj.type) || []),
-        Date.now().toString() // Ensure uniqueness
-      ].join('|');
-
-      const timestamp = new Date().toISOString();
-      const bundle: Bundle = {
-        ...createBundleInput,
-        id: createBundleInput.id || `bundle--${uuidv5(idSeed, NAMESPACE)}`,
-        type: 'bundle',
-        spec_version: createBundleInput.spec_version || '2.1',
-        created: timestamp,
-        modified: timestamp
-      };
-
-      // Validate the complete bundle before saving
-      this.validateStixBundle(bundle);
-
-      const response = await this.client.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: bundle.id,
         body: bundle,
-        refresh: 'wait_for', // Wait for refresh to ensure consistency
-      }).catch(error => {
-        throw new Error(`OpenSearch error: ${this.safeGetErrorMessage(error)}`);
+        refresh: true, 
       });
 
-      if (!['created', 'updated'].includes(response.body?.result)) {
-        throw new Error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
+      if (response.body.result !== 'created') {
+        throw new Error('Failed to create document');
       }
-
+     await this.publishCreated(bundle)
       return bundle;
     } catch (error) {
       throw new InternalServerErrorException({
-        message: 'Failed to create bundle',
-        details: this.safeGetErrorMessage(error),
-        objectId: createBundleInput?.id || 'unknown',
-        input: createBundleInput
+        message: 'Error creating bundle',
+        error: error.message,
       });
     }
   }
 
-  private validateBundleInput(input: CreateBundleInput): void {
-    if (!input.objects || input.objects.length === 0) {
-      throw new Error('Bundle must contain at least one object');
-    }
-
-    if (input.spec_version && input.spec_version !== '2.1') {
-      throw new Error('Only STIX 2.1 bundles are supported');
-    }
-  }
-
-  private validateStixBundle(bundle: Bundle): void {
-    // Validate all objects in the bundle
-    bundle.objects?.forEach(obj => {
-      if (!obj.id || !obj.type || !obj.spec_version) {
-        throw new Error('Invalid STIX object in bundle - missing required fields');
-      }
-    });
-  }
-
-  private safeGetErrorMessage(error: any): string {
-    if (typeof error === 'string') return error;
-    if (error?.message) return error.message;
-    if (error?.response?.data?.error) return error.response.data.error;
-    if (error?.body?.error) return JSON.stringify(error.body.error);
-    return 'Unknown error occurred';
-  }
-
-
   async findOne(id: string): Promise<Bundle> {
     try {
-      const response = await this.client.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
@@ -174,7 +135,7 @@ export class BundleService implements OnModuleInit {
         case 'object':
           if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           } else if (Array.isArray(value)) {
             queryBuilder.query.bool.filter.push({
@@ -190,7 +151,7 @@ export class BundleService implements OnModuleInit {
     }
   
     try {
-      const response = await this.client.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -226,13 +187,13 @@ export class BundleService implements OnModuleInit {
     try {
       const existingBundle = await this.findOne(id);
       
-      const response = await this.client.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: {
           doc: {
             ...updateBundleInput,
-            modified: new Date().toISOString(),
+            modified: new Date(),
           },
           doc_as_upsert: false,
         },
@@ -242,7 +203,15 @@ export class BundleService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update document');
       }
+const updateBundle: Bundle = {
+        ...existingBundle,
+        ...updateBundleInput,
+        type: 'domain-name' as const,
+        spec_version: existingBundle.spec_version || '2.1',
+      };
 
+      await this.publishUpdated(updateBundle);
+      
       return { ...existingBundle, ...updateBundleInput };
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -255,11 +224,15 @@ export class BundleService implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.client.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
       });
 
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -275,9 +248,9 @@ export class BundleService implements OnModuleInit {
  
   async ensureIndexExists(): Promise<void> {
     try {
-      const exists = await this.client.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.client.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

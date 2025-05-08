@@ -4,6 +4,7 @@ import { Artifact } from './artifact.entity';
 import { CreateArtifactInput, UpdateArtifactInput } from './artifact.input';
 
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchArtifactInput extends PartialType(CreateArtifactInput) {}
 
@@ -27,8 +28,12 @@ export class ArtifactSearchResult {
 }
 
 @Resolver(() => Artifact)
-export class ArtifactResolver {
-  constructor(private readonly artifactService: ArtifactService) {}
+export class ArtifactResolver extends BaseStixResolver(Artifact) {
+  public typeName = 'artifact';
+  
+  constructor(private readonly artifactService: ArtifactService) {
+    super()
+  }
 
   @Mutation(() => Artifact)
   async createArtifact(

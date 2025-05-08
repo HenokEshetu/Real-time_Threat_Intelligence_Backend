@@ -5,6 +5,7 @@ import { CreateProcessInput, UpdateProcessInput } from './process.input';
 
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchProcessInput extends PartialType(CreateProcessInput) {}
 
@@ -25,8 +26,11 @@ export class ProcessSearchResult {
 }
 
 @Resolver(() => Process)
-export class ProcessResolver {
-  constructor(private readonly processService: ProcessService) {}
+export class ProcessResolver extends BaseStixResolver(Process) {
+  public typeName = ' process';
+  constructor(private readonly processService: ProcessService) {
+    super()
+  }
 
   @Mutation(() => Process)
   async createProcess(

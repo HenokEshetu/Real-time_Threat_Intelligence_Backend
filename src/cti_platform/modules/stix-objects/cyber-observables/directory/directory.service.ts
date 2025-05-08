@@ -1,54 +1,68 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { Directory } from './directory.entity';
 import { CreateDirectoryInput, UpdateDirectoryInput } from './directory.input';
 import { SearchDirectoryInput } from './directory.resolver';
-import { v5 as uuidv5 } from 'uuid';
 
-  // Define the UUID namespace 
-  const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { StixValidationError } from 'src/cti_platform/core/exception/custom-exceptions';
+
+  
+import { v5 as uuidv5 } from 'uuid';
+const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
+
 
 
 @Injectable()
-export class DirectoryService implements OnModuleInit{
+export class DirectoryService extends BaseStixService<Directory> implements OnModuleInit {
+  private readonly logger = console; // Replace with a proper logger if needed
+  protected typeName = 'directory';
   private readonly index = 'directories';
-  private readonly openSearchClient: Client;
+ 
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
+  constructor(
+            @Inject(PUB_SUB) pubSub: RedisPubSub,
+            @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+          ) {
+            super(pubSub);
           }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
-    
-  }
+
 
   async onModuleInit() {
     await this.ensureIndex();}
 
   async create(createDirectoryInput: CreateDirectoryInput): Promise<Directory> {
     
-    const now = new Date().toISOString();
+    const now = new Date();
 
     const doc: Directory = {
       ...createDirectoryInput,
       id: createDirectoryInput.id,
       type: 'directory' as const,
       spec_version: '2.1',
-      created: now,
-      modified: now,
+      created: now.toISOString(),
+      modified: now.toDateString(),
       path: createDirectoryInput.path,
       
     };
 
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: doc.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: doc.id });
+
+      const existingDoc = await this.findOne(doc.id);
+      return existingDoc;
+    }
+
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: doc.id,
         body: doc,
@@ -58,6 +72,7 @@ export class DirectoryService implements OnModuleInit{
       if (response.body.result !== 'created') {
         throw new Error('Failed to index document');
       }
+      await this.publishCreated(doc);
       return doc;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -68,25 +83,38 @@ export class DirectoryService implements OnModuleInit{
   }
 
   async update(id: string, updateDirectoryInput: UpdateDirectoryInput): Promise<Directory> {
+    // Validate input if necessary
+    this.validateDirectory(updateDirectoryInput);
+  
     try {
       const existing = await this.findOne(id);
       const updatedDoc: Partial<Directory> = {
         ...updateDirectoryInput,
         modified: new Date().toISOString(),
       };
-
-      const response = await this.openSearchClient.update({
+  
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedDoc },
         retry_on_conflict: 3,
       });
-
+  
       if (response.body.result !== 'updated') {
-        throw new Error('Failed to update document');
+        throw new Error('Failed to update directory');
       }
-
-      return { ...existing, ...updatedDoc };
+  
+      const updatedDirectory: Directory = {
+        ...existing,
+        ...updatedDoc,
+        type: 'directory' as const, 
+        spec_version: existing.spec_version || '2.1', 
+      };
+  
+      
+      await this.publishUpdated(updatedDirectory);
+  
+      return updatedDirectory;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException({
@@ -95,10 +123,9 @@ export class DirectoryService implements OnModuleInit{
       });
     }
   }
-
   async findOne(id: string): Promise<Directory> {
     try {
-      const response = await this.openSearchClient.get({ index: this.index, id });
+      const response = await this.openSearchService.get({ index: this.index, id });
       const source = response.body._source;
 
       return {
@@ -106,8 +133,8 @@ export class DirectoryService implements OnModuleInit{
         id,
         type: 'directory' as const,
         spec_version: '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         path: source.path,
        
       };
@@ -124,7 +151,7 @@ export class DirectoryService implements OnModuleInit{
 
   async findByPath(path: string): Promise<Directory[]> {
     try {
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         body: {
           query: { match: { path: { query: path, lenient: true } } },
@@ -136,8 +163,8 @@ export class DirectoryService implements OnModuleInit{
         id: hit._id,
         type: 'directory' as const,
         spec_version: '2.1',
-        created: hit._source.created || new Date().toISOString(),
-        modified: hit._source.modified || new Date().toISOString(),
+        created: hit._source.created || new Date(),
+        modified: hit._source.modified || new Date(),
         path: hit._source.path,
         
       }));
@@ -148,7 +175,41 @@ export class DirectoryService implements OnModuleInit{
       });
     }
   }
+  private validateDirectory(input: CreateDirectoryInput | UpdateDirectoryInput): void {
+    // Check if path is provided (required for creation, optional for update)
+    if ('path' in input && input.path === undefined && !('id' in input)) {
+      throw new StixValidationError('Directory path is required for creation');
+    }
+  
+    // Validate path format if provided
+    if (input.path !== undefined && input.path !== null) {
+      if (typeof input.path !== 'string' || !this.isValidPath(input.path)) {
+        throw new StixValidationError(
+          'Invalid directory path. Path must be a valid file system path (e.g., /home/user/docs or C:\\Users\\Docs)'
+        );
+      }
+    }
+  
+    // Additional STIX-specific validations (if applicable)
+    if ('spec_version' in input && input.spec_version && input.spec_version !== '2.1') {
+      throw new StixValidationError('Directory spec_version must be 2.1');
+    }
+  }
 
+  private isValidPath(path: string): boolean {
+    if (!path || path.trim() === '') {
+      return false;
+    }
+
+    const pathRegex = /^(?:[a-zA-Z]:\\(?:[^<>:"|?*\n\r]+\\)*[^<>:"|?*\n\r]*$|\/(?:[^<>:"|?*\n\r]+\/)*[^<>:"|?*\n\r]*$|\.\/(?:[^<>:"|?*\n\r]+\/)*[^<>:"|?*\n\r]*$|\.\.\/(?:[^<>:"|?*\n\r]+\/)*[^<>:"|?*\n\r]*$)/;
+
+    return (
+      pathRegex.test(path) &&
+      !/[\x00-\x1F\x7F]/.test(path) &&
+      path.length <= 1024 &&
+      !/[\\\/]$/.test(path)
+    );
+  }
   async searchWithFilters(
     searchParams: SearchDirectoryInput = {},
     page: number = 1,
@@ -185,7 +246,7 @@ export class DirectoryService implements OnModuleInit{
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -200,7 +261,7 @@ export class DirectoryService implements OnModuleInit{
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -222,8 +283,8 @@ export class DirectoryService implements OnModuleInit{
           id: hit._id,
           type: 'directory' as const,
           spec_version: '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           path: hit._source.path,
           
         })),
@@ -238,10 +299,14 @@ export class DirectoryService implements OnModuleInit{
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
       });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -256,9 +321,9 @@ export class DirectoryService implements OnModuleInit{
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

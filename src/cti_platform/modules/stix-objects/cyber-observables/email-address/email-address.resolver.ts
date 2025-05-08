@@ -4,6 +4,7 @@ import { EmailAddress } from './email-address.entity';
 import { CreateEmailAddressInput, UpdateEmailAddressInput } from './email-address.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchEmailAddressInput extends PartialType(CreateEmailAddressInput) {}
 
@@ -25,8 +26,11 @@ export class EmailAddressSearchResult {
 }
 
 @Resolver(() => EmailAddress)
-export class EmailAddressResolver {
-  constructor(private readonly emailAddressService: EmailAddressService) {}
+export class EmailAddressResolver extends BaseStixResolver(EmailAddress) {
+  public typeName = 'directory';
+  constructor(private readonly emailAddressService: EmailAddressService) {
+    super()
+  }
 
   @Mutation(() => EmailAddress)
   async createEmailAddress(

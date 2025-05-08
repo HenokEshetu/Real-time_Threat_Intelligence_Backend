@@ -4,6 +4,7 @@ import { Opinion } from './opinion.entity';
 import { CreateOpinionInput, UpdateOpinionInput } from './opinion.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchOpinionInput extends PartialType(CreateOpinionInput){}
@@ -23,8 +24,12 @@ export class  OpinionSearchResult {
 }
 
 @Resolver(() => Opinion)
-export class OpinionResolver {
-  constructor(private readonly opinionService: OpinionService) {}
+export class OpinionResolver extends BaseStixResolver(Opinion) {
+  public typeName = 'opinion';
+  
+  constructor(private readonly opinionService: OpinionService) {
+    super()
+  }
 
   @Mutation(() => Opinion)
   async createOpinion(

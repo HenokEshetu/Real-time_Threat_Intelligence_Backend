@@ -4,6 +4,7 @@ import { Tool } from './tool.entity';
 import { CreateToolInput, UpdateToolInput } from './tool.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchToolInput extends PartialType(CreateToolInput){}
@@ -24,8 +25,12 @@ export class ToolSearchResult {
 }
 
 @Resolver(() => Tool)
-export class ToolResolver {
-  constructor(private readonly toolService: ToolService) {}
+export class ToolResolver extends BaseStixResolver(Tool) {
+  public typeName = 'tool';
+  
+  constructor(private readonly toolService: ToolService) {
+    super()
+  }
 
   @Mutation(() => Tool)
   async createTool(

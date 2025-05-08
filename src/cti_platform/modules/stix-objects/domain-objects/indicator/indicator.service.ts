@@ -6,33 +6,19 @@ import { Indicator } from './indicator.entity';
 import { BaseStixService } from '../../base-stix.service';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
 export class IndicatorService extends BaseStixService<Indicator> implements OnModuleInit {
   protected typeName = 'indicator';
   private readonly index = 'indicators';
-  private readonly openSearchService: Client;
   private readonly logger = new Logger(IndicatorService.name);
 
-  constructor(@Inject(PUB_SUB) pubSub: RedisPubSub) {
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
     super(pubSub);
-    this.openSearchService = this.createOpenSearchClient();
-  }
-
-  private createOpenSearchClient(): Client {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ...(process.env.OPENSEARCH_SSL === 'true' && { 
-        ssl: { rejectUnauthorized: false } 
-      }),
-      ...(process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD && {
-        auth: {
-          username: process.env.OPENSEARCH_USERNAME,
-          password: process.env.OPENSEARCH_PASSWORD,
-        }
-      })
-    };
-    return new Client(clientOptions);
   }
 
   async onModuleInit(): Promise<void> {
@@ -45,13 +31,18 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
     }
   }
 
-  
+
+
 
   private normalizeIndicatorDates(indicator: Partial<Indicator>): Indicator {
+
     const now = new Date().toISOString();
     return {
       ...indicator,
-      id: indicator.id || `indicator--${uuidv4()}`,
+      id: indicator.id || generateStixId('indicator', indicator),
+      pattern: indicator.pattern || '',
+      pattern_type: indicator.pattern_type || 'stix',
+      pattern_version: indicator.pattern_version || '2.1',
       type: 'indicator',
       spec_version: indicator.spec_version || '2.1',
       created: indicator.created || now,
@@ -72,7 +63,7 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
         if (!pattern.startsWith('[') || !pattern.endsWith(']')) {
           throw new Error('STIX pattern must be enclosed in square brackets');
         }
-        
+
         const patternParts = pattern.split('=');
         if (patternParts.length !== 2) {
           throw new Error('STIX pattern must contain exactly one equals sign');
@@ -111,38 +102,54 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
     this.logger.debug(`Creating indicator with input: ${JSON.stringify(createIndicatorInput, null, 2)}`);
 
     try {
-        // Validate input
-        this.validatePattern(createIndicatorInput.pattern, createIndicatorInput.pattern_type);
+      // Validate input
+      this.validatePattern(createIndicatorInput.pattern, createIndicatorInput.pattern_type);
 
-        const indicator = this.normalizeIndicatorDates({
-            ...createIndicatorInput,
-        });
+      const indicator = this.normalizeIndicatorDates({
+        ...createIndicatorInput,
+      });
 
-        this.logger.log(`Creating indicator ${indicator.id} with pattern: ${indicator.pattern}`);
 
-        const response = await this.openSearchService.index({
-            index: this.index,
-            id: indicator.id,
-            body: indicator,
-            refresh: 'wait_for',
-            op_type: 'create' // Explicitly specify we want to create, not update
-        });
+      // Check if document already exists
+      const exists = await this.openSearchService.exists({
+        index: this.index,
+        id: indicator.id,
+      });
 
-        // Handle both 'created' and 'updated' responses
-        if (response.body.result === 'created' || response.body.result === 'updated') {
-            this.logger.log(`Successfully ${response.body.result} indicator ${indicator.id}`);
-            await this.publishCreated(indicator);
-            return indicator;
-        }
+      if (exists.body) {
+        this.logger?.warn(`Document already exists`, { id: indicator.id });
 
-        this.logger.error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
-        throw new Error(`Unexpected OpenSearch response: ${response.body.result}`);
+        const existingDoc = await this.findOne(indicator.id);
+        return existingDoc;
+
+      }
+
+
+      this.logger.log(`Creating indicator ${indicator.id} with pattern: ${indicator.pattern}`);
+
+      const response = await this.openSearchService.index({
+        index: this.index,
+        id: indicator.id,
+        body: indicator,
+        refresh: 'wait_for',
+        op_type: 'create'
+      });
+
+      // Handle both 'created' and 'updated' responses
+      if (response.body.result === 'created' || response.body.result === 'updated') {
+        this.logger.log(`Successfully ${response.body.result} indicator ${indicator.id}`);
+        await this.publishCreated(indicator);
+        return indicator;
+      }
+
+      this.logger.error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
+      throw new Error(`Unexpected OpenSearch response: ${response.body.result}`);
     } catch (error) {
-       
-        this.logger.error(`Failed to create indicator: ${error.message}`, error.stack);
-        throw this.handleOpenSearchError(error, 'create indicator');
+
+      this.logger.error(`Failed to create indicator: ${error.message}`, error.stack);
+      throw this.handleOpenSearchError(error, 'create indicator');
     }
-}
+  }
 
   async findOne(id: string): Promise<Indicator> {
     try {
@@ -201,7 +208,7 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
         id,
         refresh: 'wait_for',
       });
-      
+
       const success = response.body.result === 'deleted';
       if (success) {
         await this.publishDeleted(id);
@@ -290,9 +297,9 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
   }
 
   private finalizeQueryStructure(query: any): void {
-    if (!query.query.bool.must.length && 
-        !query.query.bool.filter.length && 
-        !query.query.bool.should.length) {
+    if (!query.query.bool.must.length &&
+      !query.query.bool.filter.length &&
+      !query.query.bool.should.length) {
       query.query = { match_all: {} };
     } else if (query.query.bool.should.length > 0) {
       query.query.bool.minimum_should_match = 1;
@@ -339,14 +346,14 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
   private handleOpenSearchError(error: any, operation: string): InternalServerErrorException {
     let details = error.message;
     let errorType = 'UnknownError';
-    
+
     if (error.meta?.body?.error) {
       errorType = error.meta.body.error.type || 'OpenSearchError';
       details = error.meta.body.error.reason || JSON.stringify(error.meta.body.error);
     }
 
     this.logger.error(`OpenSearch ${operation} error (${errorType}): ${details}`);
-    
+
     return new InternalServerErrorException({
       message: `Failed to ${operation}`,
       details,

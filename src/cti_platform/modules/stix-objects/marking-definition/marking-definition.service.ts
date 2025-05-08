@@ -1,46 +1,59 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
-import { v4 as uuidv4 } from 'uuid';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import {
   CreateMarkingDefinitionInput,
   UpdateMarkingDefinitionInput,
   SearchMarkingDefinitionInput,
 } from './marking-definition.input';
 import { MarkingDefinition } from './marking-definition.entity';
+import { BaseStixService } from '../base-stix.service';
+import { PUB_SUB } from '../../pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+
 
 @Injectable()
-export class MarkingDefinitionService implements OnModuleInit {
+export class MarkingDefinitionService extends BaseStixService<MarkingDefinition> implements OnModuleInit {
+  protected typeName = 'marking-definition';
   private readonly index = 'marking-definitions';
-  private readonly openSearchService: Client;
+  private readonly logger = console; 
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
-  }
+
+  constructor(
+          @Inject(PUB_SUB) pubSub: RedisPubSub,
+          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+        ) {
+          super(pubSub);
+        }
 
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createMarkingDefinitionInput: CreateMarkingDefinitionInput): Promise<MarkingDefinition> {
+
     const markingDefinition: MarkingDefinition = {
       ...createMarkingDefinitionInput,
-      id: `marking-definition--${uuidv4()}`,
+      id: createMarkingDefinitionInput.id,
       type: 'marking-definition' as const,
       spec_version: '2.1',
       definition_type: createMarkingDefinitionInput.definition_type,
-      definition: createMarkingDefinitionInput.definition || {}, // Ensure 'definition' is always provided
+      definition: createMarkingDefinitionInput.definition || {}, 
     };
 
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: markingDefinition.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: markingDefinition.id });
+      
+      const existingDoc = await this.findOne(markingDefinition.id);
+      return existingDoc;
+    }
+    
     try {
       const response = await this.openSearchService.index({
         index: this.index,
@@ -52,6 +65,7 @@ export class MarkingDefinitionService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index marking definition');
       }
+      await this.publishCreated(markingDefinition);
       return markingDefinition;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -114,7 +128,7 @@ export class MarkingDefinitionService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update marking definition');
       }
-
+      await this.publishUpdated(updatedMarkingDefinition);
       return updatedMarkingDefinition;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -132,6 +146,10 @@ export class MarkingDefinitionService implements OnModuleInit {
         id,
         refresh: 'wait_for',
       });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -174,7 +192,7 @@ export class MarkingDefinitionService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -221,11 +239,10 @@ export class MarkingDefinitionService implements OnModuleInit {
           id: hit._id,
           type: 'marking-definition' as const,
           spec_version: hit._source.spec_version || '2.1',
-          // Convert to string using toISOString()
           created: new Date(hit._source.created).toISOString(),
           modified: new Date(hit._source.modified).toISOString(),
           definition_type: hit._source.definition_type,
-            created_by_ref: hit._source.created_by_ref,
+          created_by_ref: hit._source.created_by_ref,
           definition: hit._source.definition || {},
         })),
       };

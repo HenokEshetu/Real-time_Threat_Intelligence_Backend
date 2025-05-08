@@ -2,7 +2,7 @@
 
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Repository } from 'typeorm';
 import { User } from 'src/user-management/entities/user.entity';
 import { validate as isUUID } from 'uuid';
 
@@ -19,8 +19,8 @@ export class UserQueryService {
   async findAllUsers(): Promise<User[]> {
     try {
       return await this.userRepository.find({
-        relations: ['roles'],
-        select: ['id', 'email', 'firstName', 'lastName', 'isEmailVerified', 'createdAt', 'updatedAt'],
+        relations: ['roles', 'roles.permissions'],
+        select: ['userId', 'email', 'firstName', 'lastName', 'isEmailVerified', 'createdAt', 'updatedAt'],
       });
     } catch (error) {
       console.error('Error finding all users:', error.stack);
@@ -40,8 +40,8 @@ export class UserQueryService {
 
     try {
       const user = await this.userRepository.findOne({
-        where: { id },
-        relations: ['roles'],
+        where: { userId: id },
+        relations: ['roles', 'roles.permissions'],
       });
 
       if (!user) {
@@ -58,14 +58,35 @@ export class UserQueryService {
     }
   }
 
-  
+  async findUserBy(where: FindOptionsWhere<User> | FindOptionsWhere<User>[]) {
+    try {
+      const user = await this.userRepository.findOne({
+        where: where,
+        relations: ['roles', 'roles.permissions'],
+      });
+
+      if (!user) {
+        throw new NotFoundException(`User with filter ${where} not found`);
+      }
+
+      return user;
+    } catch (error) {
+      console.error(`Error retrieving user by filter (${where}):`, error.stack);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new Error('Failed to retrieve user from the database');
+    }
+  }
+
+
   async findUserByEmail(email: string): Promise<User> {
     try {
       const user = await this.userRepository.findOne({
         where: { email },
-        relations: ['roles'],
+        relations: ['roles', 'roles.permissions'],
         select: {
-          id: true,
+          userId: true,
           email: true,
           password: true,
           firstName: true,

@@ -1,58 +1,82 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
-import { EmailMessage } from './email-message.entity';
-import { CreateEmailMessageInput, UpdateEmailMessageInput } from './email-message.input';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
+import { Client } from '@opensearch-project/opensearch';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { CreateEmailMessageInput, UpdateEmailMessageInput,  } from './email-message.input';
 import { SearchEmailMessageInput } from './email-message.resolver';
+import { EmailMessage } from './email-message.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { StixValidationError } from '../../../../core/exception/custom-exceptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+
+import { v5 as uuidv5 } from 'uuid';
+const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 @Injectable()
-export class EmailMessageService implements OnModuleInit {
+export class EmailMessageService extends BaseStixService<EmailMessage> implements OnModuleInit {
+  protected typeName = 'email-message';
   private readonly index = 'email-messages';
-  private readonly openSearchClient: Client;
-  
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
+  private readonly logger = new Logger(EmailMessageService.name);
+
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
 
   async onModuleInit() {
-    await this.ensureIndex();}
-  
+    await this.ensureIndex();
+  }
 
   async create(createEmailMessageInput: CreateEmailMessageInput): Promise<EmailMessage> {
-    const id = `email-msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date().toISOString();
+    this.validateEmailMessage(createEmailMessageInput);
 
+    const timestamp = new Date();
+    
     const doc: EmailMessage = {
       ...createEmailMessageInput,
-     
-      id,
+      id: createEmailMessageInput.id,
       type: 'email-message' as const,
       spec_version: '2.1',
-      created: now,
-      modified: now,
-      
-    };
 
+      from_ref: createEmailMessageInput.from_ref,
+      to_refs: createEmailMessageInput.to_refs || [],
+      cc_refs: createEmailMessageInput.cc_refs || [],
+      bcc_refs: createEmailMessageInput.bcc_refs || [],
+      subject: createEmailMessageInput.subject || '',
+      date: createEmailMessageInput.date || timestamp,
+      content_type: createEmailMessageInput.content_type || 'text/plain',
+      body: createEmailMessageInput.body || '',
+      message_id: createEmailMessageInput.message_id || undefined,
+    };
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: doc.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: doc.id });
+      
+      const existingDoc = await this.findOne(doc.id);
+      return existingDoc;
+      
+    }
+
+    
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
-        id,
+        id: doc.id,
         body: doc,
         refresh: 'wait_for',
       });
 
       if (response.body.result !== 'created') {
-        throw new Error('Failed to index document');
+        throw new Error('Failed to create email message');
       }
+
+      await this.publishCreated(doc);
       return doc;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -61,16 +85,19 @@ export class EmailMessageService implements OnModuleInit {
       });
     }
   }
+  
 
   async update(id: string, updateEmailMessageInput: UpdateEmailMessageInput): Promise<EmailMessage> {
+    this.validateEmailMessage(updateEmailMessageInput);
+
     try {
-      const existing = await this.findByID(id);
+      const existing = await this.findOne(id); 
       const updatedDoc: Partial<EmailMessage> = {
         ...updateEmailMessageInput,
         modified: new Date().toISOString(),
       };
 
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedDoc },
@@ -78,10 +105,18 @@ export class EmailMessageService implements OnModuleInit {
       });
 
       if (response.body.result !== 'updated') {
-        throw new Error('Failed to update document');
+        throw new Error('Failed to update email message');
       }
 
-      return { ...existing, ...updatedDoc };
+      const updatedEmailMessage: EmailMessage = {
+        ...existing,
+        ...updatedDoc,
+        type: 'email-message' as const,
+        spec_version: existing.spec_version || '2.1',
+      };
+
+      await this.publishUpdated(updatedEmailMessage);
+      return updatedEmailMessage;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException({
@@ -91,19 +126,27 @@ export class EmailMessageService implements OnModuleInit {
     }
   }
 
-  async findByID(id: string): Promise<EmailMessage> {
+  async findOne(id: string): Promise<EmailMessage> {
     try {
-      const response = await this.openSearchClient.get({ index: this.index, id });
+      const response = await this.openSearchService.get({ index: this.index, id });
       const source = response.body._source;
 
       return {
         ...source,
         id,
         type: 'email-message' as const,
-        spec_version: '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
-        
+        spec_version: source.spec_version || '2.1',
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
+        from_ref: source.from_ref || '',
+        to_refs: source.to_refs || [],
+        cc_refs: source.cc_refs || [],
+        bcc_refs: source.bcc_refs || [],
+        subject: source.subject || '',
+        date: source.date || new Date(),
+        content_type: source.content_type || 'text/plain',
+        body: source.body || '',
+        message_id: source.message_id || undefined,
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -143,18 +186,32 @@ export class EmailMessageService implements OnModuleInit {
 
         switch (key) {
           case 'subject':
-          case 'from_ref':
-          case 'to_refs':
+          case 'body':
             queryBuilder.query.bool.must.push({
               match: { [key]: { query: value, lenient: true } },
+            });
+            break;
+          case 'from_ref':
+          case 'message_id':
+          case 'content_type':
+            queryBuilder.query.bool.must.push({
+              term: { [key]: value },
+            });
+            break;
+          case 'to_refs':
+          case 'cc_refs':
+          case 'bcc_refs':
+            queryBuilder.query.bool.filter.push({
+              terms: { [key]: Array.isArray(value) ? value : [value] },
             });
             break;
           case 'created':
           case 'modified':
           case 'date':
-            if (value instanceof Date) {
+            const dateValue = typeof value === 'string' ? value : value instanceof Date ? value : null;
+            if (dateValue) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: dateValue, lte: dateValue } },
               });
             }
             break;
@@ -169,7 +226,7 @@ export class EmailMessageService implements OnModuleInit {
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size,
@@ -189,10 +246,18 @@ export class EmailMessageService implements OnModuleInit {
           ...hit._source,
           id: hit._id,
           type: 'email-message' as const,
-          spec_version: '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          
+          spec_version: hit._source.spec_version || '2.1',
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
+          from_ref: hit._source.from_ref || '',
+          to_refs: hit._source.to_refs || [],
+          cc_refs: hit._source.cc_refs || [],
+          bcc_refs: hit._source.bcc_refs || [],
+          subject: hit._source.subject || '',
+          date: hit._source.date || new Date(),
+          content_type: hit._source.content_type || 'text/plain',
+          body: hit._source.body || '',
+          message_id: hit._source.message_id || undefined,
         })),
       };
     } catch (error) {
@@ -205,11 +270,15 @@ export class EmailMessageService implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
       });
-      return response.body.result === 'deleted';
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
+      return success;
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -221,11 +290,92 @@ export class EmailMessageService implements OnModuleInit {
     }
   }
 
-  async ensureIndex(): Promise<void> {
+  private validateEmailMessage(input: CreateEmailMessageInput | UpdateEmailMessageInput): void {
+    // Check required fields for creation
+    if ('from_ref' in input && input.from_ref === undefined && !('id' in input)) {
+      throw new StixValidationError('from_ref is required for creating an email message');
+    }
+
+    // Validate from_ref if provided
+    if ('from_ref' in input && input.from_ref !== undefined && input.from_ref !== null) {
+      if (typeof input.from_ref !== 'string' || !this.isValidStixId(input.from_ref, 'email-addr')) {
+        throw new StixValidationError('from_ref must be a valid email-addr STIX identifier');
+      }
+    }
+
+    // Validate to_refs, cc_refs, bcc_refs if provided
+    ['to_refs', 'cc_refs', 'bcc_refs'].forEach((field) => {
+      if (field in input && input[field] !== undefined && input[field] !== null) {
+        if (!Array.isArray(input[field]) || !input[field].every(ref => typeof ref === 'string' && this.isValidStixId(ref, 'email-addr'))) {
+          throw new StixValidationError(`${field} must be an array of valid email-addr STIX identifiers`);
+        }
+      }
+    });
+
+    // Validate subject if provided
+    if ('subject' in input && input.subject !== undefined && input.subject !== null) {
+      if (typeof input.subject !== 'string' || input.subject.length > 998) {
+        throw new StixValidationError('subject must be a string with a maximum length of 998 characters');
+      }
+    }
+
+    // Validate date if provided
+    if ('date' in input && input.date !== undefined && input.date !== null) {
+      if (typeof input.date !== 'string' || !this.isValidDate(input.date)) {
+        throw new StixValidationError('date must be a valid ISO 8601 timestamp');
+      }
+    }
+
+    // Validate content_type if provided
+    if ('content_type' in input && input.content_type !== undefined && input.content_type !== null) {
+      if (typeof input.content_type !== 'string' || !this.isValidContentType(input.content_type)) {
+        throw new StixValidationError('content_type must be a valid MIME type (e.g., text/plain)');
+      }
+    }
+
+    // Validate body if provided
+    if ('body' in input && input.body !== undefined && input.body !== null) {
+      if (typeof input.body !== 'string') {
+        throw new StixValidationError('body must be a string');
+      }
+    }
+
+    // Validate message_id if provided
+    if ('message_id' in input && input.message_id !== undefined && input.message_id !== null) {
+      if (typeof input.message_id !== 'string' || input.message_id.length > 256) {
+        throw new StixValidationError('message_id must be a string with a maximum length of 256 characters');
+      }
+    }
+
+    // Validate spec_version if provided
+    if ('spec_version' in input && input.spec_version && input.spec_version !== '2.1') {
+      throw new StixValidationError('EmailMessage spec_version must be 2.1');
+    }
+  }
+
+  private isValidStixId(id: string, expectedType: string): boolean {
+    // Basic STIX ID validation: [type]--[UUID]
+    const regex = new RegExp(`^${expectedType}--[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`, 'i');
+    return regex.test(id);
+  }
+
+  private isValidDate(date: Date): boolean {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const parsedDate = new Date(date);
+      return !isNaN(parsedDate.getTime()) && parsedDate === date;
+    } catch {
+      return false;
+    }
+  }
+  private isValidContentType(contentType: string): boolean {
+    return /^[a-zA-Z0-9][a-zA-Z0-9-+.]*\/[a-zA-Z0-9][a-zA-Z0-9-+.]*$/.test(contentType);
+  }
+
+  private async ensureIndex(): Promise<void> {
+    try {
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {
@@ -236,11 +386,13 @@ export class EmailMessageService implements OnModuleInit {
                 created: { type: 'date' },
                 modified: { type: 'date' },
                 date: { type: 'date' },
-                subject: { type: 'text' },
                 from_ref: { type: 'keyword' },
                 to_refs: { type: 'keyword' },
                 cc_refs: { type: 'keyword' },
                 bcc_refs: { type: 'keyword' },
+                subject: { type: 'text' },
+                content_type: { type: 'keyword' },
+                body: { type: 'text' },
                 message_id: { type: 'keyword' },
               },
             },

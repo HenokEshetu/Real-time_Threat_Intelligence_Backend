@@ -6,10 +6,15 @@ import {
   SearchMarkingDefinitionInput,
 } from './marking-definition.input';
 import { MarkingDefinition, MarkingDefinitionSearchResult } from './marking-definition.entity';
+import { BaseStixResolver } from '../base-stix.resolver';
 
 @Resolver(() => MarkingDefinition)
-export class MarkingDefinitionResolver {
-  constructor(private readonly markingDefinitionService: MarkingDefinitionService) {}
+export class MarkingDefinitionResolver extends BaseStixResolver(MarkingDefinition) {
+  public typeName = 'marking-definition';
+  
+  constructor(private readonly markingDefinitionService: MarkingDefinitionService) {
+    super()
+  }
 
   @Mutation(() => MarkingDefinition)
   async createMarkingDefinition(

@@ -4,6 +4,7 @@ import { Url } from './url.entity';
 import { CreateUrlInput, UpdateUrlInput } from './url.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchUrlInput extends PartialType(CreateUrlInput) {}
 
@@ -25,8 +26,11 @@ export class UrlSearchResult {
 }
 
 @Resolver(() => Url)
-export class UrlResolver {
-  constructor(private readonly urlService: UrlService) {}
+export class UrlResolver extends BaseStixResolver(Url) {
+  public typeName = ' url';
+  constructor(private readonly urlService: UrlService) {
+    super()
+  }
 
   @Mutation(() => Url)
   async createUrl(

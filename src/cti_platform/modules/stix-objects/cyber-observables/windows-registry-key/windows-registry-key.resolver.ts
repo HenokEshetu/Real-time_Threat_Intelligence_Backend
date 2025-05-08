@@ -5,6 +5,7 @@ import { CreateWindowsRegistryKeyInput, UpdateWindowsRegistryKeyInput } from './
 
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchWindowsRegistryKeyInput extends PartialType(CreateWindowsRegistryKeyInput) {}
 
@@ -25,8 +26,11 @@ export class WindowsRegistryKeySearchResult {
 }
 
 @Resolver(() => WindowsRegistryKey)
-export class WindowsRegistryKeyResolver {
-  constructor(private readonly windowsRegistryKeyService: WindowsRegistryKeyService) {}
+export class WindowsRegistryKeyResolver extends BaseStixResolver(WindowsRegistryKey) {
+  public typeName = ' windows-registry-key';
+  constructor(private readonly windowsRegistryKeyService: WindowsRegistryKeyService) {
+    super()
+  }
 
   @Mutation(() => WindowsRegistryKey)
   async createWindowsRegistryKey(

@@ -4,6 +4,7 @@ import { CreateIntrusionSetInput, UpdateIntrusionSetInput } from './intrusion-se
 import { IntrusionSet } from './intrusion-set.entity';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchIntrusionSetInput extends PartialType(CreateIntrusionSetInput){}
 
@@ -26,8 +27,11 @@ export class IntrusionSetSearchResult {
 }
 
 @Resolver(() => IntrusionSet)
-export class IntrusionSetResolver {
-  constructor(private readonly intrusionSetService: IntrusionSetService) {}
+export class IntrusionSetResolver extends BaseStixResolver(IntrusionSet) {
+  public typeName = 'intrusion-set';
+  constructor(private readonly intrusionSetService: IntrusionSetService) {
+    super()
+  }
 
   @Mutation(() => IntrusionSet)
   async createIntrusionSet(

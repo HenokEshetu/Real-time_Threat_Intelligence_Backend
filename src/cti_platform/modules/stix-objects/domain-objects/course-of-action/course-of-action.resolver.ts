@@ -4,6 +4,7 @@ import { CreateCourseOfActionInput, UpdateCourseOfActionInput } from './course-o
 import { CourseOfAction } from './course-of-action.entity';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchCourseOfActionInput extends PartialType(CreateCourseOfActionInput){}
@@ -23,8 +24,11 @@ export class CourseOfActionSearchResult {
 }
 
 @Resolver(() => CourseOfAction)
-export class CourseOfActionResolver {
-  constructor(private readonly courseOfActionService: CourseOfActionService) {}
+export class CourseOfActionResolver extends BaseStixResolver(CourseOfAction) {
+  public typeName = 'course-of-action';
+  constructor(private readonly courseOfActionService: CourseOfActionService) {
+    super()
+  }
 
   @Mutation(() => CourseOfAction)
   async createCourseOfAction(

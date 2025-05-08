@@ -1,37 +1,35 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client,  } from '@opensearch-project/opensearch';
 import { CreateNoteInput, UpdateNoteInput } from './note.input';
-import { v4 as uuidv4 } from 'uuid';
 import { SearchNoteInput } from './note.resolver';
 import { Note } from './note.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class NoteService implements OnModuleInit {
+export class NoteService extends BaseStixService<Note> implements OnModuleInit {
+  private readonly logger = console; 
+  protected typeName = 'note';
   private readonly index = 'notes';
-  private readonly openSearchService: Client;
+ 
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
-  }
-
+  constructor(
+          @Inject(PUB_SUB) pubSub: RedisPubSub,
+          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+        ) {
+          super(pubSub);
+        }
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createNoteInput: CreateNoteInput): Promise<Note> {
+
     const note: Note = {
       ...createNoteInput,
-      id: `note--${uuidv4()}`,
+      id: createNoteInput.id,
       type: 'note' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
@@ -39,6 +37,21 @@ export class NoteService implements OnModuleInit {
       content: createNoteInput.content, // Required field
       
     };
+
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: note.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: note.id });
+
+      const existingDoc = await this.findOne(note.id);
+      return existingDoc;
+
+    }
 
     try {
       const response = await this.openSearchService.index({
@@ -51,6 +64,7 @@ export class NoteService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index note');
       }
+      await this.publishCreated(note);
       return note;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -73,8 +87,8 @@ export class NoteService implements OnModuleInit {
         id: response.body._id,
         type: 'note' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         object_refs: source.object_refs,
         abstract:source.abstract,
         content: source.content, // Required field
@@ -111,7 +125,7 @@ export class NoteService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update note');
       }
-
+      await this.publishUpdated(updatedNote);
       return updatedNote;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -129,7 +143,10 @@ export class NoteService implements OnModuleInit {
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -171,7 +188,7 @@ export class NoteService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -214,8 +231,8 @@ export class NoteService implements OnModuleInit {
           id: hit._id,
           type: 'note' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           content: hit._source.content, // Required field
           abstract: hit._source.abstract,
           object_refs: hit._source.object_refs,

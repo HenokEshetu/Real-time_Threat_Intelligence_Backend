@@ -4,6 +4,7 @@ import { Note } from './note.entity';
 import { CreateNoteInput, UpdateNoteInput } from './note.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchNoteInput extends PartialType(CreateNoteInput){}
@@ -23,8 +24,11 @@ export class NoteSearchResult {
 }
 
 @Resolver(() => Note)
-export class NoteResolver {
-  constructor(private readonly noteService: NoteService) {}
+export class NoteResolver extends BaseStixResolver(Note) {
+  public typeName = 'note';
+  constructor(private readonly noteService: NoteService) {
+    super()
+  }
 
   @Mutation(() => Note)
   async createNote(

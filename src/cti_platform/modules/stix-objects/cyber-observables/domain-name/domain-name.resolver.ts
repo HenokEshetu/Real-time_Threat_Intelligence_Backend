@@ -8,6 +8,7 @@ import { PartialType } from '@nestjs/graphql';
 export class SearchDomainNameInput extends PartialType(CreateDomainNameInput) {}
 
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @ObjectType()
 export class DomainNameSearchResult {
@@ -28,8 +29,11 @@ export class DomainNameSearchResult {
 }
 
 @Resolver(() => DomainName)
-export class DomainNameResolver {
-  constructor(private readonly domainNameService: DomainNameService) {}
+export class DomainNameResolver extends BaseStixResolver(DomainName) {
+  public typeName = 'directory';
+  constructor(private readonly domainNameService: DomainNameService) {
+    super()
+  }
 
   @Mutation(() => DomainName)
   async createDomainName(

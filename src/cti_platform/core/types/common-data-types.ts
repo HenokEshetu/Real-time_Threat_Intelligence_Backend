@@ -244,7 +244,7 @@ export class Hashes {
 
 @ObjectType()
 export class ExternalReference {
- @Field(() => ID) id: string;
+ @Field(() => ID, { nullable: true }) id: string;
  @Field() source_name: string;
  @Field({ nullable: true }) description?: string;
  @Field({ nullable: true }) url?: string;
@@ -304,6 +304,7 @@ export class CommonProperties {
  @Field(() => GraphQLJSONObject, { nullable: true }) extensions?: Dictionary;
  
 }
+
 
 
 @ObjectType()
@@ -430,6 +431,7 @@ export class CommonInput {
  @Field(() => String) created: string;
  @Field(() => String) modified: string;
  @Field({ nullable: true }) revoked?: boolean;
+ @Field(() => [String], { nullable: true }) object_marking_refs?: string[];
  @Field(() => [String], { nullable: true }) labels?: string[];
  @Field({ nullable: true }) confidence?: number;
  @Field({ nullable: true }) lang?: string;

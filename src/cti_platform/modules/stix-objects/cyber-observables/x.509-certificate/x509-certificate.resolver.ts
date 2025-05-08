@@ -4,6 +4,7 @@ import { X509Certificate } from './x509-certificate.entity';
 import { CreateX509CertificateInput, UpdateX509CertificateInput } from './x509-certificate.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchX509CertificateInput extends PartialType(CreateX509CertificateInput) {}
@@ -23,8 +24,11 @@ export class X509CertificateSearchResult {
 }
 
 @Resolver(() => X509Certificate)
-export class X509CertificateResolver {
-  constructor(private readonly x509CertificateService: X509CertificateService) {}
+export class X509CertificateResolver extends BaseStixResolver(X509Certificate) {
+  public typeName = ' x509-certificate';
+  constructor(private readonly x509CertificateService: X509CertificateService) {
+    super()
+  }
 
   @Mutation(() => X509Certificate)
   async createX509Certificate(

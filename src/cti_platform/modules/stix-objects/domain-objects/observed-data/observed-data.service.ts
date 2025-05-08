@@ -1,50 +1,64 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client,  } from '@opensearch-project/opensearch';
 import { CreateObservedDataInput, UpdateObservedDataInput } from './observed-data.input';
-import { v4 as uuidv4 } from 'uuid';
+
 import { SearchObservedDataInput } from './observed-data.resolver';
 import { ObservedData } from './observed-data.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class ObservedDataService implements OnModuleInit {
+export class ObservedDataService extends BaseStixService<ObservedData> implements OnModuleInit {
+  protected typeName = 'observed-data';
   private readonly index = 'observed-data';
-  private readonly openSearchClient: Client;
+  private readonly logger = console; // Replace with a proper logger if needed
+ 
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
-  }
+  constructor(
+          @Inject(PUB_SUB) pubSub: RedisPubSub,
+          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+        ) {
+          super(pubSub);
+        }
 
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createObservedDataInput: CreateObservedDataInput): Promise<ObservedData> {
+    
     const observedData: ObservedData = {
       ...createObservedDataInput,
       ...(createObservedDataInput.object_refs ? { object_refs: createObservedDataInput.object_refs } : {}),
-      id: `observed-data--${uuidv4()}`,
+      id: createObservedDataInput.id,
       type: 'observed-data' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      first_observed: createObservedDataInput.first_observed, // Required field
-      last_observed: createObservedDataInput.last_observed,   // Required field
-      number_observed: createObservedDataInput.number_observed, // Required field
+      first_observed: createObservedDataInput.first_observed, 
+      last_observed: createObservedDataInput.last_observed,   
+      number_observed: createObservedDataInput.number_observed, 
       
     };
 
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: observedData.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: observedData.id });
+
+      const existingDoc = await this.findOne(observedData.id);
+      return existingDoc;
+
+    }
+
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: observedData.id,
         body: observedData,
@@ -54,6 +68,7 @@ export class ObservedDataService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index observed data');
       }
+      await this.publishCreated(observedData);
       return observedData;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -65,7 +80,7 @@ export class ObservedDataService implements OnModuleInit {
 
   async findOne(id: string): Promise<ObservedData> {
     try {
-      const response = await this.openSearchClient.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
@@ -76,8 +91,8 @@ export class ObservedDataService implements OnModuleInit {
         id: response.body._id,
         type: 'observed-data' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         first_observed: source.first_observed, // Required field
         last_observed: source.last_observed,   // Required field
         object_refs:source.object_refs,
@@ -101,10 +116,10 @@ export class ObservedDataService implements OnModuleInit {
       const updatedData: ObservedData = {
         ...existingData,
         ...updateObservedDataInput,
-        modified: new Date().toISOString(),
+        modified: new Date(). toISOString(),
       };
 
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedData },
@@ -115,7 +130,7 @@ export class ObservedDataService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update observed data');
       }
-
+      await this.publishUpdated(updatedData);
       return updatedData;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -128,12 +143,19 @@ export class ObservedDataService implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+
+
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
+
+      
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -175,7 +197,7 @@ export class ObservedDataService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -197,7 +219,7 @@ export class ObservedDataService implements OnModuleInit {
         queryBuilder.query.bool.minimum_should_match = 1;
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -218,8 +240,8 @@ export class ObservedDataService implements OnModuleInit {
           id: hit._id,
           type: 'observed-data' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           first_observed: hit._source.first_observed, // Required field
           last_observed: hit._source.last_observed,   // Required field
           number_observed: hit._source.number_observed, // Required field
@@ -237,9 +259,9 @@ export class ObservedDataService implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

@@ -9,7 +9,7 @@ export class AuthTokenService {
 
   createTokenPayload(user: User): TokenPayload {
     return {
-      sub: user.id,
+      sub: user.userId,
       email: user.email,
       roles: user.roles?.map(role => role.name) || [],
     };

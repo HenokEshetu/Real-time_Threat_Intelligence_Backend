@@ -3,6 +3,7 @@ import { BundleService } from './bundle.service';
 import { Bundle } from './bundle.entity';
 import { CreateBundleInput, UpdateBundleInput } from './bundle.input';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../base-stix.resolver';
 
 @InputType()
 export class SearchBundleInput extends PartialType(CreateBundleInput) {}
@@ -27,8 +28,11 @@ export class SearchResult {
 
 
 @Resolver(() => Bundle)
-export class BundleResolver {
-  constructor(private readonly bundleService: BundleService) {}
+export class BundleResolver extends BaseStixResolver(Bundle) {
+  public typeName = 'bundle';
+  constructor(private readonly bundleService: BundleService) {
+    super()
+  }
 
   @Mutation(() => Bundle)
   async createBundle(

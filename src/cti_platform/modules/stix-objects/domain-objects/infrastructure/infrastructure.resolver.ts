@@ -4,6 +4,7 @@ import { Infrastructure } from './infrastructure.entity';
 import { CreateInfrastructureInput, UpdateInfrastructureInput } from './infrastructure.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchInfrastructureInput extends PartialType(CreateInfrastructureInput){}
@@ -24,8 +25,11 @@ export class InfrastructureSearchResult {
 }
 
 @Resolver(() => Infrastructure)
-export class InfrastructureResolver {
-  constructor(private readonly infrastructureService: InfrastructureService) {}
+export class InfrastructureResolver extends BaseStixResolver(Infrastructure) {
+  public typeName = 'infrastructure';
+  constructor(private readonly infrastructureService: InfrastructureService) {
+    super()
+  }
 
   @Mutation(() => Infrastructure)
   async createInfrastructure(

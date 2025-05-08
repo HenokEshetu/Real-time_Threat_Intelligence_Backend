@@ -4,6 +4,7 @@ import { Grouping } from './grouping.entity';
 import { CreateGroupingInput, UpdateGroupingInput } from './grouping.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchGroupingInput extends PartialType(CreateGroupingInput){}
@@ -24,8 +25,11 @@ export class GroupingSearchResult {
 }
 
 @Resolver(() => Grouping)
-export class GroupingResolver {
-  constructor(private readonly groupingService: GroupingService) {}
+export class GroupingResolver extends BaseStixResolver(Grouping) {
+  public typeName = 'grouping';
+  constructor(private readonly groupingService: GroupingService) {
+    super();
+  }
 
   @Mutation(() => Grouping)
   async createGrouping(

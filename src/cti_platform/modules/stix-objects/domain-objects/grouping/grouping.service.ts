@@ -1,28 +1,26 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
-import { v4 as uuidv4 } from 'uuid';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateGroupingInput, UpdateGroupingInput } from './grouping.input';
 import { SearchGroupingInput } from './grouping.resolver';
 import { Grouping } from './grouping.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class GroupingService implements OnModuleInit {
+export class GroupingService extends BaseStixService<Grouping> implements OnModuleInit {
+  protected typeName = 'grouping';
   private readonly index = 'groupings';
-  private readonly openSearchService: Client;
+  private readonly logger = new (console as any).constructor(); // Replace with a proper logger if needed
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
-  }
+  constructor(
+        @Inject(PUB_SUB) pubSub: RedisPubSub,
+        @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+      ) {
+        super(pubSub);
+      }
+  
 
   async onModuleInit() {
     await this.ensureIndex();
@@ -30,17 +28,34 @@ export class GroupingService implements OnModuleInit {
 
 
   async create(createGroupingInput: CreateGroupingInput): Promise<Grouping> {
+    
     const grouping: Grouping = {
       ...createGroupingInput,
       
-      id: `grouping--${uuidv4()}`,
+      id: createGroupingInput.id,
       type: 'grouping' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
-      modified: new Date().toISOString(),
-      name: createGroupingInput.name, // Required field
+      modified: new Date(). toISOString(),
+      name: createGroupingInput.name,
       
     };
+
+
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: grouping.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: grouping.id });
+
+      const existingDoc = await this.findOne(grouping.id);
+      return existingDoc;
+
+    }
 
     try {
       const response = await this.openSearchService.index({
@@ -53,6 +68,7 @@ export class GroupingService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index grouping');
       }
+      await this.publishCreated(grouping);
       return grouping;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -75,8 +91,8 @@ export class GroupingService implements OnModuleInit {
         id: response.body._id,
         type: 'grouping' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         name: source.name, // Required field
         object_refs: source.object_refs,
         context: source.context,
@@ -113,6 +129,7 @@ export class GroupingService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update grouping');
       }
+      await this.publishUpdated(updatedGrouping);
       return updatedGrouping;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -130,7 +147,12 @@ export class GroupingService implements OnModuleInit {
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
+      
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -172,7 +194,7 @@ export class GroupingService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -215,8 +237,8 @@ export class GroupingService implements OnModuleInit {
           id: hit._id,
           type: 'grouping' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           name: hit._source.name, // Required field
           context: hit._source.context,
           object_refs:hit._source.object_refs,

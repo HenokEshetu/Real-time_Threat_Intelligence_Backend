@@ -1,44 +1,58 @@
-import { Injectable, InternalServerErrorException, NotFoundException,OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException,OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateToolInput, UpdateToolInput } from './tool.input';
-import { v4 as uuidv4 } from 'uuid';
 import { SearchToolInput } from './tool.resolver';
 import { Tool } from './tool.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class ToolService implements OnModuleInit {
+export class ToolService extends BaseStixService<Tool> implements OnModuleInit {
+  protected typeName = 'tool';
   private readonly index = 'tools';
-  private readonly openSearchService: Client;
+  private readonly logger = console; // Replace with a proper logger if needed
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
-  }
+  constructor(
+          @Inject(PUB_SUB) pubSub: RedisPubSub,
+          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+        ) {
+          super(pubSub);
+        }
+    
 
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createToolInput: CreateToolInput): Promise<Tool> {
+    
     const tool: Tool = {
       ...createToolInput,
-      id: `tool--${uuidv4()}`,
+      id: createToolInput.id,
       type: 'tool' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      name: createToolInput.name, // Required field
+      name: createToolInput.name,
       
     };
+
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: tool.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: tool.id });
+
+      const existingDoc = await this.findOne(tool.id);
+      return existingDoc;
+
+    }
 
     try {
       const response = await this.openSearchService.index({
@@ -51,6 +65,7 @@ export class ToolService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index tool');
       }
+      await this.publishCreated(tool);
       return tool;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -74,8 +89,8 @@ export class ToolService implements OnModuleInit {
         type: 'tool' as const,
         spec_version: source.spec_version || '2.1',
         tool_types: source.tool_types,
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         name: source.name, // Required field
        
       };
@@ -110,7 +125,7 @@ export class ToolService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update tool');
       }
-
+      await this.publishUpdated(updatedTool);
       return updatedTool;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -128,7 +143,10 @@ export class ToolService implements OnModuleInit {
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -170,7 +188,7 @@ export class ToolService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -214,8 +232,8 @@ export class ToolService implements OnModuleInit {
           type: 'tool' as const,
           spec_version: hit._source.spec_version || '2.1',
           tool_types:hit._source.tool_types,
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
           name: hit._source.name, // Required field
           
         })),

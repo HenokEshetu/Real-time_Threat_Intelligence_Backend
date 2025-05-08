@@ -4,6 +4,7 @@ import { Campaign } from './campaign.entity';
 import { CreateCampaignInput, UpdateCampaignInput } from './campaign.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../../base-stix.resolver';
 
 @InputType()
 export class SearchCampaignInput extends PartialType(CreateCampaignInput){}
@@ -23,8 +24,11 @@ export class CampaignSearchResult {
 }
 
 @Resolver(() => Campaign)
-export class CampaignResolver {
-  constructor(private readonly campaignService: CampaignService) {}
+export class CampaignResolver extends BaseStixResolver(Campaign) {
+  public typeName = 'campaign';
+  constructor(private readonly campaignService: CampaignService) {
+    super();
+  }
 
   @Mutation(() => Campaign)
   async createCampaign(

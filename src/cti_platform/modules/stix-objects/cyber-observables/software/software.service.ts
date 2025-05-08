@@ -1,47 +1,63 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateSoftwareInput, UpdateSoftwareInput } from './software.input';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { SearchSoftwareInput } from './software.resolver';
 import { Software } from './software.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class SoftwareService implements OnModuleInit {
+export class SoftwareService extends BaseStixService<Software> implements OnModuleInit {
+  protected typeName = ' software';
   private readonly index = 'software';
-  private readonly openSearchClient: Client;
+  private readonly logger = console; // Replace with a proper logger if needed
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
+
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
 
   async onModuleInit() {
-    await this.ensureIndex();}
+    await this.ensureIndex();
+  }
 
   async create(createSoftwareInput: CreateSoftwareInput): Promise<Software> {
     this.validateSoftware(createSoftwareInput);
 
+
+
     const software: Software = {
       ...createSoftwareInput,
-      
+      id: createSoftwareInput.id,
       type: 'software' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      
+
     };
 
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: software.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: software.id });
+
+      const existingDoc = await this.findOne(software.id);
+      return existingDoc;
+
+    }
+
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         body: software,
         refresh: 'wait_for',
@@ -51,10 +67,13 @@ export class SoftwareService implements OnModuleInit {
         throw new Error('Failed to index software document');
       }
 
-      return {
-        id: response.body._id,
-        ...software,
-      };
+
+
+      await this.publishUpdated(software);
+      return software;
+
+
+
     } catch (error) {
       throw new StixValidationError(`Failed to create software: ${error.meta?.body?.error || error.message}`);
     }
@@ -62,7 +81,7 @@ export class SoftwareService implements OnModuleInit {
 
   async findOne(id: string): Promise<Software> {
     try {
-      const response = await this.openSearchClient.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
@@ -72,11 +91,11 @@ export class SoftwareService implements OnModuleInit {
         ...source,
         id: response.body._id,
         type: 'software' as const,
-        name:source.name,
+        name: source.name,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
-        
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
+
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -99,7 +118,7 @@ export class SoftwareService implements OnModuleInit {
         modified: new Date().toISOString(),
       };
 
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedDoc },
@@ -110,7 +129,13 @@ export class SoftwareService implements OnModuleInit {
         throw new Error('Failed to update software document');
       }
 
-      return { ...existing, ...updatedDoc };
+      const updatedSoftware: Software = {
+        ...existing,
+        spec_version: existing.spec_version || '2.1',
+      };
+      await this.publishUpdated(updatedSoftware);
+      return updatedSoftware;
+
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new StixValidationError(`Failed to update software: ${error.meta?.body?.error || error.message}`);
@@ -119,11 +144,17 @@ export class SoftwareService implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
       });
+
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
+
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -214,7 +245,7 @@ export class SoftwareService implements OnModuleInit {
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -229,7 +260,7 @@ export class SoftwareService implements OnModuleInit {
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size,
@@ -249,11 +280,11 @@ export class SoftwareService implements OnModuleInit {
           ...hit._source,
           id: hit._id,
           type: 'software' as const,
-          name:hit._source.name,
+          name: hit._source.name,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
+
         })),
       };
     } catch (error) {
@@ -266,9 +297,9 @@ export class SoftwareService implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

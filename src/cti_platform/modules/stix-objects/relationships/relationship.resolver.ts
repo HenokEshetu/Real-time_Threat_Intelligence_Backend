@@ -4,6 +4,7 @@ import { StixRelationship } from './relationship.entity';
 import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
+import { BaseStixResolver } from '../base-stix.resolver';
 
 
 @InputType()
@@ -25,8 +26,12 @@ export class StixRelationshipSearchResult {
 }
 
 @Resolver(() => StixRelationship)
-export class RelationshipResolver {
-  constructor(private readonly relationshipService: RelationshipService) {}
+export class RelationshipResolver extends BaseStixResolver(StixRelationship) {
+  public typeName = 'indicator';
+  
+  constructor(private readonly relationshipService: RelationshipService) {
+    super()
+  }
 
   @Mutation(() => StixRelationship)
   async createRelationship(

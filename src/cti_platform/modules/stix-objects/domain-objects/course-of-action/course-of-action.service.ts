@@ -1,45 +1,60 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
-import { v4 as uuidv4 } from 'uuid';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateCourseOfActionInput, UpdateCourseOfActionInput } from './course-of-action.input';
 import { SearchCourseOfActionInput } from './course-of-action.resolver';
 import { CourseOfAction } from './course-of-action.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+
 
 @Injectable()
-export class CourseOfActionService implements OnModuleInit {
+export class CourseOfActionService extends BaseStixService<CourseOfAction> implements OnModuleInit {
+  protected typeName = 'course-of-action';
   private readonly index = 'course-of-actions';
-  private readonly openSearchService: Client;
+  private readonly logger = new Logger(CourseOfActionService.name);
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchService = new Client(clientOptions);
-  }
+  constructor(
+        @Inject(PUB_SUB) pubSub: RedisPubSub,
+        @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+      ) {
+        super(pubSub);
+      }
 
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createCourseOfActionInput: CreateCourseOfActionInput): Promise<CourseOfAction> {
+   
     const courseOfAction: CourseOfAction = {
       ...createCourseOfActionInput,
      
-      id: `course-of-action--${uuidv4()}`,
+      id: createCourseOfActionInput.id,
       type: 'course-of-action' as const,
       spec_version: '2.1',
-      created: new Date().toISOString(),
+      created: new Date().  toISOString(),
       modified: new Date().toISOString(),
       name: createCourseOfActionInput.name, // Required field
       
     };
+
+
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: courseOfAction.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: courseOfAction.id });
+
+      const existingDoc = await this.findOne(courseOfAction.id);
+      return existingDoc;
+
+    }
+
 
     try {
       const response = await this.openSearchService.index({
@@ -52,6 +67,7 @@ export class CourseOfActionService implements OnModuleInit {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index course of action');
       }
+      await this.publishCreated(courseOfAction);
       return courseOfAction;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -74,8 +90,8 @@ export class CourseOfActionService implements OnModuleInit {
         id: response.body._id,
         type: 'course-of-action' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
         name: source.name, // Required field
        
       };
@@ -110,7 +126,7 @@ export class CourseOfActionService implements OnModuleInit {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update course of action');
       }
-
+      await this.publishUpdated(updatedCourse);
       return updatedCourse;
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
@@ -128,7 +144,11 @@ export class CourseOfActionService implements OnModuleInit {
         id,
         refresh: 'wait_for',
       });
-      return response.body.result === 'deleted';
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
+      return success;
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -170,7 +190,7 @@ export class CourseOfActionService implements OnModuleInit {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+              range: { [key]: { gte: value, lte: value } },
             });
           }
         } else if (typeof value === 'string') {
@@ -213,9 +233,9 @@ export class CourseOfActionService implements OnModuleInit {
           id: hit._id,
           type: 'course-of-action' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          name: hit._source.name, // Required field
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
+          name: hit._source.name, 
         })),
       };
     } catch (error) {

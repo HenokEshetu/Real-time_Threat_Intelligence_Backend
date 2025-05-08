@@ -1,46 +1,63 @@
-import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { v4 as uuidv4 } from 'uuid';
 import { Client, ClientOptions } from '@opensearch-project/opensearch';
 import { CreateWindowsRegistryKeyInput, UpdateWindowsRegistryKeyInput } from './windows-registry-key.input';
 import { WindowsRegistryKey } from './windows-registry-key.entity';
 import { SearchWindowsRegistryKeyInput } from './windows-registry-key.resolver';
+import { BaseStixService } from '../../base-stix.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @Injectable()
-export class WindowsRegistryKeyService implements OnModuleInit  {
+export class WindowsRegistryKeyService extends BaseStixService<WindowsRegistryKey> implements OnModuleInit {
+  protected typeName = ' windows-registry-key';
   private readonly index = 'windows-registry-keys';
-  private readonly openSearchClient: Client;
+  private readonly logger = console; // Replace with a proper logger if needed
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
+
+  constructor(
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
   }
 
   async onModuleInit() {
-    await this.ensureIndex();}
+    await this.ensureIndex();
+  }
 
   async create(createWindowsRegistryKeyInput: CreateWindowsRegistryKeyInput): Promise<WindowsRegistryKey> {
+
+
+
     const windowsRegistryKey: WindowsRegistryKey = {
       ...createWindowsRegistryKeyInput,
-     
-      id: `windows-registry-key--${uuidv4()}`,
+
+      id: createWindowsRegistryKeyInput.id,
       type: 'windows-registry-key' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      
+
     };
 
+
+
+    // Check if document already exists
+    const exists = await this.openSearchService.exists({
+      index: this.index,
+      id: windowsRegistryKey.id,
+    });
+
+    if (exists.body) {
+      this.logger?.warn(`Document already exists`, { id: windowsRegistryKey.id });
+
+      const existingDoc = await this.findOne(windowsRegistryKey.id);
+      return existingDoc;
+
+    }
     try {
-      const response = await this.openSearchClient.index({
+      const response = await this.openSearchService.index({
         index: this.index,
         id: windowsRegistryKey.id,
         body: windowsRegistryKey,
@@ -50,6 +67,9 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
       if (response.body.result !== 'created') {
         throw new Error('Failed to index Windows Registry Key document');
       }
+
+      await this.publishCreated(windowsRegistryKey)
+
       return windowsRegistryKey;
     } catch (error) {
       throw new InternalServerErrorException({
@@ -61,16 +81,16 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
 
   async findOne(id: string): Promise<WindowsRegistryKey> {
     try {
-      const response = await this.openSearchClient.get({ index: this.index, id });
+      const response = await this.openSearchService.get({ index: this.index, id });
       const source = response.body._source;
       return {
         ...source,
         id: response.body._id,
         type: 'windows-registry-key' as const,
         spec_version: source.spec_version || '2.1',
-        created: source.created || new Date().toISOString(),
-        modified: source.modified || new Date().toISOString(),
-       
+        created: source.created || new Date(),
+        modified: source.modified || new Date(),
+
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -92,7 +112,7 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
         modified: new Date().toISOString(),
       };
 
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: { doc: updatedRegistryKey },
@@ -102,6 +122,8 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update Windows Registry Key document');
       }
+
+      await this.publishUpdated(updatedRegistryKey)
 
       return updatedRegistryKey;
     } catch (error) {
@@ -115,7 +137,11 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({ index: this.index, id });
+      const response = await this.openSearchService.delete({ index: this.index, id });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -160,7 +186,7 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -187,7 +213,7 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
@@ -208,9 +234,9 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
           id: hit._id,
           type: 'windows-registry-key' as const,
           spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date().toISOString(),
-          modified: hit._source.modified || new Date().toISOString(),
-          
+          created: hit._source.created || new Date(),
+          modified: hit._source.modified || new Date(),
+
         })),
       };
     } catch (error) {
@@ -223,9 +249,9 @@ export class WindowsRegistryKeyService implements OnModuleInit  {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {

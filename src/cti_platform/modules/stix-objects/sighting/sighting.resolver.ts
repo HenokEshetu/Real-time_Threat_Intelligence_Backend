@@ -4,6 +4,7 @@ import { Sighting } from './sighting.entity';
 import { CreateSightingInput, UpdateSightingInput } from './sighting.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { BaseStixResolver } from '../base-stix.resolver';
 
 @InputType()
 export class SearchSightingInput extends PartialType(CreateSightingInput){}
@@ -23,8 +24,12 @@ export class SightingSearchResult {
 }
 
 @Resolver(() => Sighting)
-export class SightingResolver {
-  constructor(private readonly sightingService: SightingService) {}
+export class SightingResolver extends BaseStixResolver(Sighting) {
+  public typeName = 'sighting';
+  
+  constructor(private readonly sightingService: SightingService) {
+    super()
+  }
 
   @Mutation(() => Sighting)
   async createSighting(

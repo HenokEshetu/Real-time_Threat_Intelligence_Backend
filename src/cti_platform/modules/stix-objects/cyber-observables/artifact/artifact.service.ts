@@ -1,5 +1,5 @@
-import { Injectable, NotFoundException, InternalServerErrorException, OnModuleInit } from '@nestjs/common';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Injectable, NotFoundException, InternalServerErrorException, OnModuleInit, Inject } from '@nestjs/common';
+import { Client, } from '@opensearch-project/opensearch';
 import { CreateArtifactInput, UpdateArtifactInput } from './artifact.input';
 import { SearchArtifactInput } from './artifact.resolver';
 import { v5 as uuidv5 } from 'uuid';
@@ -9,26 +9,24 @@ const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { Artifact } from './artifact.entity';
+import { BaseStixService } from '../../base-stix.service';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 
 
 @Injectable()
-export class ArtifactService implements OnModuleInit {
+export class ArtifactService extends BaseStixService<Artifact> implements OnModuleInit {
+  protected typeName = 'artifact';
   private readonly index = 'artifacts';
-  private readonly openSearchClient: Client;
+  private readonly logger = console; 
+  
 
-  constructor() {
-    const clientOptions: ClientOptions = {
-      node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-      ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-      auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-        ? {
-            username: process.env.OPENSEARCH_USERNAME,
-            password: process.env.OPENSEARCH_PASSWORD,
-          }
-        : undefined,
-    };
-    this.openSearchClient = new Client(clientOptions);
-  }
+   constructor(
+          @Inject(PUB_SUB) pubSub: RedisPubSub,
+          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+        ) {
+          super(pubSub);
+        }
 
   async onModuleInit() {
     await this.ensureIndex();
@@ -39,24 +37,38 @@ export class ArtifactService implements OnModuleInit {
 async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
   this.validateArtifact(createArtifactInput);
   
-  const timestamp = new Date().toISOString();
+  const timestamp = new Date();
   // Generate ID if not provided
-  const id = createArtifactInput.id || uuidv5(JSON.stringify(createArtifactInput), NAMESPACE);
+  
   
   const artifact: Artifact = {
     ...createArtifactInput,
-    id,
+    id: createArtifactInput.id,
     type: 'artifact' as const,
     spec_version: '2.1',
-    created: timestamp,
-    modified: timestamp,
+    created: timestamp.toISOString(),
+    modified: timestamp.toISOString(),
     hashes: this.convertHashesInputToHashes(createArtifactInput.hashes),
   };
 
+  // Check if document already exists
+  const exists = await this.openSearchService.exists({
+    index: this.index,
+    id: artifact.id,
+  });
+
+  if (exists.body) {
+    this.logger?.warn(`Document already exists`, { id: artifact.id });
+    
+    const existingDoc = await this.findOne(artifact.id);
+    return existingDoc;
+  }
+
+
   try {
-    const response = await this.openSearchClient.index({
+    const response = await this.openSearchService.index({
       index: this.index,
-      id,
+      id: artifact.id,
       body: artifact,
       refresh: 'wait_for',
     });
@@ -64,6 +76,7 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
     if (response.body.result !== 'created') {
       throw new Error('Failed to create artifact');
     }
+    await this.publishCreated(artifact);
     return artifact;
   } catch (error) {
     throw new InternalServerErrorException({
@@ -84,7 +97,7 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
     results: Artifact[];
   }> {
     try {
-      const timestamp = new Date().toISOString(); // Define timestamp here
+      const timestamp = new Date(); // Define timestamp here
       const queryBuilder: { query: any; sort?: any[] } = {
         query: {
           bool: {
@@ -109,7 +122,7 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: { [key]: { gte: value, lte: value } },
               });
             }
             break;
@@ -131,7 +144,7 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
         queryBuilder.query = { match_all: {} };
       }
 
-      const response = await this.openSearchClient.search({
+      const response = await this.openSearchService.search({
         index: this.index,
         from,
         size,
@@ -166,7 +179,7 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
 
   async findOne(id: string): Promise<Artifact> {
     try {
-      const response = await this.openSearchClient.get({
+      const response = await this.openSearchService.get({
         index: this.index,
         id,
       });
@@ -175,8 +188,8 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
         id: response.body._id,
         type: 'artifact' as const,
         spec_version: '2.1',
-        created: response.body._source.created || new Date().toISOString(),
-        modified: response.body._source.modified || new Date().toISOString(),
+        created: response.body._source.created || new Date(),
+        modified: response.body._source.modified || new Date(),
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -194,13 +207,13 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
     
     try {
       const existing = await this.findOne(id);
-      const response = await this.openSearchClient.update({
+      const response = await this.openSearchService.update({
         index: this.index,
         id,
         body: {
           doc: {
             ...updateArtifactInput,
-            modified: new Date().toISOString(),
+            modified: new Date(),
             hashes: this.convertHashesInputToHashes(updateArtifactInput.hashes),
           },
         },
@@ -210,13 +223,18 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
       if (response.body.result !== 'updated') {
         throw new Error('Failed to update artifact');
       }
-      return {
+      const updatedArtifact = {
         ...existing,
         ...updateArtifactInput,
         modified: new Date().toISOString(),
         type: 'artifact' as const,
         hashes: this.convertHashesInputToHashes(updateArtifactInput.hashes),
       };
+      await this.publishUpdated(updatedArtifact);
+      
+      return updatedArtifact;
+        
+      
     } catch (error) {
       if (error instanceof NotFoundException) throw error;
       throw new InternalServerErrorException({
@@ -228,10 +246,14 @@ async create(createArtifactInput: CreateArtifactInput): Promise<Artifact> {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchClient.delete({
+      const response = await this.openSearchService.delete({
         index: this.index,
         id,
       });
+      const success = response.body.result === 'deleted';
+      if (success) {
+        await this.publishDeleted(id);
+      }
       return response.body.result === 'deleted';
     } catch (error) {
       if (error.meta?.statusCode === 404) return false;
@@ -316,9 +338,9 @@ private validateHashes(hashes: Record<string, string> | undefined): void {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchClient.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({ index: this.index });
       if (!exists.body) {
-        await this.openSearchClient.indices.create({
+        await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {
