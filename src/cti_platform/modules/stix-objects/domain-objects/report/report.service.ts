@@ -263,6 +263,7 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

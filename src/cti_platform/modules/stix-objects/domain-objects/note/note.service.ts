@@ -255,6 +255,7 @@ export class NoteService extends BaseStixService<Note> implements OnModuleInit {
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

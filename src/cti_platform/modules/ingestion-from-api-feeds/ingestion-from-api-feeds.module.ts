@@ -43,12 +43,14 @@ import { ToolService } from '../stix-objects/domain-objects/tool/tool.service';
 import { VulnerabilityService } from '../stix-objects/domain-objects/vulnerability/vulnerability.service';
 import { SightingService } from '../stix-objects/sighting/sighting.service';
 import { EnrichmentService } from '../enrichment/enrichment.service';
-import { EnrichmentModule } from '../enrichment/enrichment.module';
 import { LookupService } from 'src/cti_platform/core/utils/lookup.service';
 import { FeedConfigService } from './feeds/feed-config.service';
 import { StixObjectsModule } from '../stix-objects/stix-objects.module';
 import { MarkingDefinitionService } from '../stix-objects/marking-definition/marking-definition.service';
 import { MarkingDefinitionResolver } from '../stix-objects/marking-definition/marking-definition.resolver';
+import { ScheduleModule } from '@nestjs/schedule';
+import { AttackIngestionService } from './feeds/attack-stix-service';
+
 @Module({
   imports: [
     BullModule.forRoot({
@@ -62,8 +64,10 @@ import { MarkingDefinitionResolver } from '../stix-objects/marking-definition/ma
     }),
     HttpModule, // Added to provide HttpService for EnrichmentService
     StixObjectsModule,
+    ScheduleModule.forRoot(),
   ],
   providers: [
+    AttackIngestionService,
     MarkingDefinitionService,
     MarkingDefinitionResolver,
     BundleService,
@@ -109,7 +113,7 @@ import { MarkingDefinitionResolver } from '../stix-objects/marking-definition/ma
     SightingService,
     LookupService ,
     EnrichmentService,
-    FeedConfigService, // Add FeedConfigService here
+    FeedConfigService, 
     
   ],
   exports: [FeedIngesterService]

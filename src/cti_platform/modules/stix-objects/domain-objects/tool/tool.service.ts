@@ -6,7 +6,6 @@ import { Tool } from './tool.entity';
 import { BaseStixService } from '../../base-stix.service';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
-import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
 export class ToolService extends BaseStixService<Tool> implements OnModuleInit {
@@ -33,8 +32,6 @@ export class ToolService extends BaseStixService<Tool> implements OnModuleInit {
       id: createToolInput.id,
       type: 'tool' as const,
       spec_version: '2.1',
-      created: new Date().toISOString(),
-      modified: new Date().toISOString(),
       name: createToolInput.name,
       
     };
@@ -254,6 +251,7 @@ export class ToolService extends BaseStixService<Tool> implements OnModuleInit {
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

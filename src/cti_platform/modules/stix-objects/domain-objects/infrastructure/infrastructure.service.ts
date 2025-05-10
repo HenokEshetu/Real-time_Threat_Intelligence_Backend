@@ -252,6 +252,7 @@ export class InfrastructureService extends BaseStixService<Infrastructure> imple
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

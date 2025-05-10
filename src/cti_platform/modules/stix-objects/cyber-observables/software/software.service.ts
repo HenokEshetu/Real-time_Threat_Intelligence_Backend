@@ -303,6 +303,7 @@ export class SoftwareService extends BaseStixService<Software> implements OnModu
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

@@ -346,6 +346,7 @@ export class FileService extends BaseStixService<File> implements OnModuleInit {
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

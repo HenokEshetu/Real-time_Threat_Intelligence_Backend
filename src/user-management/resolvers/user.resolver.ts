@@ -27,7 +27,7 @@ export class UserResolver {
   async user(@Args('id', { type: () => ID }) id: string): Promise<User> {
     return this.userService.findOne(id);
   }
-
+  
   @Mutation(() => User)
   // @UseGuards(PermissionsGuard)
   // @Permissions('CREATE_USER')

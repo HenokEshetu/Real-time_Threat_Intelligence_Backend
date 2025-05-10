@@ -4,9 +4,12 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { CtiPlatformModule } from './cti_platform/cti_platform.module';
 import { UserManagementModule } from './user-management/user-management.module';
 import { join } from 'path';
-import { PubSubModule, PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { PubSubModule, } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 import { DateTimeResolver } from 'graphql-scalars';
+import { APP_FILTER , APP_GUARD} from '@nestjs/core';
+import { UnauthorizedExceptionFilter } from './gql-exception.filter';
+import { JwtAuthGuard } from './user-management/guards/jwt-auth.guard';
 
 @Module({
   imports: [
@@ -41,13 +44,15 @@ import { DateTimeResolver } from 'graphql-scalars';
           return connection.context;
         }
         // query / mutation
-        return { req, pubSub: new RedisPubSub(/* your Redis options */) };
+        return { req, pubSub: new RedisPubSub(/*  Redis options */) };
       },
     }),
     PubSubModule,
     CtiPlatformModule,
     UserManagementModule,
   ],
-  providers: [],
+  providers: [
+    
+  ],
 })
 export class AppModule {}

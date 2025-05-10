@@ -316,6 +316,7 @@ export class NetworkTrafficService extends BaseStixService<NetworkTraffic> imple
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

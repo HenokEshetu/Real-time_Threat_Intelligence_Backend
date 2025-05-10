@@ -262,6 +262,7 @@ export class MarkingDefinitionService extends BaseStixService<MarkingDefinition>
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

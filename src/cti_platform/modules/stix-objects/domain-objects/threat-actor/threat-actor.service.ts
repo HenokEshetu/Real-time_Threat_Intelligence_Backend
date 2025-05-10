@@ -255,6 +255,7 @@ export class ThreatActorService extends BaseStixService<ThreatActor> implements 
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

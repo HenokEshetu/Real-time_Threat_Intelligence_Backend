@@ -8,7 +8,6 @@ import { Mutex } from './mutex.entity';
 import { BaseStixService } from '../../base-stix.service';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
-import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
 export class MutexService extends BaseStixService<Mutex> implements OnModuleInit {
@@ -283,6 +282,7 @@ export class MutexService extends BaseStixService<Mutex> implements OnModuleInit
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

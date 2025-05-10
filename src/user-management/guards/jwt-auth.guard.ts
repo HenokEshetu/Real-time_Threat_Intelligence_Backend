@@ -1,4 +1,4 @@
-import { Injectable, ExecutionContext, Logger, UnauthorizedException, ForbiddenException } from '@nestjs/common';
+import { Injectable, ExecutionContext, Logger, UnauthorizedException } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { Request } from 'express';
@@ -49,14 +49,22 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return req;
     } catch (error) {
       this.logger.error('Error extracting request from context', error.stack);
-      throw new UnauthorizedException('Authentication context error');
+      throw new UnauthorizedException({ 
+        message: 'Authentication context error',
+        code: 'AUTH_CONTEXT_ERROR' 
+      });
     }
   }
 
   handleRequest<TUser = any>(err: any, user: any, info: any, context: ExecutionContext): TUser {
     if (err || !user) {
       this.logger.warn(`Authentication failed: ${err?.message || info?.message}`);
-      throw err || new UnauthorizedException('Invalid or expired token');
+      
+      // Throw a clean error with custom message
+      throw new UnauthorizedException({
+        message: 'Invalid or expired token',  // Custom message
+        code: 'UNAUTHENTICATED'              // Optional error code
+      });
     }
 
     if (context.getType<string>() === 'graphql') {

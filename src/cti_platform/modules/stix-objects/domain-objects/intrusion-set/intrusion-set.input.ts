@@ -37,6 +37,24 @@ export class CreateIntrusionSetInput extends CommonInput{
   @Field(() => [RelationshipCommonInput], { nullable: true })
      Relationship?: [RelationshipCommonProperties];
 
+     // MITRE Extension Fields
+  @Field(() => String, { nullable: true })
+  x_mitre_modified_by_ref?: string;
+
+  @Field(() => Boolean, { nullable: true })
+  x_mitre_deprecated?: boolean;
+
+  @Field(() => [String], { nullable: true })
+  x_mitre_domains?: string[];
+
+  @Field(() => String, { nullable: true })
+  x_mitre_version?: string;
+
+  @Field(() => String, { nullable: true })
+  x_mitre_attack_spec_version?: string;
+
+ 
+
 }
 
 

@@ -318,6 +318,7 @@ export class X509CertificateService extends BaseStixService<X509Certificate> imp
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

@@ -293,6 +293,7 @@ private safeGetErrorMessage(error: any): string {
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

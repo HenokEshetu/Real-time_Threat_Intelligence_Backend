@@ -1,5 +1,5 @@
 import { Resolver, Query, Args } from '@nestjs/graphql';
-import { StixObject } from './stix-objects-union';
+import { StixObject } from './stix-objects.union';
 import { RelationshipService } from './relationships/relationship.service';
 
 @Resolver()

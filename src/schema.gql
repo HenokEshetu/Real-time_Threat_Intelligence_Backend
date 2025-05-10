@@ -75,6 +75,15 @@ type AttackPattern {
   spec_version: String!
   type: String!
   version: String
+  x_mitre_attack_spec_version: String
+  x_mitre_contributors: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_detection: String
+  x_mitre_domains: [String!]
+  x_mitre_is_subtechnique: Boolean
+  x_mitre_modified_by_ref: String
+  x_mitre_platforms: [String!]
+  x_mitre_version: String
 }
 
 type AttackPatternSearchResult {
@@ -159,6 +168,14 @@ type Campaign {
   revoked: Boolean
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_contributors: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_first_seen_citation: String
+  x_mitre_last_seen_citation: String
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 type CampaignSearchResult {
@@ -196,6 +213,11 @@ type CourseOfAction {
   revoked: Boolean
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 type CourseOfActionSearchResult {
@@ -230,7 +252,6 @@ input CreateArtifactInput {
 }
 
 input CreateAttackPatternInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String!
@@ -245,10 +266,20 @@ input CreateAttackPatternInput {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String!
   type: String!
   version: String
+  x_mitre_attack_spec_version: String
+  x_mitre_contributors: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_detection: String
+  x_mitre_domains: [String!]
+  x_mitre_is_subtechnique: Boolean
+  x_mitre_modified_by_ref: String
+  x_mitre_platforms: [String!]
+  x_mitre_version: String
 }
 
 input CreateAutonomousSystemInput {
@@ -289,7 +320,6 @@ input CreateBundleInput {
 }
 
 input CreateCampaignInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String!
@@ -306,13 +336,21 @@ input CreateCampaignInput {
   name: String!
   object_marking_refs: [String!]
   objective: String
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_contributors: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_first_seen_citation: String
+  x_mitre_last_seen_citation: String
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input CreateCourseOfActionInput {
-  Relationship: [RelationshipCommonInput!]
   action: String
   action_bin: String
   action_reference: String
@@ -329,9 +367,15 @@ input CreateCourseOfActionInput {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input CreateDirectoryInput {
@@ -646,6 +690,11 @@ input CreateIntrusionSetInput {
   secondary_motivations: [String!]
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input CreateLocationInput {
@@ -728,7 +777,6 @@ input CreateMalwareAnalysisInput {
 }
 
 input CreateMalwareInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   architecture_execution_envs: [String!]
   capabilities: [String!]
@@ -751,10 +799,18 @@ input CreateMalwareInput {
   name: String!
   object_marking_refs: [String!]
   operating_system_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   sample_refs: String
   spec_version: String!
   type: String!
+  x_mitre_aliases: [String!]
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_platforms: [String!]
+  x_mitre_version: String
 }
 
 input CreateMarkingDefinitionInput {
@@ -944,6 +1000,10 @@ input CreateRelationshipInput {
   stop_time: String
   target_ref: ID!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_collection_layers: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_modified_by_ref: String
 }
 
 input CreateReportInput {
@@ -1047,7 +1107,6 @@ input CreateThreatActorInput {
 }
 
 input CreateToolInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String!
@@ -1062,11 +1121,18 @@ input CreateToolInput {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String!
   tool_types: [ToolType!]!
   tool_version: String
   type: String!
+  x_mitre_aliases: [String!]
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input CreateUrlInput {
@@ -1745,6 +1811,11 @@ type IntrusionSet {
   secondary_motivations: [String!]
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 type IntrusionSetSearchResult {
@@ -1887,6 +1958,13 @@ type Malware {
   sample_refs: String
   spec_version: String!
   type: String!
+  x_mitre_aliases: [String!]
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_platforms: [String!]
+  x_mitre_version: String
 }
 
 type MalwareAnalysis {
@@ -2638,7 +2716,6 @@ input SearchArtifactInput {
 }
 
 input SearchAttackPatternInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String
@@ -2653,10 +2730,20 @@ input SearchAttackPatternInput {
   modified: String
   name: String
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String
   type: String
   version: String
+  x_mitre_attack_spec_version: String
+  x_mitre_contributors: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_detection: String
+  x_mitre_domains: [String!]
+  x_mitre_is_subtechnique: Boolean
+  x_mitre_modified_by_ref: String
+  x_mitre_platforms: [String!]
+  x_mitre_version: String
 }
 
 input SearchAutonomousSystemInput {
@@ -2697,7 +2784,6 @@ input SearchBundleInput {
 }
 
 input SearchCampaignInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String
@@ -2714,13 +2800,21 @@ input SearchCampaignInput {
   name: String
   object_marking_refs: [String!]
   objective: String
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String
   type: String
+  x_mitre_attack_spec_version: String
+  x_mitre_contributors: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_first_seen_citation: String
+  x_mitre_last_seen_citation: String
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input SearchCourseOfActionInput {
-  Relationship: [RelationshipCommonInput!]
   action: String
   action_bin: String
   action_reference: String
@@ -2737,9 +2831,15 @@ input SearchCourseOfActionInput {
   modified: String
   name: String
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String
   type: String
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input SearchDirectoryInput {
@@ -3054,6 +3154,11 @@ input SearchIntrusionSetInput {
   secondary_motivations: [String!]
   spec_version: String
   type: String
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input SearchLocationInput {
@@ -3136,7 +3241,6 @@ input SearchMalwareAnalysisInput {
 }
 
 input SearchMalwareInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   architecture_execution_envs: [String!]
   capabilities: [String!]
@@ -3159,10 +3263,18 @@ input SearchMalwareInput {
   name: String
   object_marking_refs: [String!]
   operating_system_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   sample_refs: String
   spec_version: String
   type: String
+  x_mitre_aliases: [String!]
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_platforms: [String!]
+  x_mitre_version: String
 }
 
 input SearchMarkingDefinitionInput {
@@ -3352,6 +3464,10 @@ input SearchRelationshipInput {
   stop_time: String
   target_ref: ID
   type: String
+  x_mitre_attack_spec_version: String
+  x_mitre_collection_layers: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_modified_by_ref: String
 }
 
 input SearchReportInput {
@@ -3463,7 +3579,6 @@ input SearchThreatActorInput {
 }
 
 input SearchToolInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String
@@ -3478,11 +3593,18 @@ input SearchToolInput {
   modified: String
   name: String
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String
   tool_types: [ToolType!]
   tool_version: String
   type: String
+  x_mitre_aliases: [String!]
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input SearchUrlInput {
@@ -3703,6 +3825,10 @@ type StixRelationship {
   stop_time: String
   target_ref: ID!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_collection_layers: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_modified_by_ref: String
 }
 
 type StixRelationshipSearchResult {
@@ -3795,6 +3921,12 @@ type Tool {
   tool_types: [ToolType!]!
   tool_version: String
   type: String!
+  x_mitre_aliases: [String!]
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 type ToolSearchResult {
@@ -3866,7 +3998,6 @@ input UpdateArtifactInput {
 }
 
 input UpdateAttackPatternInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String!
@@ -3881,10 +4012,20 @@ input UpdateAttackPatternInput {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String!
   type: String!
   version: String
+  x_mitre_attack_spec_version: String
+  x_mitre_contributors: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_detection: String
+  x_mitre_domains: [String!]
+  x_mitre_is_subtechnique: Boolean
+  x_mitre_modified_by_ref: String
+  x_mitre_platforms: [String!]
+  x_mitre_version: String
 }
 
 input UpdateAutonomousSystemInput {
@@ -3925,7 +4066,6 @@ input UpdateBundleInput {
 }
 
 input UpdateCampaignInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String!
@@ -3942,13 +4082,21 @@ input UpdateCampaignInput {
   name: String!
   object_marking_refs: [String!]
   objective: String
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_contributors: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_first_seen_citation: String
+  x_mitre_last_seen_citation: String
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input UpdateCourseOfActionInput {
-  Relationship: [RelationshipCommonInput!]
   action: String
   action_bin: String
   action_reference: String
@@ -3965,9 +4113,15 @@ input UpdateCourseOfActionInput {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input UpdateDirectoryInput {
@@ -4282,6 +4436,11 @@ input UpdateIntrusionSetInput {
   secondary_motivations: [String!]
   spec_version: String!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input UpdateLocationInput {
@@ -4364,7 +4523,6 @@ input UpdateMalwareAnalysisInput {
 }
 
 input UpdateMalwareInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   architecture_execution_envs: [String!]
   capabilities: [String!]
@@ -4387,10 +4545,18 @@ input UpdateMalwareInput {
   name: String!
   object_marking_refs: [String!]
   operating_system_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   sample_refs: String
   spec_version: String!
   type: String!
+  x_mitre_aliases: [String!]
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_platforms: [String!]
+  x_mitre_version: String
 }
 
 input UpdateMarkingDefinitionInput {
@@ -4580,6 +4746,10 @@ input UpdateRelationshipInput {
   stop_time: String
   target_ref: ID!
   type: String!
+  x_mitre_attack_spec_version: String
+  x_mitre_collection_layers: [String!]
+  x_mitre_deprecated: Boolean
+  x_mitre_modified_by_ref: String
 }
 
 input UpdateReportInput {
@@ -4683,7 +4853,6 @@ input UpdateThreatActorInput {
 }
 
 input UpdateToolInput {
-  Relationship: [RelationshipCommonInput!]
   aliases: [String!]
   confidence: Float
   created: String!
@@ -4698,11 +4867,18 @@ input UpdateToolInput {
   modified: String!
   name: String!
   object_marking_refs: [String!]
+  relationship: [RelationshipCommonInput!]
   revoked: Boolean
   spec_version: String!
   tool_types: [ToolType!]!
   tool_version: String
   type: String!
+  x_mitre_aliases: [String!]
+  x_mitre_attack_spec_version: String
+  x_mitre_deprecated: Boolean
+  x_mitre_domains: [String!]
+  x_mitre_modified_by_ref: String
+  x_mitre_version: String
 }
 
 input UpdateUrlInput {

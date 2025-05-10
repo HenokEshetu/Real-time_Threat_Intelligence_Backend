@@ -7,7 +7,7 @@ import { SearchRelationshipInput } from './relationship.resolver';
 import { BaseStixService } from '../base-stix.service';
 import { PUB_SUB } from '../../pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
-import { StixObject } from '../stix-objects-union';
+import { StixObject } from '../stix-objects.union';
 
 export interface ExpandedRelationship {
   relationship: StixRelationship;
@@ -106,72 +106,64 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
 
   async create(createRelationshipInput: CreateRelationshipInput): Promise<StixRelationship> {
     try {
-      // Validate relationship first
-      this.validateRelationship(
-        createRelationshipInput.source_ref,
-        createRelationshipInput.relationship_type,
-        createRelationshipInput.target_ref
-      );
-
-     
-
-      // Current timestamp for created/modified
+      // Relax validation for MITRE-specific relationships
+      try {
+        this.validateRelationship(
+          createRelationshipInput.source_ref,
+          createRelationshipInput.relationship_type,
+          createRelationshipInput.target_ref
+        );
+      } catch (validationError) {
+        this.logger.warn(`Relationship validation warning: ${validationError.message}`);
+      }
+  
       const now = new Date();
-
       const relationship: StixRelationship = {
         ...createRelationshipInput,
         id: createRelationshipInput.id,
         type: 'relationship',
         spec_version: '2.1',
-        start_time: this.safeParseDate(createRelationshipInput.start_time).toISOString(),
+        start_time: this.safeParseDate(createRelationshipInput.start_time)?.toISOString(),
         stop_time: this.safeParseDate(createRelationshipInput.stop_time)?.toISOString(),
-        created: now.toISOString(),
-        modified: now.toISOString(),
+        created: this.safeParseDate(createRelationshipInput.created)?.toISOString() || now.toISOString(),
+        modified: this.safeParseDate(createRelationshipInput.modified)?.toISOString() || now.toISOString(),
       };
-       // Check if document already exists
-    const exists = await this.openSearchService.exists({
-      index: this.index,
-      id: relationship.id,
-    });
-
-    if (exists.body) {
-      this.logger?.warn(`Document already exists`, { id: relationship.id });
-      
-      const existingDoc = await this.findOne(relationship.id);
-      return existingDoc;
-    }
-
+  
+      // Use create operation to prevent duplicates
       const response = await this.openSearchService.index({
         index: this.index,
         id: relationship.id,
-        body: {
-          ...relationship,
-          start_time: relationship.start_time,
-          stop_time: relationship.stop_time,
-          created: relationship.created,
-          modified: relationship.modified,
-        },
+        body: relationship,
+        op_type: 'create', // Prevent overwriting existing documents
         refresh: 'wait_for',
       }).catch(error => {
-        throw new Error(`OpenSearch error: ${this.safeGetErrorMessage(error)}`);
+        if (error.body?.error?.type === 'version_conflict_engine_exception') {
+          this.logger.log(`Document already exists: ${relationship.id}`);
+          return { body: { result: 'exists' } };
+        }
+        throw error;
       });
-
-      if (!['created', 'updated'].includes(response.body?.result)) {
-        throw new Error(`Unexpected OpenSearch response: ${JSON.stringify(response.body)}`);
+  
+      if (response.body?.result === 'created') {
+        await this.publishCreated(relationship);
       }
-
-      await this.publishCreated(relationship);
+      
       return relationship;
-
+  
     } catch (error) {
+      this.logger.error(`Failed to store relationship ${createRelationshipInput.id}`, {
+        error: this.safeGetErrorMessage(error),
+        input: createRelationshipInput
+      });
       throw new InternalServerErrorException({
         message: 'Failed to create relationship',
         details: this.safeGetErrorMessage(error),
-        objectId: createRelationshipInput?.id || 'unknown',
-        input: createRelationshipInput
+        objectId: createRelationshipInput?.id || 'unknown'
       });
     }
   }
+  
+  
 
   // Helper method for safe date parsing (returns Date or undefined)
   private safeParseDate(dateInput?: Date | string | number): Date | undefined {
@@ -188,11 +180,12 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
 
 
   private safeGetErrorMessage(error: any): string {
-    if (typeof error === 'string') return error;
-    if (error?.message) return error.message;
-    if (error?.response?.data?.error) return error.response.data.error;
-    if (error?.body?.error) return JSON.stringify(error.body.error);
-    return 'Unknown error occurred';
+    return JSON.stringify({
+      message: error.message,
+      stack: error.stack,
+      meta: error.meta?.body?.error,
+      statusCode: error.meta?.statusCode
+    }, null, 2);
   }
 
   async findOne(id: string): Promise<StixRelationship> {
@@ -307,6 +300,7 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true', 
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },
@@ -317,37 +311,37 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
                 description: { type: 'text' },
                 created: { type: 'date' },
                 modified: { type: 'date' },
-                start_time: { type: 'text' },
+                start_time: { type: 'date' }, 
                 stop_time: { type: 'date' },
-              },
-            },
-          },
+                // MITRE extensions
+                x_mitre_modified_by_ref: { type: 'keyword' },
+                x_mitre_deprecated: { type: 'boolean' },
+                x_mitre_attack_spec_version: { type: 'keyword' },
+                x_mitre_collection_layers: { type: 'keyword' }
+              }
+            }
+          }
         });
       }
     } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to initialize relationships index',
-        details: error.meta?.body?.error || error.message,
-      });
+      this.logger.error('Index initialization failed', error.stack);
+      throw error;
     }
   }
-
   private validateRelationship(sourceRef: string, relationshipType: string, targetRef: string): void {
     const sourceType = sourceRef.split('--')[0];
     const targetType = targetRef.split('--')[0];
-
+  
+    // Allow any relationship type with warning
     const validRelationshipsForSource = this.validRelationships.get(sourceType);
     if (!validRelationshipsForSource?.has(relationshipType)) {
-      throw new StixValidationError(
-        `Invalid relationship: ${sourceType} cannot have relationship type '${relationshipType}'`
-      );
+      this.logger.warn(`Uncommon relationship: ${sourceType} -> ${relationshipType}`);
     }
-
+  
+    // Log but allow unknown target types
     const validTargetTypes = this.validTargets.get(relationshipType);
     if (validTargetTypes && !validTargetTypes.has(targetType)) {
-      throw new StixValidationError(
-        `Invalid relationship target: ${relationshipType} relationship cannot target ${targetType}`
-      );
+      this.logger.warn(`Uncommon target for ${relationshipType}: ${targetType}`);
     }
   }
 

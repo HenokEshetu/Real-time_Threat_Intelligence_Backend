@@ -272,6 +272,7 @@ export class AutonomousSystemService extends BaseStixService<AutonomousSystem> i
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

@@ -1,19 +1,17 @@
 import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Client,} from '@opensearch-project/opensearch';
 import { CreateCampaignInput, UpdateCampaignInput } from './campaign.input';
-import { v4 as uuidv4 } from 'uuid';
 import { SearchCampaignInput } from './campaign.resolver';
 import { Campaign } from './campaign.entity';
 import { BaseStixService } from '../../base-stix.service';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
-import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
 export class CampaignService extends BaseStixService<Campaign> implements OnModuleInit {
   protected typeName = 'campaign';
   private readonly index = 'campaigns';
-  private readonly logger = console; // Replace 'console' with a proper logger if needed
+  private readonly logger = console;
  
 
   constructor(
@@ -254,6 +252,7 @@ export class CampaignService extends BaseStixService<Campaign> implements OnModu
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

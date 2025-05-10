@@ -272,6 +272,7 @@ export class OpinionService  extends BaseStixService<Opinion> implements OnModul
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

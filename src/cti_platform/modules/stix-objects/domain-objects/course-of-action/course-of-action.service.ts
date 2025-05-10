@@ -254,6 +254,7 @@ export class CourseOfActionService extends BaseStixService<CourseOfAction> imple
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },
@@ -262,6 +263,11 @@ export class CourseOfActionService extends BaseStixService<CourseOfAction> imple
                 modified: { type: 'date' },
                 name: { type: 'text' },
                 description: { type: 'text' },
+                x_mitre_modified_by_ref: { type: 'keyword' },
+                x_mitre_deprecated: { type: 'boolean' },
+                x_mitre_domains: { type: 'keyword' },
+                x_mitre_version: { type: 'keyword' },
+                x_mitre_attack_spec_version: { type: 'keyword' },
               },
             },
           },

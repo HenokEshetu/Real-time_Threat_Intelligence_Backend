@@ -1,42 +1,41 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException,OnModuleInit } from '@nestjs/common';
-import { Client,  } from '@opensearch-project/opensearch';
+import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { Client } from '@opensearch-project/opensearch';
 import { CreateAttackPatternInput, UpdateAttackPatternInput } from './attack-pattern.input';
 import { SearchAttackPatternInput } from './attack-pattern.resolver';
 import { AttackPattern } from './attack-pattern.entity';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 import { BaseStixService } from '../../base-stix.service';
-import { generateStixId } from '../../stix-id-generator';
+import { Logger } from '@nestjs/common';
 
 @Injectable()
 export class AttackPatternService extends BaseStixService<AttackPattern> implements OnModuleInit {
   private readonly index = 'attack-patterns';
   protected typeName = 'attack-pattern';
-  private readonly logger = console;
+  private readonly logger = new Logger(AttackPatternService.name);
 
   constructor(
-      @Inject(PUB_SUB) pubSub: RedisPubSub,
-      @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
-    ) {
-      super(pubSub);
-    }
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
+  }
 
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createAttackPatternInput: CreateAttackPatternInput): Promise<AttackPattern> {
-  
+    const now = new Date().toISOString();
     const attackPattern: AttackPattern = {
       ...createAttackPatternInput,
-      
       id: createAttackPatternInput.id,
-      type: 'attack-pattern' as const,
+      type: 'attack-pattern',
       spec_version: '2.1',
-      created: new Date().toISOString(),
-      modified: new Date().toISOString(),
-      
+      created: createAttackPatternInput.created || now,
+      modified: createAttackPatternInput.modified || now,
     };
+
 
     // Check if document already exists
     const exists = await this.openSearchService.exists({
@@ -58,19 +57,38 @@ export class AttackPatternService extends BaseStixService<AttackPattern> impleme
         id: attackPattern.id,
         body: attackPattern,
         refresh: 'wait_for',
+        op_type: 'create'
       });
 
       if (response.body.result !== 'created') {
-        throw new Error('Failed to index attack pattern');
+        throw new Error(`OpenSearch response error: ${JSON.stringify(response.body)}`);
       }
+
       await this.publishCreated(attackPattern);
       return attackPattern;
     } catch (error) {
+      this.logger.error(`Failed to create attack pattern ${attackPattern.id}`, {
+        error: this.safeGetErrorMessage(error),
+        input: createAttackPatternInput
+      });
+      
+      if (error.body?.error?.type === 'version_conflict_engine_exception') {
+        return this.findOne(attackPattern.id);
+      }
+      
       throw new InternalServerErrorException({
         message: 'Failed to create attack pattern',
-        details: error.meta?.body?.error || error.message,
+        details: this.safeGetErrorMessage(error)
       });
     }
+  }
+  private safeGetErrorMessage(error: any): string {
+    return JSON.stringify({
+      message: error.message,
+      status: error.meta?.statusCode,
+      body: error.meta?.body?.error,
+      stack: error.stack
+    }, null, 2);
   }
 
   async findOne(id: string): Promise<AttackPattern> {
@@ -251,7 +269,9 @@ export class AttackPatternService extends BaseStixService<AttackPattern> impleme
           index: this.index,
           body: {
             mappings: {
+              dynamic: "true", 
               properties: {
+                // Core STIX fields
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },
                 spec_version: { type: 'keyword' },
@@ -259,17 +279,49 @@ export class AttackPatternService extends BaseStixService<AttackPattern> impleme
                 modified: { type: 'date' },
                 name: { type: 'text' },
                 description: { type: 'text' },
-                kill_chain_phases: { type: 'keyword' },
-                platforms: { type: 'keyword' },
-              },
-            },
-          },
+                created_by_ref: { type: 'keyword' }, // ✅ Added missing field
+                object_marking_refs: { type: 'keyword' }, // ✅ Added missing field
+                revoked: { type: 'boolean' },
+                external_references: {
+                  type: 'nested',
+                  properties: {
+                    source_name: { type: 'keyword' },
+                    url: { type: 'keyword' },
+                    external_id: { type: 'keyword' },
+                    description: { type: 'text' }
+                  }
+                },
+                kill_chain_phases: {
+                  type: 'nested',
+                  properties: {
+                    kill_chain_name: { type: 'keyword' },
+                    phase_name: { type: 'keyword' }
+                  }
+                },
+  
+                // MITRE extensions
+                x_mitre_attack_spec_version: { type: 'keyword' },
+                x_mitre_modified_by_ref: { type: 'keyword' },
+                x_mitre_deprecated: { type: 'boolean' },
+                x_mitre_domains: { type: 'keyword' },
+                x_mitre_version: { type: 'keyword' },
+                x_mitre_aliases: { type: 'keyword' },
+                x_mitre_platforms: { type: 'keyword' },
+                x_mitre_contributors: { type: 'keyword' },
+                x_mitre_detection: { type: 'text' },
+                x_mitre_is_subtechnique: { type: 'boolean' },
+                x_mitre_data_sources: { type: 'keyword' } // ✅ Added missing field
+              }
+            }
+          }
         });
+        this.logger.log(`Created index ${this.index} with MITRE-specific mappings`);
       }
     } catch (error) {
+      this.logger.error('Index creation failed', error.stack);
       throw new InternalServerErrorException({
-        message: 'Failed to initialize attack-patterns index',
-        details: error.meta?.body?.error || error.message,
+        message: 'Failed to initialize attack patterns index',
+        details: this.safeGetErrorMessage(error)
       });
     }
   }

@@ -250,6 +250,7 @@ export class IntrusionSetService  extends BaseStixService<IntrusionSet> implemen
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

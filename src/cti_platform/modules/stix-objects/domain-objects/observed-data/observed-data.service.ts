@@ -265,6 +265,7 @@ export class ObservedDataService extends BaseStixService<ObservedData> implement
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

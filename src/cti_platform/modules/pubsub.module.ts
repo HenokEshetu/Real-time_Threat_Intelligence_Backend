@@ -8,7 +8,7 @@ export const PUB_SUB = 'PUB_SUB';
 @Module({
   providers: [
     {
-      provide: PUB_SUB, // replaced string literal with constant
+      provide: PUB_SUB, 
       useFactory: () => {
         const options = {
           host: process.env.REDIS_HOST || 'localhost',

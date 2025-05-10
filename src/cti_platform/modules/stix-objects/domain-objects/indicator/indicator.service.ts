@@ -369,6 +369,7 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },
@@ -389,7 +390,7 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
                 external_references: { type: 'nested' },
                 object_marking_refs: { type: 'keyword' },
                 granular_markings: { type: 'nested' },
-                extensions: { type: 'object' },
+                extensions: { type: 'object', dynamic: "true" },
               },
             },
           },

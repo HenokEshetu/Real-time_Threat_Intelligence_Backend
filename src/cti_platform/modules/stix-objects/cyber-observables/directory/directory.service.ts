@@ -327,6 +327,7 @@ export class DirectoryService extends BaseStixService<Directory> implements OnMo
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

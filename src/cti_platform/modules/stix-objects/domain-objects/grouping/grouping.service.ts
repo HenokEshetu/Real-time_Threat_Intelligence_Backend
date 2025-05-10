@@ -261,6 +261,7 @@ export class GroupingService extends BaseStixService<Grouping> implements OnModu
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },

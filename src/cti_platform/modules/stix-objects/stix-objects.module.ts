@@ -82,12 +82,10 @@ import { SightingResolver } from './sighting/sighting.resolver';
 import { ConfigModule } from '@nestjs/config';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '@opensearch-project/opensearch';
-import opensearchConfig from 'src/cti_platform/config/opensearch.config';
 import { OpenSearchModule } from 'config/opensearch.module';
 import { PubSubModule } from 'src/cti_platform/modules/pubsub.module';
 import { MarkingDefinitionService } from './marking-definition/marking-definition.service';
 import { MarkingDefinitionResolver } from './marking-definition/marking-definition.resolver';
-
 
 
 @Module({
@@ -95,7 +93,7 @@ import { MarkingDefinitionResolver } from './marking-definition/marking-definiti
     // Global Configuration
     PubSubModule,
         ConfigModule.forRoot({
-          load: [opensearchConfig],
+         
         }),
         PubSubModule,
         OpenSearchModule,
@@ -111,7 +109,6 @@ import { MarkingDefinitionResolver } from './marking-definition/marking-definiti
       },
       inject: [ConfigService],
     },
-    
     MarkingDefinitionService, MarkingDefinitionResolver,
     BundleService, BundleResolver,
     ArtifactService, ArtifactResolver,

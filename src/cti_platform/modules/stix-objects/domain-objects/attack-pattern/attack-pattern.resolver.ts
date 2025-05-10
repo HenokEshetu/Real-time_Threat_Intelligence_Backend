@@ -7,6 +7,8 @@ import { ObjectType, Field } from '@nestjs/graphql';
 
 import { PartialType } from '@nestjs/graphql';
 import { BaseStixResolver } from '../../base-stix.resolver';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from 'src/user-management/guards/jwt-auth.guard';
 
 @InputType()
 export class SearchAttackPatternInput extends PartialType(CreateAttackPatternInput){}
@@ -39,7 +41,7 @@ export class AttackPatternResolver extends BaseStixResolver(AttackPattern){
   ): Promise<AttackPattern> {
     return this.attackPatternService.create(createAttackPatternInput);
   }
-
+  
   @Query(() => AttackPatternSearchResult)
   async searchAttackPatterns(
     @Args('filters', { type: () => SearchAttackPatternInput, nullable: true }) filters: SearchAttackPatternInput = {},

@@ -255,6 +255,7 @@ export class WindowsRegistryKeyService extends BaseStixService<WindowsRegistryKe
           index: this.index,
           body: {
             mappings: {
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },
