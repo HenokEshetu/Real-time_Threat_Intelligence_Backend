@@ -1,13 +1,15 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { X509CertificateService } from './x509-certificate.service';
 import { X509Certificate } from './x509-certificate.entity';
 import { CreateX509CertificateInput, UpdateX509CertificateInput } from './x509-certificate.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @InputType()
-export class SearchX509CertificateInput extends PartialType(CreateX509CertificateInput) {}
+export class SearchX509CertificateInput extends PartialType(CreateX509CertificateInput) { }
 
 @ObjectType()
 export class X509CertificateSearchResult {
@@ -24,10 +26,42 @@ export class X509CertificateSearchResult {
 }
 
 @Resolver(() => X509Certificate)
-export class X509CertificateResolver extends BaseStixResolver(X509Certificate) {
-  public typeName = ' x509-certificate';
-  constructor(private readonly x509CertificateService: X509CertificateService) {
-    super()
+export class X509CertificateResolver {
+  
+  constructor(
+    private readonly x509CertificateService: X509CertificateService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): X509Certificate {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
+  }
+
+  // Subscription Definitions
+  @Subscription(() => X509Certificate, {
+    name: 'x509CertificateCreated',
+    resolve: (payload) => payload,
+  })
+  x509CertificateCreated() {
+    return this.pubSub.asyncIterator('x509CertificateCreated');
+  }
+
+  @Subscription(() => X509Certificate, {
+    name: 'x509CertificateUpdated',
+    resolve: (payload) => payload,
+  })
+  x509CertificateUpdated() {
+    return this.pubSub.asyncIterator('x509CertificateUpdated');
+  }
+
+  @Subscription(() => String, { name: 'x509CertificateDeleted' })
+  x509CertificateDeleted() {
+    return this.pubSub.asyncIterator('x509CertificateDeleted');
   }
 
   @Mutation(() => X509Certificate)

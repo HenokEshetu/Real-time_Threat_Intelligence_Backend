@@ -1,10 +1,12 @@
-import { Resolver,InputType, Query, Mutation, Args,Int } from '@nestjs/graphql';
+import { Resolver,InputType, Query, Mutation, Args,Int, Subscription } from '@nestjs/graphql';
 import { UrlService } from './url.service';
 import { Url } from './url.entity';
 import { CreateUrlInput, UpdateUrlInput } from './url.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
 @InputType()
 export class SearchUrlInput extends PartialType(CreateUrlInput) {}
 
@@ -26,11 +28,44 @@ export class UrlSearchResult {
 }
 
 @Resolver(() => Url)
-export class UrlResolver extends BaseStixResolver(Url) {
-  public typeName = ' url';
-  constructor(private readonly urlService: UrlService) {
-    super()
-  }
+export class UrlResolver  {
+ 
+  constructor(
+        private readonly urlService: UrlService,
+        @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+      ) { }
+    
+      // Date conversion helper
+      public convertDates(payload: any): Url {
+        const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+        dateFields.forEach(field => {
+          if (payload[field]) payload[field] = new Date(payload[field]);
+        });
+        return payload;
+      }
+    
+      // Subscription Definitions
+      @Subscription(() => Url, {
+        name: 'urlCreated',
+        resolve: (payload) => payload,
+      })
+      urlCreated() {
+        return this.pubSub.asyncIterator('urlCreated');
+      }
+    
+      @Subscription(() => Url, {
+        name: 'urlUpdated',
+        resolve: (payload) => payload,
+      })
+      urlUpdated() {
+        return this.pubSub.asyncIterator('urlUpdated');
+      }
+    
+      @Subscription(() => String, { name: 'urlDeleted' })
+      urlDeleted() {
+        return this.pubSub.asyncIterator('urlDeleted');
+      }
+  
 
   @Mutation(() => Url)
   async createUrl(

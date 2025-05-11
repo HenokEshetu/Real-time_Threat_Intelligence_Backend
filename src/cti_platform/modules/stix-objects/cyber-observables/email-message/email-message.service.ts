@@ -8,8 +8,6 @@ import { BaseStixService } from '../../base-stix.service';
 import { StixValidationError } from '../../../../core/exception/custom-exceptions';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 
-import { v5 as uuidv5 } from 'uuid';
-const NAMESPACE = '6ba7b810-9dad-11d1-80b4-00c04fd430c8';
 
 @Injectable()
 export class EmailMessageService extends BaseStixService<EmailMessage> implements OnModuleInit {

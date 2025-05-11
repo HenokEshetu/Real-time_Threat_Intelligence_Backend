@@ -1,13 +1,15 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
-import { EmailMessageService } from './email-message.service';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { EmailMessage } from './email-message.entity';
 import { CreateEmailMessageInput, UpdateEmailMessageInput } from './email-message.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { EmailMessageService } from './email-message.service';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @InputType()
-export class SearchEmailMessageInput extends PartialType(CreateEmailMessageInput) {}
+export class SearchEmailMessageInput extends PartialType(CreateEmailMessageInput) { }
 
 
 @ObjectType()
@@ -25,10 +27,42 @@ export class EmailMessageSearchResult {
 }
 
 @Resolver(() => EmailMessage)
-export class EmailMessageResolver extends BaseStixResolver(EmailMessage) {
-  public typeName = 'email-message';
-  constructor(private readonly emailMessageService: EmailMessageService) {
-    super()
+export class EmailMessageResolver {
+
+  constructor(
+    private readonly emailMessageService: EmailMessageService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): EmailMessage {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
+  }
+
+  // Subscription Definitions
+  @Subscription(() => EmailMessage, {
+    name: 'emailMessageCreated',
+    resolve: (payload) => payload,
+  })
+  indicatorCreated() {
+    return this.pubSub.asyncIterator('emailMessageCreated');
+  }
+
+  @Subscription(() => EmailMessage, {
+    name: 'emailMessageUpdated',
+    resolve: (payload) => payload,
+  })
+  indicatorUpdated() {
+    return this.pubSub.asyncIterator('emailMessageUpdated');
+  }
+
+  @Subscription(() => String, { name: 'emailMessageDeleted' })
+  indicatorDeleted() {
+    return this.pubSub.asyncIterator('emailMessageDeleted');
   }
 
   @Mutation(() => EmailMessage)

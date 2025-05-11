@@ -1,10 +1,13 @@
-import { Resolver, InputType, Query, Mutation, Args,Int } from '@nestjs/graphql';
+import { Resolver, InputType, Query, Mutation, Args,Int, Subscription } from '@nestjs/graphql';
 import { GroupingService } from './grouping.service';
 import { Grouping } from './grouping.entity';
 import { CreateGroupingInput, UpdateGroupingInput } from './grouping.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
+
 
 @InputType()
 export class SearchGroupingInput extends PartialType(CreateGroupingInput){}
@@ -25,11 +28,45 @@ export class GroupingSearchResult {
 }
 
 @Resolver(() => Grouping)
-export class GroupingResolver extends BaseStixResolver(Grouping) {
-  public typeName = 'grouping';
-  constructor(private readonly groupingService: GroupingService) {
-    super();
-  }
+export class GroupingResolver {
+
+
+  constructor(
+        private readonly groupingService: GroupingService,
+        @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+      ) { }
+    
+      // Date conversion helper
+      public convertDates(payload: any): Grouping {
+        const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+        dateFields.forEach(field => {
+          if (payload[field]) payload[field] = new Date(payload[field]);
+        });
+        return payload;
+      }
+    
+      // Subscription Definitions
+      @Subscription(() => Grouping, {
+        name: 'groupingCreated',
+        resolve: (payload) => payload,
+      })
+    groupingCreated() {
+        return this.pubSub.asyncIterator('groupingCreated');
+      }
+    
+      @Subscription(() => Grouping, {
+        name: 'groupingUpdated',
+        resolve: (payload) => payload,
+      })
+      groupingUpdated() {
+        return this.pubSub.asyncIterator('groupingUpdated');
+      }
+    
+      @Subscription(() => String, { name: 'groupingDeleted' })
+      groupingDeleted() {
+        return this.pubSub.asyncIterator('groupingDeleted');
+      }
+  
 
   @Mutation(() => Grouping)
   async createGrouping(

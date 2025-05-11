@@ -1,16 +1,51 @@
-import { Resolver, Query, Mutation, Args, Int,  } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int,  Subscription,  } from '@nestjs/graphql';
 import { IndicatorService } from './indicator.service';
 import { Indicator } from './indicator.entity';
 import { CreateIndicatorInput, UpdateIndicatorInput, SearchIndicatorInput, IndicatorSearchResult } from './indicator.input';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+
 
 @Resolver(() => Indicator)
-export class IndicatorResolver extends BaseStixResolver(Indicator) {
-  public typeName = 'indicator';
+export class IndicatorResolver {
   
-  constructor(private readonly indicatorService: IndicatorService) {
-    super();
+  constructor(
+    private readonly indicatorService: IndicatorService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) {}
+
+  // Date conversion helper
+  public convertDates(payload: any): Indicator {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
   }
+
+  // Subscription Definitions
+  @Subscription(() => Indicator, {
+    name: 'indicatorCreated',
+    resolve: (payload) => payload,
+  })
+  indicatorCreated() {
+    return this.pubSub.asyncIterator('indicatorCreated');
+  }
+
+  @Subscription(() => Indicator, {
+    name: 'indicatorUpdated',
+    resolve: (payload) => payload,
+  })
+  indicatorUpdated() {
+    return this.pubSub.asyncIterator('indicatorUpdated');
+  }
+
+  @Subscription(() => String, { name: 'indicatorDeleted' })
+  indicatorDeleted() {
+    return this.pubSub.asyncIterator('indicatorDeleted');
+  }
+
   
   @Mutation(() => Indicator)
   async createIndicator(@Args('input') createIndicatorInput: CreateIndicatorInput): Promise<Indicator> {

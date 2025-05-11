@@ -1,11 +1,12 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { ReportService } from './report.service';
 import { CreateReportInput, UpdateReportInput } from './report.input';
 import { Report } from './report.entity';
 import { ObjectType, Field } from '@nestjs/graphql';
-
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @InputType()
 export class SearchReportInput extends PartialType(CreateReportInput){}
@@ -25,12 +26,44 @@ export class ReportSearchResult {
 }
 
 @Resolver(() => Report)
-export class ReportResolver extends BaseStixResolver(Report) {
-  public typeName = 'indicator';
+export class ReportResolver {
+    constructor(
+      private readonly reportService: ReportService,
+      @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+    ) { }
   
-  constructor(private readonly reportService: ReportService) {
-    super()
-  }
+    // Date conversion helper
+    public convertDates(payload: any): Report {
+      const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+      dateFields.forEach(field => {
+        if (payload[field]) payload[field] = new Date(payload[field]);
+      });
+      return payload;
+    }
+  
+    // Subscription Definitions
+    @Subscription(() => Report, {
+      name: 'reportCreated',
+      resolve: (payload) => payload,
+    })
+    reportCreated() {
+      return this.pubSub.asyncIterator('reportCreated');
+    }
+  
+    @Subscription(() => Report, {
+      name: 'reportUpdated',
+      resolve: (payload) => payload,
+    })
+    reportUpdated() {
+      return this.pubSub.asyncIterator('reportUpdated');
+    }
+  
+    @Subscription(() => String, { name: 'reportDeleted' })
+    reportDeleted() {
+      return this.pubSub.asyncIterator('reportDeleted');
+    }
+  
+  
 
   @Mutation(() => Report)
   async createReport(

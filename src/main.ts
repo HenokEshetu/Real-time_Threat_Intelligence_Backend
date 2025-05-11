@@ -1,18 +1,13 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
-import { UnauthorizedExceptionFilter } from './gql-exception.filter';
+
 
 async function bootstrap() {
- 
-// src/main.ts
-const app = await NestFactory.create(AppModule);
-if (process.env.status === 'production') {
-  app.useGlobalFilters(new UnauthorizedExceptionFilter());
-  app.useLogger(['error', 'warn']); // Disable verbose logging
-}
-  // Allow ALL origins (for testing only)
+  const app = await NestFactory.create(AppModule);
+
+  // Allow ALL origins (for timport { StixSchemaPlugin }esting only)
   app.enableCors({
-    origin: true,  
+    origin: true,  // Better than '*' (handles credentials)
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type'],
   });

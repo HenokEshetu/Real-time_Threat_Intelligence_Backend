@@ -1,4 +1,4 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { IPv6AddressService } from './ipv6-address.service';
 import { IPv6Address } from './ipv6-address.entity';
 import { CreateIPv6AddressInput, UpdateIPv6AddressInput } from './ipv6-address.input';
@@ -6,10 +6,10 @@ import { CreateIPv6AddressInput, UpdateIPv6AddressInput } from './ipv6-address.i
 import { PartialType } from '@nestjs/graphql';
 @InputType()
 export class SearchIPv6AddressInput extends PartialType(CreateIPv6AddressInput) {}
-
-
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @ObjectType()
 export class IPv6AddressSearchResult {
@@ -30,11 +30,44 @@ export class IPv6AddressSearchResult {
 }
 
 @Resolver(() => IPv6Address)
-export class IPv6AddressResolver extends BaseStixResolver(IPv6Address) {
-  public typeName = ' ipv6-addr';
-  constructor(private readonly ipv6AddressService: IPv6AddressService) {
-    super()
-  }
+export class IPv6AddressResolver {
+ 
+  constructor(
+          private readonly ipv6AddressService: IPv6AddressService,
+          @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+        ) { }
+      
+        // Date conversion helper
+        public convertDates(payload: any): IPv6Address {
+          const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+          dateFields.forEach(field => {
+            if (payload[field]) payload[field] = new Date(payload[field]);
+          });
+          return payload;
+        }
+      
+        // Subscription Definitions
+        @Subscription(() => IPv6Address, {
+          name: 'ipv6AddressCreated',
+          resolve: (payload) => payload,
+        })
+        ipv6AddrCreated() {
+          return this.pubSub.asyncIterator('ipv6AddressCreated');
+        }
+      
+        @Subscription(() => IPv6Address, {
+          name: 'ipv6AddressUpdated',
+          resolve: (payload) => payload,
+        })
+        ipv6AddrUpdated() {
+          return this.pubSub.asyncIterator('ipv6AddressUpdated');
+        }
+      
+        @Subscription(() => String, { name: 'ipv6AddressDeleted' })
+        ipv6AddrDeleted() {
+          return this.pubSub.asyncIterator('ipv6AddressDeleted');
+        }
+  
 
   @Mutation(() => IPv6Address)
   async createIPv6Address(

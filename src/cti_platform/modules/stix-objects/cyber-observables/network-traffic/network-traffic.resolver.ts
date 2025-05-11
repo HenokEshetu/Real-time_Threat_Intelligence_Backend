@@ -1,12 +1,14 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { NetworkTrafficService } from './network-traffic.service';
 import { NetworkTraffic } from './network-traffic.entity';
 import { CreateNetworkTrafficInput, UpdateNetworkTrafficInput } from './network-traffic.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 @InputType()
-export class SearchNetworkTrafficInput extends PartialType(CreateNetworkTrafficInput) {}
+export class SearchNetworkTrafficInput extends PartialType(CreateNetworkTrafficInput) { }
 
 @ObjectType()
 export class NetworkTrafficSearchResult {
@@ -23,10 +25,42 @@ export class NetworkTrafficSearchResult {
 }
 
 @Resolver(() => NetworkTraffic)
-export class NetworkTrafficResolver extends BaseStixResolver(NetworkTraffic) {
-  public typeName = ' network-traffic';
-  constructor(private readonly networkTrafficService: NetworkTrafficService) {
-    super()
+export class NetworkTrafficResolver {
+ 
+  constructor(
+    private readonly networkTrafficService: NetworkTrafficService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): NetworkTraffic {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
+  }
+
+  // Subscription Definitions
+  @Subscription(() => NetworkTraffic, {
+    name: 'networkTrafficCreated',
+    resolve: (payload) => payload,
+  })
+  networkTrafficCreated() {
+    return this.pubSub.asyncIterator('networkTrafficCreated');
+  }
+
+  @Subscription(() => NetworkTraffic, {
+    name: 'networkTrafficUpdated',
+    resolve: (payload) => payload,
+  })
+  networkTrafficUpdated() {
+    return this.pubSub.asyncIterator('networkTrafficUpdated');
+  }
+
+  @Subscription(() => String, { name: 'networkTrafficDeleted' })
+  networkTrafficDeleted() {
+    return this.pubSub.asyncIterator('networkTrafficDeleted');
   }
 
   @Mutation(() => NetworkTraffic)

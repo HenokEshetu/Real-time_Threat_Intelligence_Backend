@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { MarkingDefinitionService } from './marking-definition.service';
 import {
   CreateMarkingDefinitionInput,
@@ -6,14 +6,44 @@ import {
   SearchMarkingDefinitionInput,
 } from './marking-definition.input';
 import { MarkingDefinition, MarkingDefinitionSearchResult } from './marking-definition.entity';
-import { BaseStixResolver } from '../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from '../../pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+
 
 @Resolver(() => MarkingDefinition)
-export class MarkingDefinitionResolver extends BaseStixResolver(MarkingDefinition) {
-  public typeName = 'marking-definition';
-  
-  constructor(private readonly markingDefinitionService: MarkingDefinitionService) {
-    super()
+export class MarkingDefinitionResolver {
+
+  constructor(private readonly markingDefinitionService: MarkingDefinitionService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+  // Date conversion helper
+  public convertDates(payload: any): MarkingDefinition {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
+  }
+
+  // Subscription Definitions
+  @Subscription(() => MarkingDefinition, {
+    name: 'markingdefinitionCreated',
+    resolve: (payload) => payload,
+  })
+  markingdefinitionCreated() {
+    return this.pubSub.asyncIterator('markingdefinitionCreated');
+  }
+  @Subscription(() => MarkingDefinition, {
+    name: 'markingdefinitionUpdated',
+    resolve: (payload) => payload,
+  })
+  markingdefinitionUpdated() {
+    return this.pubSub.asyncIterator('markingdefinitionUpdated');
+  }
+  @Subscription(() => String, { name: 'markingdefinitionDeleted' })
+  markingdefinitionDeleted() {
+    return this.pubSub.asyncIterator('markingdefinitionDeleted');
   }
 
   @Mutation(() => MarkingDefinition)

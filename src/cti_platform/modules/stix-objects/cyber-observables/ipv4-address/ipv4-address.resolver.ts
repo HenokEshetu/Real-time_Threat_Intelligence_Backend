@@ -1,4 +1,4 @@
-import { Resolver,InputType, Query, Mutation, Args,Int } from '@nestjs/graphql';
+import { Resolver,InputType, Query, Mutation, Args,Int, Subscription } from '@nestjs/graphql';
 import { IPv4AddressService } from './ipv4-address.service';
 import { IPv4Address } from './ipv4-address.entity';
 import { CreateIPv4AddressInput, UpdateIPv4AddressInput } from './ipv4-address.input';
@@ -8,7 +8,10 @@ import { PartialType } from '@nestjs/graphql';
 export class SearchIPv4AddressInput extends PartialType(CreateIPv4AddressInput) {}
 
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+
 
 @ObjectType()
 export class IPv4AddressSearchResult {
@@ -25,11 +28,43 @@ export class IPv4AddressSearchResult {
 }
 
 @Resolver(() => IPv4Address)
-export class IPv4AddressResolver  extends BaseStixResolver(IPv4Address) {
-  public typeName = ' ipv4-addr';
-  constructor(private readonly ipv4AddressService: IPv4AddressService) {
-    super()
-  }
+export class IPv4AddressResolver   {
+ 
+  constructor(
+        private readonly ipv4AddressService: IPv4AddressService,
+        @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+      ) { }
+    
+      // Date conversion helper
+      public convertDates(payload: any): IPv4Address {
+        const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+        dateFields.forEach(field => {
+          if (payload[field]) payload[field] = new Date(payload[field]);
+        });
+        return payload;
+      }
+    
+      // Subscription Definitions
+      @Subscription(() => IPv4Address, {
+        name: 'ipv4AddressCreated',
+        resolve: (payload) => payload,
+      })
+      ipv4AddrCreated() {
+        return this.pubSub.asyncIterator('ipv4AddressCreated');
+      }
+    
+      @Subscription(() => IPv4Address, {
+        name: 'ipv4AddressUpdated',
+        resolve: (payload) => payload,
+      })
+      ipv4AddrUpdated() {
+        return this.pubSub.asyncIterator('ipv4AddressUpdated');
+      }
+    
+      @Subscription(() => String, { name: 'ipv4AddressDeleted' })
+      ipv4AddrDeleted() {
+        return this.pubSub.asyncIterator('ipv4AddressDeleted');
+      }
 
   @Mutation(() => IPv4Address)
   async createIPv4Address(

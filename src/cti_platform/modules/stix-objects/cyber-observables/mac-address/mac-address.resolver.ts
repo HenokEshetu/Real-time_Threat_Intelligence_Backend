@@ -1,9 +1,12 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { MACAddressService } from './mac-address.service';
 import { MACAddress } from './mac-address.entity';
 import { CreateMACAddressInput, UpdateMACAddressInput } from './mac-address.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 @InputType()
 export class SearchMACAddressInput extends PartialType(CreateMACAddressInput) {}
 
@@ -25,7 +28,42 @@ export class MACAddressSearchResult {
 
 @Resolver(() => MACAddress)
 export class MACAddressResolver {
-  constructor(private readonly macAddressService: MACAddressService) {}
+  constructor(
+            private readonly macAddressService: MACAddressService,
+            @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+          ) { }
+        
+          // Date conversion helper
+          public convertDates(payload: any): MACAddress {
+            const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+            dateFields.forEach(field => {
+              if (payload[field]) payload[field] = new Date(payload[field]);
+            });
+            return payload;
+          }
+        
+          // Subscription Definitions
+          @Subscription(() => MACAddress, {
+            name: 'macAddressCreated',
+            resolve: (payload) => payload,
+          })
+          mac_addrCreated() {
+            return this.pubSub.asyncIterator('macAddressCreated');
+          }
+        
+          @Subscription(() => MACAddress, {
+            name: 'macAddressUpdated',
+            resolve: (payload) => payload,
+          })
+          mac_addrUpdated() {
+            return this.pubSub.asyncIterator('macAddressUpdated');
+          }
+        
+          @Subscription(() => String, { name: 'macAddressDeleted' })
+          mac_addrDeleted() {
+            return this.pubSub.asyncIterator('macAddressDeleted');
+          }
+    
 
   @Mutation(() => MACAddress)
   async createMACAddress(

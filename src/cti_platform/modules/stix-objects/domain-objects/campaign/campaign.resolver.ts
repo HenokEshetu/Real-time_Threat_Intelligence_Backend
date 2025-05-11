@@ -1,10 +1,13 @@
-import { Resolver, Query,InputType, Int, Mutation, Args } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Int, Mutation, Args, Subscription } from '@nestjs/graphql';
 import { CampaignService } from './campaign.service';
 import { Campaign } from './campaign.entity';
 import { CreateCampaignInput, UpdateCampaignInput } from './campaign.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+
 
 @InputType()
 export class SearchCampaignInput extends PartialType(CreateCampaignInput){}
@@ -24,11 +27,45 @@ export class CampaignSearchResult {
 }
 
 @Resolver(() => Campaign)
-export class CampaignResolver extends BaseStixResolver(Campaign) {
-  public typeName = 'campaign';
-  constructor(private readonly campaignService: CampaignService) {
-    super();
-  }
+export class CampaignResolver  {
+  
+  constructor(
+      private readonly campaignService: CampaignService,
+      @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+    ) { }
+  
+    // Date conversion helper
+    public convertDates(payload: any): Campaign {
+      const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+      dateFields.forEach(field => {
+        if (payload[field]) payload[field] = new Date(payload[field]);
+      });
+      return payload;
+    }
+  
+    // Subscription Definitions
+    @Subscription(() => Campaign, {
+      name: 'campaignCreated',
+      resolve: (payload) => payload,
+    })
+    campaignCreated() {
+      return this.pubSub.asyncIterator('campaignCreated');
+    }
+  
+    @Subscription(() => Campaign, {
+      name: 'campaignUpdated',
+      resolve: (payload) => payload,
+    })
+    campaignUpdated() {
+      return this.pubSub.asyncIterator('campaignUpdated');
+    }
+  
+    @Subscription(() => String, { name: 'campaignDeleted' })
+    campaignDeleted() {
+      return this.pubSub.asyncIterator('campaignDeleted');
+    }
+    
+  
 
   @Mutation(() => Campaign)
   async createCampaign(

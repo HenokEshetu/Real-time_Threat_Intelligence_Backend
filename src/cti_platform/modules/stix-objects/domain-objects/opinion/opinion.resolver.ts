@@ -1,16 +1,18 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { OpinionService } from './opinion.service';
 import { Opinion } from './opinion.entity';
 import { CreateOpinionInput, UpdateOpinionInput } from './opinion.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 
 @InputType()
-export class SearchOpinionInput extends PartialType(CreateOpinionInput){}
+export class SearchOpinionInput extends PartialType(CreateOpinionInput) { }
 
 @ObjectType()
-export class  OpinionSearchResult {
+export class OpinionSearchResult {
   @Field(() => Int)
   page: number;
   @Field(() => Int)
@@ -24,11 +26,43 @@ export class  OpinionSearchResult {
 }
 
 @Resolver(() => Opinion)
-export class OpinionResolver extends BaseStixResolver(Opinion) {
-  public typeName = 'opinion';
+export class OpinionResolver {
   
-  constructor(private readonly opinionService: OpinionService) {
-    super()
+
+  constructor(
+    private readonly opinionService: OpinionService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): Opinion {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
+  }
+
+  // Subscription Definitions
+  @Subscription(() => Opinion, {
+    name: 'opinionCreated',
+    resolve: (payload) => payload,
+  })
+  opinionCreated() {
+    return this.pubSub.asyncIterator('opinionCreated');
+  }
+
+  @Subscription(() => Opinion, {
+    name: 'opinionUpdated',
+    resolve: (payload) => payload,
+  })
+  opinionUpdated() {
+    return this.pubSub.asyncIterator('opinionUpdated');
+  }
+
+  @Subscription(() => String, { name: 'opinionDeleted' })
+  opinionDeleted() {
+    return this.pubSub.asyncIterator('opinionDeleted');
   }
 
   @Mutation(() => Opinion)

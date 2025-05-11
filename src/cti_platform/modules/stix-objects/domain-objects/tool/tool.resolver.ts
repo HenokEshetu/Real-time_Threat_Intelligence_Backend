@@ -1,10 +1,12 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { ToolService } from './tool.service';
 import { Tool } from './tool.entity';
 import { CreateToolInput, UpdateToolInput } from './tool.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @InputType()
 export class SearchToolInput extends PartialType(CreateToolInput){}
@@ -25,12 +27,42 @@ export class ToolSearchResult {
 }
 
 @Resolver(() => Tool)
-export class ToolResolver extends BaseStixResolver(Tool) {
-  public typeName = 'tool';
+export class ToolResolver  {
+    constructor(
+      private readonly toolService: ToolService,
+      @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+    ) { }
   
-  constructor(private readonly toolService: ToolService) {
-    super()
-  }
+    // Date conversion helper
+    public convertDates(payload: any): Tool {
+      const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+      dateFields.forEach(field => {
+        if (payload[field]) payload[field] = new Date(payload[field]);
+      });
+      return payload;
+    }
+  
+    // Subscription Definitions
+    @Subscription(() => Tool, {
+      name: 'toolCreated',
+      resolve: (payload) => payload,
+    })
+    toolCreated() {
+      return this.pubSub.asyncIterator('toolCreated');
+    }
+  
+    @Subscription(() => Tool, {
+      name: 'toolUpdated',
+      resolve: (payload) => payload,
+    })
+    toolUpdated() {
+      return this.pubSub.asyncIterator('toolUpdated');
+    }
+    @Subscription(() => String, { name: 'toolDeleted' })
+    toolDeleted() {
+      return this.pubSub.asyncIterator('toolDeleted');
+  
+    }
 
   @Mutation(() => Tool)
   async createTool(

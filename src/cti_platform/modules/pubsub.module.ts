@@ -21,6 +21,6 @@ export const PUB_SUB = 'PUB_SUB';
       },
     },
   ],
-  exports: [PUB_SUB], // replaced string literal with constant
+  exports: [PUB_SUB],
 })
 export class PubSubModule {}

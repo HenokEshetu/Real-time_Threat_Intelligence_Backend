@@ -48,7 +48,7 @@ import { SightingService } from '../../stix-objects/sighting/sighting.service';
 import { MarkingDefinitionService } from '../../stix-objects/marking-definition/marking-definition.service';
 import { BundleService } from '../../stix-objects/bundle/bundle.service';
 
-const DATA_URL = 'https://raw.githubusercontent.com/mitre-attack/attack-stix-data/refs/heads/master/enterprise-attack/enterprise-attack.json';
+const DATA_URL = '//https://raw.githubusercontent.com/mitre-attack/attack-stix-data/refs/heads/master/enterprise-attack/enterprise-attack.json';
 const UPDATE_CHECK_CRON = '0 */12 * * *'; // Every 12 hours
 const STATE_INDEX = 'ingestion-state';
 

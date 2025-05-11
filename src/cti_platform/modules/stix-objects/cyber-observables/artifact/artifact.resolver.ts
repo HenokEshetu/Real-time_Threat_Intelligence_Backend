@@ -1,10 +1,13 @@
-import { Resolver, Int,InputType, Query, Mutation, Args, ObjectType, Field } from '@nestjs/graphql';
+import { Resolver, Int,InputType, Query, Mutation, Args, ObjectType, Field, Subscription } from '@nestjs/graphql';
 import { ArtifactService } from './artifact.service';
 import { Artifact } from './artifact.entity';
 import { CreateArtifactInput, UpdateArtifactInput } from './artifact.input';
 
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+
 @InputType()
 export class SearchArtifactInput extends PartialType(CreateArtifactInput) {}
 
@@ -28,12 +31,45 @@ export class ArtifactSearchResult {
 }
 
 @Resolver(() => Artifact)
-export class ArtifactResolver extends BaseStixResolver(Artifact) {
-  public typeName = 'artifact';
+export class ArtifactResolver {
   
-  constructor(private readonly artifactService: ArtifactService) {
-    super()
-  }
+  
+  constructor(
+        private readonly artifactService: ArtifactService,
+        @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+      ) {}
+    
+      // Date conversion helper
+      public convertDates(payload: any): Artifact {
+        const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+        dateFields.forEach(field => {
+          if (payload[field]) payload[field] = new Date(payload[field]);
+        });
+        return payload;
+      }
+    
+      // Subscription Definitions
+      @Subscription(() => Artifact, {
+        name: 'artifactCreated',
+        resolve: (payload) => payload,
+      })
+     artifactCreated() {
+        return this.pubSub.asyncIterator('artifactCreated');
+      }
+    
+      @Subscription(() => Artifact, {
+        name: 'artifactUpdated',
+        resolve: (payload) => payload,
+      })
+      artifactUpdated() {
+        return this.pubSub.asyncIterator('artifactUpdated');
+      }
+    
+      @Subscription(() => String, { name: 'artifactDeleted' })
+      artifactDeleted() {
+        return this.pubSub.asyncIterator('artifactDeleted');
+      }
+  
 
   @Mutation(() => Artifact)
   async createArtifact(

@@ -1,9 +1,11 @@
-import { Resolver,InputType, Query, Mutation, Int,ObjectType, Field, Args, } from '@nestjs/graphql';
+import { Resolver,InputType, Query, Mutation, Int,ObjectType, Field, Args, Subscription, } from '@nestjs/graphql';
 import { AutonomousSystemService } from './autonomous-system.service';
 import { AutonomousSystem } from './autonomous-system.entity';
 import { CreateAutonomousSystemInput, UpdateAutonomousSystemInput } from './autonomous-system.input';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 @InputType()
 export class SearchAutonomousSystemInput extends PartialType(CreateAutonomousSystemInput) {}
 
@@ -22,11 +24,42 @@ export class AutonomousSystemSearchResult  {
 }
 
 @Resolver(() => AutonomousSystem)
-export class AutonomousSystemResolver extends BaseStixResolver(AutonomousSystem) {
-  public typeName = 'autonomous-system';
-  constructor(private readonly autonomousSystemService: AutonomousSystemService) {
-    super()
-  }
+export class AutonomousSystemResolver {
+  constructor(
+          private readonly autonomousSystemService: AutonomousSystemService,
+          @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+        ) {}
+      
+        // Date conversion helper
+        public convertDates(payload: any): AutonomousSystem {
+          const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+          dateFields.forEach(field => {
+            if (payload[field]) payload[field] = new Date(payload[field]);
+          });
+          return payload;
+        }
+      
+        // Subscription Definitions
+        @Subscription(() => AutonomousSystem, {
+          name: 'autonomousSystemCreated',
+          resolve: (payload) => payload,
+        })
+        autonomousSystemCreated() {
+          return this.pubSub.asyncIterator('autonomousSystemCreated');
+        }
+      
+        @Subscription(() => AutonomousSystem, {
+          name: 'autonomousSystemUpdated',
+          resolve: (payload) => payload,
+        })
+        autonomousSystemUpdated() {
+          return this.pubSub.asyncIterator('autonomousSystemUpdated');
+        }
+      
+        @Subscription(() => String, { name: 'autonomousSystemDeleted' })
+        async autonomousSystemDeleted() {
+          return this.pubSub.asyncIterator('autonomousSystemDeleted');
+        }
 
   @Mutation(() => AutonomousSystem)
   async createAutonomousSystem(

@@ -1,10 +1,12 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { NoteService } from './note.service';
 import { Note } from './note.entity';
 import { CreateNoteInput, UpdateNoteInput } from './note.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @InputType()
 export class SearchNoteInput extends PartialType(CreateNoteInput){}
@@ -24,11 +26,44 @@ export class NoteSearchResult {
 }
 
 @Resolver(() => Note)
-export class NoteResolver extends BaseStixResolver(Note) {
-  public typeName = 'note';
-  constructor(private readonly noteService: NoteService) {
-    super()
-  }
+export class NoteResolver  {
+    constructor(
+      private readonly noteService: NoteService,
+      @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+    ) { }
+  
+    // Date conversion helper
+    public convertDates(payload: any): Note {
+      const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+      dateFields.forEach(field => {
+        if (payload[field]) payload[field] = new Date(payload[field]);
+      });
+      return payload;
+    }
+  
+    // Subscription Definitions
+    @Subscription(() => Note, {
+      name: 'noteCreated',
+      resolve: (payload) => payload,
+    })
+    noteCreated() {
+      return this.pubSub.asyncIterator('noteCreated');
+    }
+  
+    @Subscription(() => Note, {
+      name: 'noteUpdated',
+      resolve: (payload) => payload,
+    })
+    noteUpdated() {
+      return this.pubSub.asyncIterator('noteUpdated');
+    }
+  
+    @Subscription(() => String, { name: 'noteDeleted' })
+    noteDeleted() {
+      
+      return this.pubSub.asyncIterator('noteDeleted');
+    }
+  
 
   @Mutation(() => Note)
   async createNote(

@@ -1,9 +1,12 @@
-import { Resolver,InputType, Query, Int, Mutation,ObjectType, Field, Args } from '@nestjs/graphql';
+import { Resolver,InputType, Query, Int, Mutation,ObjectType, Field, Args, Subscription } from '@nestjs/graphql';
 import { BundleService } from './bundle.service';
 import { Bundle } from './bundle.entity';
 import { CreateBundleInput, UpdateBundleInput } from './bundle.input';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../base-stix.resolver';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from '../../pubsub.module';
+
 
 @InputType()
 export class SearchBundleInput extends PartialType(CreateBundleInput) {}
@@ -28,11 +31,43 @@ export class SearchResult {
 
 
 @Resolver(() => Bundle)
-export class BundleResolver extends BaseStixResolver(Bundle) {
-  public typeName = 'bundle';
-  constructor(private readonly bundleService: BundleService) {
-    super()
-  }
+export class BundleResolver {
+
+  constructor(
+      private readonly bundleService: BundleService,
+      @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+    ) {}
+  
+    // Date conversion helper
+    public convertDates(payload: any): Bundle {
+      const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+      dateFields.forEach(field => {
+        if (payload[field]) payload[field] = new Date(payload[field]);
+      });
+      return payload;
+    }
+  
+    // Subscription Definitions
+    @Subscription(() => Bundle, {
+      name: 'bundleCreated',
+      resolve: (payload) => payload,
+    })
+    bundleCreated() {
+      return this.pubSub.asyncIterator('bundleCreated');
+    }
+  
+    @Subscription(() => Bundle, {
+      name: 'bundleUpdated',
+      resolve: (payload) => payload,
+    })
+    bundleUpdated() {
+      return this.pubSub.asyncIterator('bundleUpdated');
+    }
+  
+    @Subscription(() => String, { name: 'bundleDeleted' })
+    bundleDeleted() {
+      return this.pubSub.asyncIterator('bundleDeleted');
+    }
 
   @Mutation(() => Bundle)
   async createBundle(

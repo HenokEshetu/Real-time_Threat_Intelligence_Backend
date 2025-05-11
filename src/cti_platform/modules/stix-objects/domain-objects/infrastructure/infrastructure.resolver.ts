@@ -1,13 +1,15 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { InfrastructureService } from './infrastructure.service';
 import { Infrastructure } from './infrastructure.entity';
 import { CreateInfrastructureInput, UpdateInfrastructureInput } from './infrastructure.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @InputType()
-export class SearchInfrastructureInput extends PartialType(CreateInfrastructureInput){}
+export class SearchInfrastructureInput extends PartialType(CreateInfrastructureInput) { }
 
 
 @ObjectType()
@@ -25,10 +27,41 @@ export class InfrastructureSearchResult {
 }
 
 @Resolver(() => Infrastructure)
-export class InfrastructureResolver extends BaseStixResolver(Infrastructure) {
-  public typeName = 'infrastructure';
-  constructor(private readonly infrastructureService: InfrastructureService) {
-    super()
+export class InfrastructureResolver  {
+  constructor(
+    private readonly infrastructureService: InfrastructureService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): Infrastructure {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
+  }
+
+  // Subscription Definitions
+  @Subscription(() => Infrastructure, {
+    name: 'infrastructureCreated',
+    resolve: (payload) => payload,
+  })
+  infrastructureCreated() {
+    return this.pubSub.asyncIterator('infrastructureCreated');
+  }
+
+  @Subscription(() => Infrastructure, {
+    name: 'infrastructureUpdated',
+    resolve: (payload) => payload,
+  })
+  infrastructureUpdated() {
+    return this.pubSub.asyncIterator('infrastructureUpdated');
+  }
+
+  @Subscription(() => String, { name: 'infrastructureDeleted' })
+  infrastructureDeleted() {
+    return this.pubSub.asyncIterator('infrastructureDeleted');
   }
 
   @Mutation(() => Infrastructure)

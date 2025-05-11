@@ -1,13 +1,16 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
 import { ProcessService } from './process.service';
 import { Process } from './process.entity';
 import { CreateProcessInput, UpdateProcessInput } from './process.input';
-
+import { Subscription } from '@nestjs/graphql';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+
 @InputType()
-export class SearchProcessInput extends PartialType(CreateProcessInput) {}
+export class SearchProcessInput extends PartialType(CreateProcessInput) { }
 
 
 
@@ -26,11 +29,44 @@ export class ProcessSearchResult {
 }
 
 @Resolver(() => Process)
-export class ProcessResolver extends BaseStixResolver(Process) {
-  public typeName = ' process';
-  constructor(private readonly processService: ProcessService) {
-    super()
+export class ProcessResolver {
+
+  constructor(
+    private readonly processService: ProcessService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): Process {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
   }
+
+  // Subscription Definitions
+  @Subscription(() => Process, {
+    name: 'processCreated',
+    resolve: (payload) => payload,
+  })
+  processCreated() {
+    return this.pubSub.asyncIterator('processCreated');
+  }
+
+  @Subscription(() => Process, {
+    name: 'processUpdated',
+    resolve: (payload) => payload,
+  })
+  processUpdated() {
+    return this.pubSub.asyncIterator('processUpdated');
+  }
+
+  @Subscription(() => String, { name: 'processDeleted' })
+  processDeleted() {
+    return this.pubSub.asyncIterator('processDeleted');
+  }
+
 
   @Mutation(() => Process)
   async createProcess(

@@ -1,4 +1,4 @@
-import { Resolver,InputType, Query, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, InputType, Query, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { AttackPatternService } from './attack-pattern.service';
 import { AttackPattern } from './attack-pattern.entity';
 import { CreateAttackPatternInput, UpdateAttackPatternInput } from './attack-pattern.input';
@@ -6,12 +6,13 @@ import { ObjectType, Field } from '@nestjs/graphql';
 
 
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
-import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from 'src/user-management/guards/jwt-auth.guard';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+
 
 @InputType()
-export class SearchAttackPatternInput extends PartialType(CreateAttackPatternInput){}
+export class SearchAttackPatternInput extends PartialType(CreateAttackPatternInput) { }
 
 
 @ObjectType()
@@ -29,19 +30,50 @@ export class AttackPatternSearchResult {
 }
 
 @Resolver(() => AttackPattern)
-export class AttackPatternResolver extends BaseStixResolver(AttackPattern){
-  public typeName = 'attack-pattern';
-  constructor(private readonly attackPatternService: AttackPatternService) {
-    super();
+export class AttackPatternResolver {
+ 
+  constructor(
+    private readonly attackPatternService: AttackPatternService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): AttackPattern {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
   }
 
+  // Subscription Definitions
+  @Subscription(() => AttackPattern, {
+    name: 'attackPatternCreated',
+    resolve: (payload) => payload,
+  })
+  attackPatternCreated() {
+    return this.pubSub.asyncIterator('attack-patternCreated');
+  }
+
+  @Subscription(() => AttackPattern, {
+    name: 'attackPatternUpdated',
+    resolve: (payload) => payload,
+  })
+  attackPatternUpdated() {
+    return this.pubSub.asyncIterator('attackPatternUpdated');
+  }
+
+  @Subscription(() => String, { name: 'attackPatternDeleted' })
+  attackPatternDeleted() {
+    return this.pubSub.asyncIterator('attackPatternDeleted');
+  }
   @Mutation(() => AttackPattern)
   async createAttackPattern(
     @Args('input') createAttackPatternInput: CreateAttackPatternInput,
   ): Promise<AttackPattern> {
     return this.attackPatternService.create(createAttackPatternInput);
   }
-  
+
   @Query(() => AttackPatternSearchResult)
   async searchAttackPatterns(
     @Args('filters', { type: () => SearchAttackPatternInput, nullable: true }) filters: SearchAttackPatternInput = {},

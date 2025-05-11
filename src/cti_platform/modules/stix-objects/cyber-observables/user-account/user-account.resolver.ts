@@ -1,12 +1,15 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { UserAccountService } from './user-account.service';
 import { UserAccount } from './user-account.entity';
 import { CreateUserAccountInput, UpdateUserAccountInput } from './user-account.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+
 @InputType()
-export class SearchUrlUserAccountInput extends PartialType(CreateUserAccountInput) {}
+export class SearchUrlUserAccountInput extends PartialType(CreateUserAccountInput) { }
 
 @ObjectType()
 export class UserAccountSearchResult {
@@ -23,11 +26,44 @@ export class UserAccountSearchResult {
 }
 
 @Resolver(() => UserAccount)
-export class UserAccountResolver extends BaseStixResolver(UserAccount) {
-  public typeName = ' user-account';
-  constructor(private readonly userAccountService: UserAccountService) {
-    super()
+export class UserAccountResolver {
+
+  constructor(
+    private readonly userAccountService: UserAccountService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): UserAccount {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
   }
+
+  // Subscription Definitions
+  @Subscription(() => UserAccount, {
+    name: 'userAccountCreated',
+    resolve: (payload) => payload,
+  })
+  userAccountCreated() {
+    return this.pubSub.asyncIterator('userAccountCreated');
+  }
+
+  @Subscription(() => UserAccount, {
+    name: 'userAccountUpdated',
+    resolve: (payload) => payload,
+  })
+  userAccountUpdated() {
+    return this.pubSub.asyncIterator('userAccountUpdated');
+  }
+
+  @Subscription(() => String, { name: 'userAccountDeleted' })
+  userAccountDeleted() {
+    return this.pubSub.asyncIterator('userAccountDeleted');
+  }
+
 
   @Mutation(() => UserAccount)
   async createUserAccount(

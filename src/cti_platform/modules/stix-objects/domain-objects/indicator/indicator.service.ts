@@ -1,6 +1,5 @@
 import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, Inject, Logger } from '@nestjs/common';
-import { v4 as uuidv4 } from 'uuid';
-import { Client, ClientOptions } from '@opensearch-project/opensearch';
+import { Client,  } from '@opensearch-project/opensearch';
 import { CreateIndicatorInput, UpdateIndicatorInput, SearchIndicatorInput } from './indicator.input';
 import { Indicator } from './indicator.entity';
 import { BaseStixService } from '../../base-stix.service';

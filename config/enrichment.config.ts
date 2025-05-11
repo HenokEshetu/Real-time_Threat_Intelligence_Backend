@@ -74,7 +74,7 @@ export const enrichmentConfig: EnrichmentConfig = {
     },
     hybrid: {
       url: 'https://www.hybrid-analysis.com/api/v2',
-      apiKeyEnv: 'HYBRID_ANALYSIS_API_KEY',
+      apiKeyEnv: 'HYBRID_API_KEY',
       requiredKey: true,
       rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
       headers: { 'api-key': '${apiKey}' },

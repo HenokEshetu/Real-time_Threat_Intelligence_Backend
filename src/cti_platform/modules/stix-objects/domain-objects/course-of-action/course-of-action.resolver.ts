@@ -1,10 +1,12 @@
-import { Resolver, Query, InputType, Mutation, Args, Int, } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription, } from '@nestjs/graphql';
 import { CourseOfActionService } from './course-of-action.service';
 import { CreateCourseOfActionInput, UpdateCourseOfActionInput } from './course-of-action.input';
 import { CourseOfAction } from './course-of-action.entity';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @InputType()
 export class SearchCourseOfActionInput extends PartialType(CreateCourseOfActionInput){}
@@ -24,11 +26,43 @@ export class CourseOfActionSearchResult {
 }
 
 @Resolver(() => CourseOfAction)
-export class CourseOfActionResolver extends BaseStixResolver(CourseOfAction) {
-  public typeName = 'course-of-action';
-  constructor(private readonly courseOfActionService: CourseOfActionService) {
-    super()
-  }
+export class CourseOfActionResolver  {
+    constructor(
+        private readonly courseOfActionService: CourseOfActionService,
+        @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+      ) { }
+    
+      // Date conversion helper
+      public convertDates(payload: any): CourseOfAction {
+        const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+        dateFields.forEach(field => {
+          if (payload[field]) payload[field] = new Date(payload[field]);
+        });
+        return payload;
+      }
+    
+      // Subscription Definitions
+      @Subscription(() => CourseOfAction, {
+        name: 'courseOfActionCreated',
+        resolve: (payload) => payload,
+      })
+      courseOfActionCreated() {
+        return this.pubSub.asyncIterator('courseOfActionCreated');
+      }
+    
+      @Subscription(() => CourseOfAction, {
+        name: 'courseOfActionUpdated',
+        resolve: (payload) => payload,
+      })
+      courseOfActionUpdated() {
+        return this.pubSub.asyncIterator('courseOfActionUpdated');
+      }
+    
+      @Subscription(() => String, { name: 'courseOfActionDeleted' })
+      courseOfActionDeleted() {
+        return this.pubSub.asyncIterator('courseOfActionDeleted');
+      }
+     
 
   @Mutation(() => CourseOfAction)
   async createCourseOfAction(

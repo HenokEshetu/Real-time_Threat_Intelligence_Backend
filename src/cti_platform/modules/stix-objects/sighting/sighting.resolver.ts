@@ -1,10 +1,12 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { SightingService } from './sighting.service';
 import { Sighting } from './sighting.entity';
 import { CreateSightingInput, UpdateSightingInput } from './sighting.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from '../../pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 @InputType()
 export class SearchSightingInput extends PartialType(CreateSightingInput){}
@@ -24,12 +26,44 @@ export class SightingSearchResult {
 }
 
 @Resolver(() => Sighting)
-export class SightingResolver extends BaseStixResolver(Sighting) {
-  public typeName = 'sighting';
+export class SightingResolver {
   
-  constructor(private readonly sightingService: SightingService) {
-    super()
+  constructor(
+    private readonly sightingService: SightingService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+  // Date conversion helper
+  public convertDates(payload: any): Sighting {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
   }
+  
+  // Subscription Definitions
+  @Subscription(() => Sighting, {
+    name: 'sightingCreated',
+    resolve: (payload) => payload,
+  })
+  sightingCreated() {
+    return this.pubSub.asyncIterator('sightingCreated');
+  }
+  @Subscription(() => Sighting, {
+    name: 'sightingUpdated',
+    resolve: (payload) => payload,
+  })
+  sightingUpdated() {
+    return this.pubSub.asyncIterator('sightingUpdated');
+  }
+  @Subscription(() => Sighting, {
+    name: 'sightingDeleted',
+    resolve: (payload) => payload,
+  })
+  sightingDeleted() {
+    return this.pubSub.asyncIterator('sightingDeleted');
+  }
+  
 
   @Mutation(() => Sighting)
   async createSighting(

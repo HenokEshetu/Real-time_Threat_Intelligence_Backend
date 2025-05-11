@@ -2,10 +2,12 @@ import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql'
 import { SoftwareService } from './software.service';
 import { Software } from './software.entity';
 import { CreateSoftwareInput, UpdateSoftwareInput } from './software.input';
-
+import { Subscription } from '@nestjs/graphql';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
 @InputType()
 export class SearchSoftwareInput extends PartialType(CreateSoftwareInput) {}
 
@@ -25,11 +27,43 @@ export class SoftwareSearchResult {
 }
 
 @Resolver(() => Software)
-export class SoftwareResolver extends BaseStixResolver(Software) {
-  public typeName = ' software';
-  constructor(private readonly softwareService: SoftwareService) {
-    super()
-  }
+export class SoftwareResolver  {
+ 
+  constructor(
+      private readonly softwareService: SoftwareService,
+      @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+    ) { }
+  
+    // Date conversion helper
+    public convertDates(payload: any): Software {
+      const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+      dateFields.forEach(field => {
+        if (payload[field]) payload[field] = new Date(payload[field]);
+      });
+      return payload;
+    }
+  
+    // Subscription Definitions
+    @Subscription(() => Software, {
+      name: 'softwareCreated',
+      resolve: (payload) => payload,
+    })
+    indicatorCreated() {
+      return this.pubSub.asyncIterator('softwareCreated');
+    }
+  
+    @Subscription(() => Software, {
+      name: 'softwareUpdated',
+      resolve: (payload) => payload,
+    })
+    softwareUpdated() {
+      return this.pubSub.asyncIterator('softwareUpdated');
+    }
+  
+    @Subscription(() => String, { name: 'softwareDeleted' })
+    softwareDeleted() {
+      return this.pubSub.asyncIterator('softwareDeleted');
+    }
 
   @Mutation(() => Software)
   async createSoftware(

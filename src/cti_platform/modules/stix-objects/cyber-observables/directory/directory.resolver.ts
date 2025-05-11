@@ -1,10 +1,12 @@
-import { Resolver,InputType, Query, Mutation, Args, ObjectType, Int, Field } from '@nestjs/graphql';
+import { Resolver,InputType, Query, Mutation, Args, ObjectType, Int, Field, Subscription } from '@nestjs/graphql';
 import { DirectoryService } from './directory.service';
 import { Directory } from './directory.entity';
 import { CreateDirectoryInput, UpdateDirectoryInput } from './directory.input';
 
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 @InputType()
 export class SearchDirectoryInput extends PartialType(CreateDirectoryInput) {}
 
@@ -27,12 +29,42 @@ export class DirectorySearchResult {
 }
 
 @Resolver(() => Directory)
-export class DirectoryResolver extends BaseStixResolver(Directory) {
-  public typeName = 'directory';
-  constructor(private readonly directoryService: DirectoryService) {
-    super()
-  }
-
+export class DirectoryResolver  {
+  constructor(
+            private readonly directoryService: DirectoryService,
+            @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+          ) {}
+        
+          // Date conversion helper
+          public convertDates(payload: any): Directory {
+            const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+            dateFields.forEach(field => {
+              if (payload[field]) payload[field] = new Date(payload[field]);
+            });
+            return payload;
+          }
+        
+          // Subscription Definitions
+          @Subscription(() => Directory, {
+            name: 'directoryCreated',
+            resolve: (payload) => payload,
+          })
+          directoryCreated() {
+            return this.pubSub.asyncIterator('directoryCreated');
+          }
+        
+          @Subscription(() => Directory, {
+            name: 'directoryUpdated',
+            resolve: (payload) => payload,
+          })
+          directoryUpdated() {
+            return this.pubSub.asyncIterator('directoryUpdated');
+          }
+        
+          @Subscription(() => String, { name: 'directoryDeleted' })
+          directoryDeleted() {
+            return this.pubSub.asyncIterator('directoryDeleted');
+          }
   @Mutation(() => Directory)
   async createDirectory(
     @Args('input') createDirectoryInput: CreateDirectoryInput,

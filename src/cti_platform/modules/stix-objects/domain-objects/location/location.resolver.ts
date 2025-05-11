@@ -1,12 +1,15 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { LocationService } from './location.service';
 import { Location } from './location.entity';
 import { CreateLocationInput, UpdateLocationInput } from './location.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+
 @InputType()
-export class SearchLocationInput extends PartialType(CreateLocationInput){}
+export class SearchLocationInput extends PartialType(CreateLocationInput) { }
 @ObjectType()
 export class LocationSearchResult {
   @Field(() => Int)
@@ -22,10 +25,42 @@ export class LocationSearchResult {
 }
 
 @Resolver(() => Location)
-export class LocationResolver extends BaseStixResolver(Location) {
-  public typeName = 'location';
-  constructor(private readonly locationService: LocationService) {
-    super()
+export class LocationResolver {
+  
+  constructor(
+    private readonly locationService: LocationService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): Location {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
+  }
+
+  // Subscription Definitions
+  @Subscription(() => Location, {
+    name: 'locationCreated',
+    resolve: (payload) => payload,
+  })
+  locationCreated() {
+    return this.pubSub.asyncIterator('locationCreated');
+  }
+
+  @Subscription(() => Location, {
+    name: 'locationUpdated',
+    resolve: (payload) => payload,
+  })
+  locationUpdated() {
+    return this.pubSub.asyncIterator('locationUpdated');
+  }
+
+  @Subscription(() => String, { name: 'locationDeleted' })
+  locationDeleted() {
+    return this.pubSub.asyncIterator('locationDeleted');
   }
 
   @Mutation(() => Location)
@@ -35,12 +70,12 @@ export class LocationResolver extends BaseStixResolver(Location) {
     return this.locationService.create(createLocationInput);
   }
 
-  @Query(() =>  LocationSearchResult)
+  @Query(() => LocationSearchResult)
   async searchLocations(
     @Args('filters', { type: () => SearchLocationInput, nullable: true }) filters: SearchLocationInput = {},
     @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
     @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
-  ): Promise< LocationSearchResult> {
+  ): Promise<LocationSearchResult> {
     return this.locationService.searchWithFilters(filters, page, pageSize);
   }
 

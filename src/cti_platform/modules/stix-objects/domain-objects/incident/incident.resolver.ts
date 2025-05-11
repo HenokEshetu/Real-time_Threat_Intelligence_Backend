@@ -1,10 +1,12 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { IncidentService } from './incident.service';
 import { CreateIncidentInput, UpdateIncidentInput } from './incident.input';
 import { Incident } from './incident.entity';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Inject } from '@nestjs/common';
 
 @InputType()
 export class SearchIncidentInput extends PartialType(CreateIncidentInput){}
@@ -24,11 +26,44 @@ export class IncidentSearchResult {
 }
 
 @Resolver(() => Incident)
-export class IncidentResolver extends BaseStixResolver(Incident) {
-  public typeName = 'incident';
-  constructor(private readonly incidentService: IncidentService) {
-    super()
-  }
+export class IncidentResolver  {
+
+  constructor(
+            private readonly incidentService: IncidentService,
+            @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+          ) { }
+        
+          // Date conversion helper
+          public convertDates(payload: any): Incident {
+            const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+            dateFields.forEach(field => {
+              if (payload[field]) payload[field] = new Date(payload[field]);
+            });
+            return payload;
+          }
+        
+          // Subscription Definitions
+          @Subscription(() => Incident, {
+            name: 'incidentCreated',
+            resolve: (payload) => payload,
+          })
+          incidentCreated() {
+            return this.pubSub.asyncIterator('incidentCreated');
+          }
+        
+          @Subscription(() => Incident, {
+            name: 'incidentUpdated',
+            resolve: (payload) => payload,
+          })
+          incidentUpdated() {
+            return this.pubSub.asyncIterator('incidentUpdated');
+          }
+        
+          @Subscription(() => String, { name: 'incidentDeleted' })
+          incidentDeleted() {
+            return this.pubSub.asyncIterator('incidentDeleted');
+          }
+        
 
   @Mutation(() => Incident)
   async createIncident(

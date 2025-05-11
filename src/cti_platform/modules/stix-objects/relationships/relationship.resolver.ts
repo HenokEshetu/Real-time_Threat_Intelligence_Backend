@@ -1,10 +1,12 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query,InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { RelationshipService } from './relationship.service';
 import { StixRelationship } from './relationship.entity';
 import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 
 
 @InputType()
@@ -26,12 +28,43 @@ export class StixRelationshipSearchResult {
 }
 
 @Resolver(() => StixRelationship)
-export class RelationshipResolver extends BaseStixResolver(StixRelationship) {
-  public typeName = 'indicator';
+export class RelationshipResolver  {
   
-  constructor(private readonly relationshipService: RelationshipService) {
-    super()
+  
+  constructor(
+    private readonly relationshipService: RelationshipService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+  // Date conversion helper
+  public convertDates(payload: any): StixRelationship {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
   }
+  // Subscription Definitions
+  @Subscription(() => StixRelationship, {
+    name: 'relationshipCreated',
+    resolve: (payload) => payload,
+  })
+  relationshipCreated() {
+    return this.pubSub.asyncIterator('relationshipCreated');
+  }
+  @Subscription(() => StixRelationship, {
+    name: 'relationshipUpdated',
+    resolve: (payload) => payload,
+  })
+  relationshipUpdated() {
+    return this.pubSub.asyncIterator('relationshipUpdated');
+  }
+  @Subscription(() => StixRelationship, {
+    name: 'relationshipDeleted',
+    resolve: (payload) => payload,
+  })
+  relationshipDeleted() {
+    return this.pubSub.asyncIterator('relationshipDeleted');
+  } 
 
   @Mutation(() => StixRelationship)
   async createRelationship(

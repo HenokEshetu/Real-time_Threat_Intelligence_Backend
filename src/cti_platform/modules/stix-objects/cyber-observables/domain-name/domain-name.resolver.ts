@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation,InputType, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation,InputType, Args, Int, Subscription } from '@nestjs/graphql';
 import { DomainNameService } from './domain-name.service';
 import { DomainName } from './domain-name.entity';
 import { CreateDomainNameInput, UpdateDomainNameInput } from './domain-name.input';
@@ -8,7 +8,10 @@ import { PartialType } from '@nestjs/graphql';
 export class SearchDomainNameInput extends PartialType(CreateDomainNameInput) {}
 
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+
 
 @ObjectType()
 export class DomainNameSearchResult {
@@ -29,11 +32,43 @@ export class DomainNameSearchResult {
 }
 
 @Resolver(() => DomainName)
-export class DomainNameResolver extends BaseStixResolver(DomainName) {
-  public typeName = 'directory';
-  constructor(private readonly domainNameService: DomainNameService) {
-    super()
-  }
+export class DomainNameResolver  {
+ 
+   constructor(
+              private readonly domainNameService: DomainNameService,
+              @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+            ) {}
+          
+            // Date conversion helper
+            public convertDates(payload: any): DomainName {
+              const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+              dateFields.forEach(field => {
+                if (payload[field]) payload[field] = new Date(payload[field]);
+              });
+              return payload;
+            }
+          
+            // Subscription Definitions
+            @Subscription(() => DomainName, {
+              name: 'domainNameCreated',
+              resolve: (payload) => payload,
+            })
+            directoryCreated() {
+              return this.pubSub.asyncIterator('domainNameCreated');
+            }
+          
+            @Subscription(() => DomainName, {
+              name: 'domainNameUpdated',
+              resolve: (payload) => payload,
+            })
+            directoryUpdated() {
+              return this.pubSub.asyncIterator('domainNameUpdated');
+            }
+          
+            @Subscription(() => String, { name: 'domainNameDeleted' })
+            directoryDeleted() {
+              return this.pubSub.asyncIterator('domainNameDeleted');
+            }
 
   @Mutation(() => DomainName)
   async createDomainName(

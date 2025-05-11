@@ -1,10 +1,12 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { IdentityService } from './identity.service';
 import { Identity } from './identity.entity';
 import { CreateIdentityInput, UpdateIdentityInput } from './identity.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
 
 @InputType()
 export class SearchIdentityInput extends PartialType(CreateIdentityInput){}
@@ -24,12 +26,44 @@ export class IdentitySearchResult {
 }
 
 @Resolver(() => Identity)
-export class IdentityResolver extends BaseStixResolver(Identity) {
-  public typeName = 'identity';
-  constructor(private readonly identityService: IdentityService) {
-
-    super();
-  }
+export class IdentityResolver  {
+        constructor(
+          private readonly identityService: IdentityService,
+          @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+        ) { }
+      
+        // Date conversion helper
+        public convertDates(payload: any): Identity {
+          const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+          dateFields.forEach(field => {
+            if (payload[field]) payload[field] = new Date(payload[field]);
+          });
+          return payload;
+        }
+      
+        // Subscription Definitions
+        @Subscription(() => Identity, {
+          name: 'identityCreated',
+          resolve: (payload) => payload,
+        })
+        identityCreated() {
+          return this.pubSub.asyncIterator('identityCreated');
+        }
+      
+        @Subscription(() => Identity, {
+          name: 'identityUpdated',
+          resolve: (payload) => payload,
+        })
+        identityUpdated() {
+          return this.pubSub.asyncIterator('identityUpdated');
+        }
+      
+        @Subscription(() => String, { name: 'identityDeleted' })
+        identityDeleted() {
+          return this.pubSub.asyncIterator('identityDeleted');
+        }
+      
+ 
 
   @Mutation(() => Identity)
   async createIdentity(

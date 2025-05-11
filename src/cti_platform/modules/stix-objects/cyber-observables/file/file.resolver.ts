@@ -1,10 +1,12 @@
-import { Resolver, Query, InputType, Mutation, Args,  Int  } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args,  Int, Subscription  } from '@nestjs/graphql';
 import { FileService } from './file.service';
 import { File } from './file.entity';
 import { CreateFileInput, UpdateFileInput } from './file.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { Inject } from '@nestjs/common';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 @InputType()
 export class SearchFileInput extends PartialType(CreateFileInput) {
 
@@ -25,11 +27,42 @@ export class FileSearchResult {
 }
 
 @Resolver(() => File)
-export class FileResolver extends BaseStixResolver(File) {
-  public typeName = 'file';
-  constructor(private readonly fileService: FileService) {
-    super()
-  }
+export class FileResolver  {
+  constructor(
+      private readonly fileService: FileService,
+      @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+    ) { }
+  
+    // Date conversion helper
+    public convertDates(payload: any): File {
+      const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+      dateFields.forEach(field => {
+        if (payload[field]) payload[field] = new Date(payload[field]);
+      });
+      return payload;
+    }
+  
+    // Subscription Definitions
+    @Subscription(() => File, {
+      name: 'fileCreated',
+      resolve: (payload) => payload,
+    })
+    fileCreated() {
+      return this.pubSub.asyncIterator('fileCreated');
+    }
+  
+    @Subscription(() => File, {
+      name: 'fileUpdated',
+      resolve: (payload) => payload,
+    })
+    fileUpdated() {
+      return this.pubSub.asyncIterator('fileUpdated');
+    }
+  
+    @Subscription(() => String, { name: 'fileDeleted' })
+    fileDeleted() {
+      return this.pubSub.asyncIterator('fileDeleted');
+    }
 
   @Mutation(() => File)
   async createFile(

@@ -1,12 +1,14 @@
-import { Resolver, Query, InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { IntrusionSetService } from './intrusion-set.service';
 import { CreateIntrusionSetInput, UpdateIntrusionSetInput } from './intrusion-set.input';
 import { IntrusionSet } from './intrusion-set.entity';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 @InputType()
-export class SearchIntrusionSetInput extends PartialType(CreateIntrusionSetInput){}
+export class SearchIntrusionSetInput extends PartialType(CreateIntrusionSetInput) { }
 
 @ObjectType()
 export class IntrusionSetSearchResult {
@@ -27,12 +29,42 @@ export class IntrusionSetSearchResult {
 }
 
 @Resolver(() => IntrusionSet)
-export class IntrusionSetResolver extends BaseStixResolver(IntrusionSet) {
-  public typeName = 'intrusion-set';
-  constructor(private readonly intrusionSetService: IntrusionSetService) {
-    super()
+export class IntrusionSetResolver {
+  constructor(
+    private readonly intrusionSetService: IntrusionSetService,
+    @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+  ) { }
+
+  // Date conversion helper
+  public convertDates(payload: any): IntrusionSet {
+    const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+    dateFields.forEach(field => {
+      if (payload[field]) payload[field] = new Date(payload[field]);
+    });
+    return payload;
   }
 
+  // Subscription Definitions
+  @Subscription(() => IntrusionSet, {
+    name: 'intrusionSetCreated',
+    resolve: (payload) => payload,
+  })
+  intrusionSetCreated() {
+    return this.pubSub.asyncIterator('intrusionSetCreated');
+  }
+
+  @Subscription(() => IntrusionSet, {
+    name: 'intrusionSetUpdated',
+    resolve: (payload) => payload,
+  })
+ intrusionSetUpdated() {
+    return this.pubSub.asyncIterator('intrusionSetUpdated');
+  }
+
+  @Subscription(() => String, { name: 'intrusionSetDeleted' })
+  intrusionSetDeleted() {
+    return this.pubSub.asyncIterator('intrusionSetDeleted');
+  }
   @Mutation(() => IntrusionSet)
   async createIntrusionSet(
     @Args('input') createIntrusionSetInput: CreateIntrusionSetInput,

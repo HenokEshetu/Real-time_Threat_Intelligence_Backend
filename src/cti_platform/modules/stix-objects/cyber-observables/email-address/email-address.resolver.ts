@@ -1,10 +1,12 @@
-import { Resolver, InputType, Query, Mutation, Args, Int } from '@nestjs/graphql';
+import { Resolver, InputType, Query, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { EmailAddressService } from './email-address.service';
 import { EmailAddress } from './email-address.entity';
 import { CreateEmailAddressInput, UpdateEmailAddressInput } from './email-address.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
-import { BaseStixResolver } from '../../base-stix.resolver';
+import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
+import { Inject } from '@nestjs/common';
+import { RedisPubSub } from 'graphql-redis-subscriptions';
 @InputType()
 export class SearchEmailAddressInput extends PartialType(CreateEmailAddressInput) {}
 
@@ -26,11 +28,43 @@ export class EmailAddressSearchResult {
 }
 
 @Resolver(() => EmailAddress)
-export class EmailAddressResolver extends BaseStixResolver(EmailAddress) {
-  public typeName = 'directory';
-  constructor(private readonly emailAddressService: EmailAddressService) {
-    super()
-  }
+export class EmailAddressResolver  {
+ 
+  constructor(
+              private readonly emailAddressService: EmailAddressService,
+                @Inject(PUB_SUB) private readonly pubSub: RedisPubSub
+              ) {}
+            
+              // Date conversion helper
+              public convertDates(payload: any): EmailAddress {
+                const dateFields = ['created', 'modified', 'valid_from', 'valid_until'];
+                dateFields.forEach(field => {
+                  if (payload[field]) payload[field] = new Date(payload[field]);
+                });
+                return payload;
+              }
+            
+              // Subscription Definitions
+              @Subscription(() => EmailAddress, {
+                name: 'emailAddrCreated',
+                resolve: (payload) => payload,
+              })
+              emailAddrCreated() {
+                return this.pubSub.asyncIterator('emailAddressCreated');
+              }
+            
+              @Subscription(() => EmailAddress, {
+                name: 'emailAddressUpdated',
+                resolve: (payload) => payload,
+              })
+              emailAddrUpdated() {
+                return this.pubSub.asyncIterator('emailAddressUpdated');
+              }
+            
+              @Subscription(() => String, { name: 'emailAddressDeleted' })
+              emailAddrDeleted() {
+                return this.pubSub.asyncIterator('emailAddressDeleted');
+              }
 
   @Mutation(() => EmailAddress)
   async createEmailAddress(
