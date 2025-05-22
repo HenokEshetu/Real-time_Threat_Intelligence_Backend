@@ -1,5 +1,7 @@
-import { CommonProperties, PatternType } from '../../../core/types/common-data-types';
-
+import {
+  CommonProperties,
+  PatternType,
+} from '../../../core/types/common-data-types';
 
 export type EnrichmentServiceKey =
   | 'geo'
@@ -15,155 +17,156 @@ export type EnrichmentServiceKey =
   | 'threatcrowd'
   | 'misp';
 
+export interface ExtensionDefinition {
+  id: string;
+  type: 'extension-definition';
+  spec_version: string;
+  name: string;
+  description: string;
+  created: string;
+  modified: string;
+  extension_type: 'property-extension';
+  version: string;
+}
 
-  export interface ExtensionDefinition {
-    id: string;
-    type: 'extension-definition';
-    spec_version: string;
-    name: string;
-    description: string;
-    created: string;
-    modified: string;
-    extension_type: 'property-extension';
-    version: string;
-  }
+export const ENRICHMENT_EXTENSIONS: Record<
+  EnrichmentServiceKey,
+  ExtensionDefinition
+> = {
+  geo: {
+    id: 'extension-definition--geo-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'Geo Enrichment',
+    description: 'Geolocation enrichment data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  whois: {
+    id: 'extension-definition--whois-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'WHOIS Enrichment',
+    description: 'WHOIS data for domains',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  virustotal: {
+    id: 'extension-definition--virustotal-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'VirusTotal Enrichment',
+    description: 'VirusTotal scan results',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  abuseipdb: {
+    id: 'extension-definition--abuseipdb-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'AbuseIPDB Enrichment',
+    description: 'AbuseIPDB reputation data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  shodan: {
+    id: 'extension-definition--shodan-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'Shodan Enrichment',
+    description: 'Shodan scan data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  threatfox: {
+    id: 'extension-definition--threatfox-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'ThreatFox Enrichment',
+    description: 'ThreatFox IOC data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  dns: {
+    id: 'extension-definition--dns-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'DNS Enrichment',
+    description: 'DNS resolution data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  ssl: {
+    id: 'extension-definition--ssl-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'SSL Enrichment',
+    description: 'SSL certificate data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  asn: {
+    id: 'extension-definition--asn-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'ASN Enrichment',
+    description: 'Autonomous System Number data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  hybrid: {
+    id: 'extension-definition--hybrid-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'Hybrid Analysis Enrichment',
+    description: 'Hybrid Analysis report data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  threatcrowd: {
+    id: 'extension-definition--threatcrowd-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'ThreatCrowd Enrichment',
+    description: 'ThreatCrowd threat intelligence data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+  misp: {
+    id: 'extension-definition--misp-enrichment',
+    type: 'extension-definition',
+    spec_version: '2.1',
+    name: 'MISP Enrichment',
+    description: 'MISP threat intelligence data',
+    created: '2025-05-03T00:00:00.000Z',
+    modified: '2025-05-03T00:00:00.000Z',
+    extension_type: 'property-extension',
+    version: '1.0',
+  },
+};
 
-  export const ENRICHMENT_EXTENSIONS: Record<EnrichmentServiceKey, ExtensionDefinition> = {
-    geo: {
-      id: 'extension-definition--geo-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'Geo Enrichment',
-      description: 'Geolocation enrichment data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    whois: {
-      id: 'extension-definition--whois-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'WHOIS Enrichment',
-      description: 'WHOIS data for domains',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    virustotal: {
-      id: 'extension-definition--virustotal-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'VirusTotal Enrichment',
-      description: 'VirusTotal scan results',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    abuseipdb: {
-      id: 'extension-definition--abuseipdb-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'AbuseIPDB Enrichment',
-      description: 'AbuseIPDB reputation data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    shodan: {
-      id: 'extension-definition--shodan-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'Shodan Enrichment',
-      description: 'Shodan scan data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    threatfox: {
-      id: 'extension-definition--threatfox-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'ThreatFox Enrichment',
-      description: 'ThreatFox IOC data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    dns: {
-      id: 'extension-definition--dns-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'DNS Enrichment',
-      description: 'DNS resolution data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    ssl: {
-      id: 'extension-definition--ssl-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'SSL Enrichment',
-      description: 'SSL certificate data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    asn: {
-      id: 'extension-definition--asn-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'ASN Enrichment',
-      description: 'Autonomous System Number data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    hybrid: {
-      id: 'extension-definition--hybrid-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'Hybrid Analysis Enrichment',
-      description: 'Hybrid Analysis report data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    threatcrowd: {
-      id: 'extension-definition--threatcrowd-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'ThreatCrowd Enrichment',
-      description: 'ThreatCrowd threat intelligence data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-    misp: {
-      id: 'extension-definition--misp-enrichment',
-      type: 'extension-definition',
-      spec_version: '2.1',
-      name: 'MISP Enrichment',
-      description: 'MISP threat intelligence data',
-      created: '2025-05-03T00:00:00.000Z',
-      modified: '2025-05-03T00:00:00.000Z',
-      extension_type: 'property-extension',
-      version: '1.0',
-    },
-  };
-  
-  
 export type StixType =
   | 'artifact'
   | 'autonomous-system'
@@ -224,10 +227,13 @@ export interface FeedProviderConfig {
   schedule?: string;
   objectMapper: (
     raw: any,
-    config?: FeedProviderConfig
-  ) => GenericStixObject | GenericStixObject[] | Generator<GenericStixObject, void, unknown> | null; 
+    config?: FeedProviderConfig,
+  ) =>
+    | GenericStixObject
+    | GenericStixObject[]
+    | Generator<GenericStixObject, void, unknown>
+    | null;
 
-  
   pagination?: {
     paramType?: 'params' | 'data';
     pageKey?: string;
@@ -236,8 +242,6 @@ export interface FeedProviderConfig {
     maxPages?: number;
   };
 }
-
-
 
 export interface EnrichmentData {
   geo?: {

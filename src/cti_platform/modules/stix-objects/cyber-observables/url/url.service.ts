@@ -1,4 +1,10 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateUrlInput, UpdateUrlInput } from './url.input';
 import { Url } from './url.entity';
@@ -6,7 +12,6 @@ import { SearchUrlInput } from './url.resolver';
 import { BaseStixService } from '../../base-stix.service';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
-
 
 @Injectable()
 export class UrlService extends BaseStixService<Url> implements OnModuleInit {
@@ -16,7 +21,7 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
 
   constructor(
     @Inject(PUB_SUB) pubSub: RedisPubSub,
-    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client,
   ) {
     super(pubSub);
   }
@@ -26,7 +31,6 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
   }
 
   async create(createUrlInput: CreateUrlInput): Promise<Url> {
-    
     const now = new Date().toISOString();
 
     const doc: Url = {
@@ -38,10 +42,8 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
       value: createUrlInput.value,
       labels: createUrlInput.labels || undefined,
       external_references: createUrlInput.external_references || undefined,
-      
     };
 
-    
     // Check if document already exists
     const exists = await this.openSearchService.exists({
       index: this.index,
@@ -53,7 +55,6 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
 
       const existingDoc = await this.findOne(doc.id);
       return existingDoc;
-
     }
 
     try {
@@ -65,13 +66,16 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
       });
 
       if (response.body.result !== 'created') {
-        throw new Error(`Failed to index URL document: ${response.body.result}`);
+        throw new Error(
+          `Failed to index URL document: ${response.body.result}`,
+        );
       }
 
       await this.publishCreated(doc);
       return doc;
     } catch (error) {
-      const errorDetails = error?.meta?.body?.error || error?.message || 'Unknown error';
+      const errorDetails =
+        error?.meta?.body?.error || error?.message || 'Unknown error';
       throw new InternalServerErrorException({
         message: `Failed to create URL with ID ${doc.id}`,
         details: errorDetails,
@@ -82,7 +86,10 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
 
   async findOne(id: string): Promise<Url> {
     try {
-      const response = await this.openSearchService.get({ index: this.index, id });
+      const response = await this.openSearchService.get({
+        index: this.index,
+        id,
+      });
       const source = response.body._source;
       return {
         id: response.body._id,
@@ -123,20 +130,29 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
       });
 
       if (response.body.result !== 'updated') {
-        throw new Error(`Failed to update URL document: ${response.body.result}`);
+        throw new Error(
+          `Failed to update URL document: ${response.body.result}`,
+        );
       }
 
-      const updatedResponse = await this.openSearchService.get({ index: this.index, id });
+      const updatedResponse = await this.openSearchService.get({
+        index: this.index,
+        id,
+      });
       const updatedUrl: Url = {
         id: updatedResponse.body._id,
         type: 'url',
         spec_version: updatedResponse.body._source.spec_version || '2.1',
-        created: updatedResponse.body._source.created || new Date().toISOString(),
-        modified: updatedResponse.body._source.modified || new Date().toISOString(),
+        created:
+          updatedResponse.body._source.created || new Date().toISOString(),
+        modified:
+          updatedResponse.body._source.modified || new Date().toISOString(),
         value: updatedResponse.body._source.value,
         labels: updatedResponse.body._source.labels || undefined,
-        external_references: updatedResponse.body._source.external_references || undefined,
-        object_marking_refs: updatedResponse.body._source.object_marking_refs || undefined,
+        external_references:
+          updatedResponse.body._source.external_references || undefined,
+        object_marking_refs:
+          updatedResponse.body._source.object_marking_refs || undefined,
       };
 
       await this.publishUpdated(updatedUrl);
@@ -153,7 +169,10 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
 
   async remove(id: string): Promise<boolean> {
     try {
-      const response = await this.openSearchService.delete({ index: this.index, id });
+      const response = await this.openSearchService.delete({
+        index: this.index,
+        id,
+      });
       const success = response.body.result === 'deleted';
       if (success) {
         await this.publishDeleted(id);
@@ -174,7 +193,7 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
   async searchWithFilters(
     searchParams: SearchUrlInput = {},
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10,
   ): Promise<{
     page: number;
     pageSize: number;
@@ -202,7 +221,9 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
           case 'modified':
             if (value instanceof Date) {
               queryBuilder.query.bool.filter.push({
-                range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
+                range: {
+                  [key]: { gte: value.toISOString(), lte: value.toISOString() },
+                },
               });
             }
             break;
@@ -213,7 +234,10 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length
+      ) {
         queryBuilder.query = { match_all: {} };
       }
 
@@ -224,9 +248,10 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
         body: queryBuilder,
       });
 
-      const total = typeof response.body.hits.total === 'object'
-        ? response.body.hits.total.value
-        : response.body.hits.total;
+      const total =
+        typeof response.body.hits.total === 'object'
+          ? response.body.hits.total.value
+          : response.body.hits.total;
 
       return {
         page,
@@ -256,7 +281,9 @@ export class UrlService extends BaseStixService<Url> implements OnModuleInit {
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchService.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({
+        index: this.index,
+      });
       if (!exists.body) {
         await this.openSearchService.indices.create({
           index: this.index,

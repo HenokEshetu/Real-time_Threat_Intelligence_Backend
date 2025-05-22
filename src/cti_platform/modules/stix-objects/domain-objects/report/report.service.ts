@@ -1,5 +1,11 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
-import { Client, } from '@opensearch-project/opensearch';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+} from '@nestjs/common';
+import { Client } from '@opensearch-project/opensearch';
 import { CreateReportInput, UpdateReportInput } from './report.input';
 import { SearchReportInput } from './report.resolver';
 import { Report } from './report.entity';
@@ -9,37 +15,35 @@ import { RedisPubSub } from 'graphql-redis-subscriptions';
 import { generateStixId } from '../../stix-id-generator';
 
 @Injectable()
-export class ReportService extends BaseStixService<Report> implements OnModuleInit {
+export class ReportService
+  extends BaseStixService<Report>
+  implements OnModuleInit
+{
   protected typeName = 'report';
   private readonly index = 'reports';
   private readonly logger = console; // Add a logger property
 
   constructor(
-          @Inject(PUB_SUB) pubSub: RedisPubSub,
-          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
-        ) {
-          super(pubSub);
-        }
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client,
+  ) {
+    super(pubSub);
+  }
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createReportInput: CreateReportInput): Promise<Report> {
-
-
     const report: Report = {
       ...createReportInput,
-      
       id: createReportInput.id,
       type: 'report' as const,
       spec_version: '2.1',
       created: new Date().toISOString(),
       modified: new Date().toISOString(),
-      published: new Date(createReportInput.published), 
+      published: new Date(createReportInput.published),
       name: createReportInput.name, // Required field
-      
     };
-
 
     // Check if document already exists
     const exists = await this.openSearchService.exists({
@@ -52,7 +56,6 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
 
       const existingDoc = await this.findOne(report.id);
       return existingDoc;
-
     }
 
     try {
@@ -88,14 +91,13 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
         ...source,
         id: response.body._id,
         type: 'report' as const,
-        report_types:source.report_types,
+        report_types: source.report_types,
         published: source.published,
         object_refs: source.object_refs,
         spec_version: source.spec_version || '2.1',
         created: source.created || new Date(),
         modified: source.modified || new Date(),
-        name: source.name, 
-       
+        name: source.name,
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -108,7 +110,10 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
     }
   }
 
-  async update(id: string, updateReportInput: UpdateReportInput): Promise<Report> {
+  async update(
+    id: string,
+    updateReportInput: UpdateReportInput,
+  ): Promise<Report> {
     try {
       const existingReport = await this.findOne(id);
       const updatedReport: Report = {
@@ -153,7 +158,6 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
       if (success) {
         await this.publishDeleted(id);
       }
-      
     } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
@@ -168,7 +172,7 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
   async searchWithFilters(
     filters: SearchReportInput = {},
     page: number = 1,
-    pageSize: number = 10
+    pageSize: number = 10,
   ): Promise<{
     page: number;
     pageSize: number;
@@ -200,18 +204,28 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
           }
         } else if (typeof value === 'string') {
           if (value.includes('*')) {
-            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
+            queryBuilder.query.bool.must.push({
+              wildcard: { [key]: value.toLowerCase() },
+            });
           } else if (value.includes('~')) {
             queryBuilder.query.bool.should.push({
-              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
+              fuzzy: {
+                [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' },
+              },
             });
           } else {
-            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
+            queryBuilder.query.bool.must.push({
+              match_phrase: { [key]: value },
+            });
           }
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length &&
+        !queryBuilder.query.bool.should.length
+      ) {
         queryBuilder.query = { match_all: {} };
       } else if (queryBuilder.query.bool.should.length > 0) {
         queryBuilder.query.bool.minimum_should_match = 1;
@@ -224,9 +238,10 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
         body: queryBuilder,
       });
 
-      const total = typeof response.body.hits.total === 'number'
-        ? response.body.hits.total
-        : response.body.hits.total?.value ?? 0;
+      const total =
+        typeof response.body.hits.total === 'number'
+          ? response.body.hits.total
+          : (response.body.hits.total?.value ?? 0);
 
       return {
         page,
@@ -237,14 +252,15 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
           ...hit._source,
           id: hit._id,
           type: 'report' as const,
-          report_types:hit._source.report_types,
-          published: hit._source.published,
-          object_refs:hit._source.object_refs,
+          report_types: hit._source.report_types,
+          published: hit._source.published
+            ? new Date(hit._source.published)
+            : new Date(),
+          object_refs: hit._source.object_refs,
           spec_version: hit._source.spec_version || '2.1',
           created: hit._source.created || new Date(),
           modified: hit._source.modified || new Date(),
           name: hit._source.name, // Required field
-          
         })),
       };
     } catch (error) {
@@ -257,7 +273,9 @@ export class ReportService extends BaseStixService<Report> implements OnModuleIn
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchService.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({
+        index: this.index,
+      });
       if (!exists.body) {
         await this.openSearchService.indices.create({
           index: this.index,

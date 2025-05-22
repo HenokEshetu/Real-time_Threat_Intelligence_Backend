@@ -56,7 +56,6 @@ export class AuthService {
       if (await this.tokenBlacklistService.isBlacklisted(refreshToken)) {
         throw new UnauthorizedException('Token revoked');
       }
-
       const user = await this.userService.findOne(payload.sub);
       return { access_token: await this.generateAccessToken(user), user: user };
     } catch (e) {

@@ -3,6 +3,8 @@ import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { CtiPlatformModule } from './cti_platform/cti_platform.module';
 import { UserManagementModule } from './user-management/user-management.module';
+import { APP_GUARD } from '@nestjs/core';
+import { JwtAuthGuard } from './user-management/guards/jwt-auth.guard';
 import { join } from 'path';
 import { PubSubModule } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
@@ -52,9 +54,13 @@ import { ConfigModule } from '@nestjs/config';
     CtiPlatformModule,
     UserManagementModule,
   ],
+<<<<<<< HEAD
   providers: [
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: CsrfGuard },
   ],
+=======
+  providers: [{ provide: APP_GUARD, useClass: JwtAuthGuard }],
+>>>>>>> bc54621f8643504cc2e633442343c00b7f3f3f57
 })
 export class AppModule {}

@@ -13,7 +13,14 @@ import { PasswordReset } from './entities/password-reset.entity';
 import { UserService } from './services/user.service';
 import { RoleService } from './services/role.service';
 import { PermissionService } from './services/permission.service';
+import { UserService } from './services/user.service';
+import { RoleService } from './services/role.service';
+import { PermissionService } from './services/permission.service';
 import { AuthService } from './services/auth/auth.service';
+import { UserQueryService } from './services/user-query.service';
+import { UserCommandService } from './services/user-command.service';
+import { AuthValidationService } from './services/auth/auth-validation.service';
+import { AuthTokenService } from './services/auth/auth-token.service';
 import { UserQueryService } from './services/user-query.service';
 import { UserCommandService } from './services/user-command.service';
 import { AuthValidationService } from './services/auth/auth-validation.service';
@@ -21,8 +28,11 @@ import { AuthTokenService } from './services/auth/auth-token.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { PasswordResetTokenService } from './services/password-reset-token.service';
 import { TokenBlacklistService } from './services/auth/token-blacklist.service';
+import { TokenBlacklistService } from './services/auth/token-blacklist.service';
 import { AuthSessionService } from './services/auth/auth-session.service';
 
+import { UserResolver } from './resolvers/user.resolver';
+import { AuthResolver } from './resolvers/auth.resolver';
 import { UserResolver } from './resolvers/user.resolver';
 import { AuthResolver } from './resolvers/auth.resolver';
 import { PasswordResetResolver } from './resolvers/password-reset.resolver';
@@ -61,6 +71,14 @@ import { RateLimiterGuard } from 'src/security/rate-limmiter.guard';
         synchronize: true,
       }),
     }),
+
+    TypeOrmModule.forFeature([
+      User,
+      Role,
+      Permission,
+      PasswordReset,
+      EmailVerificationToken,
+    ]),
 
     TypeOrmModule.forFeature([
       User,
@@ -151,6 +169,7 @@ import { RateLimiterGuard } from 'src/security/rate-limmiter.guard';
     UserResolver,
     AuthResolver,
     PasswordResetResolver,
+    EmailVerificationResolver,
     EmailVerificationResolver,
 
     JwtAuthGuard,

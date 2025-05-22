@@ -1,14 +1,18 @@
-// src/config/enrichment.config.ts
 import * as Joi from 'joi';
 import { EnrichmentConfig } from './enrichment-config.interface';
-
-
 
 export const conciseResponseFields: Record<string, string[]> = {
   geo: ['country_name', 'country_code', 'city', 'lat', 'lon'],
   whois: ['domainName', 'registrarName', 'createdDate', 'expiresDate'],
-  virustotal: ['data.attributes.last_analysis_stats', 'data.attributes.reputation'],
-  abuseipdb: ['data.abuseConfidenceScore', 'data.countryCode', 'data.totalReports'],
+  virustotal: [
+    'data.attributes.last_analysis_stats',
+    'data.attributes.reputation',
+  ],
+  abuseipdb: [
+    'data.abuseConfidenceScore',
+    'data.countryCode',
+    'data.totalReports',
+  ],
   shodan: ['ip', 'org', 'os'],
   threatfox: ['query_status', 'data.threat_type', 'data.malware'],
   dns: ['Answer.data', 'Answer.type', 'Answer.TTL'],
@@ -16,18 +20,21 @@ export const conciseResponseFields: Record<string, string[]> = {
   asn: ['asn', 'org', 'ip'],
   hybrid: ['result.verdict', 'result.threat_score', 'result.submissions'],
   threatcrowd: ['response_code', 'hashes', 'domains'],
-  misp: ['response.Attribute.value', 'response.Attribute.type', 'response.Attribute.category'],
+  misp: [
+    'response.Attribute.value',
+    'response.Attribute.type',
+    'response.Attribute.category',
+  ],
 };
 
 export const enrichmentConfig: EnrichmentConfig = {
-  
   apiConfigs: {
     whois: {
       url: 'https://www.whoisxmlapi.com/whoisserver/WhoisService',
       apiKeyEnv: 'WHOIS_API_KEY',
       requiredKey: true,
       rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
-      params: { outputFormat: 'JSON', apiKey: '${apiKey}' }, 
+      params: { outputFormat: 'JSON', apiKey: '${apiKey}' },
       timeout: 120000,
       retryPolicy: { maxRetries: 3, baseDelay: 1000, maxDelay: 10000 },
     },
@@ -85,7 +92,7 @@ export const enrichmentConfig: EnrichmentConfig = {
       apiKeyEnv: 'DNS_API_KEY',
       requiredKey: false,
       method: 'get',
-      headers: { 'Accept': 'application/dns-json' },
+      headers: { Accept: 'application/dns-json' },
       rateLimit: { maxRequests: 50, perMilliseconds: 60000 },
       timeout: 30000,
       retryPolicy: { maxRetries: 3, baseDelay: 1000, maxDelay: 10000 },
@@ -114,19 +121,19 @@ export const enrichmentConfig: EnrichmentConfig = {
       rateLimit: { maxRequests: 10, perMilliseconds: 60000 },
       timeout: 15000,
     },
-    
-misp: {
-  url: 'http://localhost',
-  apiKeyEnv: 'MISP_API_KEY',
-  requiredKey: true,
-  rateLimit: { maxRequests: 20, perMilliseconds: 60000 },
-  headers: {
-    Authorization: '${apiKey}',
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-  },
-  timeout: 15000,
-},
+
+    misp: {
+      url: 'http://localhost',
+      apiKeyEnv: 'MISP_API_KEY',
+      requiredKey: true,
+      rateLimit: { maxRequests: 20, perMilliseconds: 60000 },
+      headers: {
+        Authorization: '${apiKey}',
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      timeout: 15000,
+    },
   },
   enrichmentSchemas: {
     geo: Joi.object({
@@ -200,19 +207,23 @@ misp: {
     }).unknown(true),
     dns: Joi.object({
       Status: Joi.number().required(),
-      Answer: Joi.array().items(
-        Joi.object({
-          data: Joi.string().required(),
-          type: Joi.string().required(),
-          TTL: Joi.number().allow(null),
-        })
-      ).allow(null),
-      Question: Joi.array().items(
-        Joi.object({
-          name: Joi.string().required(),
-          type: Joi.number().required(),
-        })
-      ).allow(null),
+      Answer: Joi.array()
+        .items(
+          Joi.object({
+            data: Joi.string().required(),
+            type: Joi.string().required(),
+            TTL: Joi.number().allow(null),
+          }),
+        )
+        .allow(null),
+      Question: Joi.array()
+        .items(
+          Joi.object({
+            name: Joi.string().required(),
+            type: Joi.number().required(),
+          }),
+        )
+        .allow(null),
     }).unknown(true),
     ssl: Joi.object({
       host: Joi.string().required(),
@@ -239,20 +250,22 @@ misp: {
       ips: Joi.array().items(Joi.string()).allow(null),
     }).unknown(true),
     misp: Joi.object({
-      response: Joi.array().items(
-        Joi.object({
-          Event: Joi.object({
-            id: Joi.string().required(),
-            info: Joi.string().allow('', null),
-            tags: Joi.array().items(Joi.string()).allow(null),
+      response: Joi.array()
+        .items(
+          Joi.object({
+            Event: Joi.object({
+              id: Joi.string().required(),
+              info: Joi.string().allow('', null),
+              tags: Joi.array().items(Joi.string()).allow(null),
+            }).unknown(true),
+            Attribute: Joi.object({
+              id: Joi.string().required(),
+              type: Joi.string().required(),
+              value: Joi.string().required(),
+            }).unknown(true),
           }).unknown(true),
-          Attribute: Joi.object({
-            id: Joi.string().required(),
-            type: Joi.string().required(),
-            value: Joi.string().required(),
-          }).unknown(true),
-        }).unknown(true)
-      ).allow(null),
+        )
+        .allow(null),
     }).unknown(true),
   },
   enrichmentRegistry: {
@@ -261,7 +274,8 @@ misp: {
         service: 'virustotal',
         fetchFn: 'fetchVirusTotalData',
         field: 'virustotal',
-        validator: '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
+        validator:
+          '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
         schema: 'virustotal',
       },
       {
@@ -303,7 +317,7 @@ misp: {
         validator: 'domain-name',
         schema: 'dns',
       },
-    
+
       {
         service: 'virustotal',
         fetchFn: 'fetchVirusTotalDomainData',
@@ -335,14 +349,16 @@ misp: {
         service: 'virustotal',
         fetchFn: 'fetchVirusTotalData',
         field: 'virustotal',
-        validator: '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
+        validator:
+          '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
         schema: 'virustotal',
       },
       {
         service: 'threatfox',
         fetchFn: 'fetchThreatFoxData',
         field: 'threatfox',
-        validator: '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
+        validator:
+          '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
         schema: 'threatfox',
       },
       {
@@ -452,7 +468,8 @@ misp: {
         service: 'hybrid',
         fetchFn: 'fetchHybridAnalysisData',
         field: 'hybrid',
-        validator: '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
+        validator:
+          '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
         schema: 'hybrid',
       },
     ],
@@ -626,7 +643,8 @@ misp: {
         service: 'hybrid',
         fetchFn: 'fetchHybridAnalysisData',
         field: 'hybrid',
-        validator: '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
+        validator:
+          '^[a-fA-F0-9]{32}$|^[a-fA-F0-9]{40}$|^[a-fA-F0-9]{64}$|^[a-fA-F0-9]{128}$',
         schema: 'hybrid',
       },
     ],

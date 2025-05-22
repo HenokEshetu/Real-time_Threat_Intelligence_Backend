@@ -1,7 +1,17 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, Logger } from '@nestjs/common';
-import { Client, } from '@opensearch-project/opensearch';
+import {
+  Inject,
+  Injectable,
+  InternalServerErrorException,
+  NotFoundException,
+  OnModuleInit,
+  Logger,
+} from '@nestjs/common';
+import { Client } from '@opensearch-project/opensearch';
 import { StixRelationship } from './relationship.entity';
-import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
+import {
+  CreateRelationshipInput,
+  UpdateRelationshipInput,
+} from './relationship.input';
 import { StixValidationError } from '../../../core/exception/custom-exceptions';
 import { SearchRelationshipInput } from './relationship.resolver';
 import { BaseStixService } from '../base-stix.service';
@@ -15,25 +25,93 @@ export interface ExpandedRelationship {
   target_object: typeof StixObject | undefined;
 }
 
-
-
 @Injectable()
-export class RelationshipService extends BaseStixService<StixRelationship> implements OnModuleInit {
+export class RelationshipService
+  extends BaseStixService<StixRelationship>
+  implements OnModuleInit
+{
   protected typeName = 'stix-relationship';
   private readonly index = 'stix-relationships';
 
-
   private readonly validRelationships = new Map<string, Set<string>>([
     ['attack-pattern', new Set(['delivers', 'targets', 'uses'])],
-    ['campaign', new Set(['attributed-to', 'compromises', 'originates-from', 'targets', 'uses'])],
+    [
+      'campaign',
+      new Set([
+        'attributed-to',
+        'compromises',
+        'originates-from',
+        'targets',
+        'uses',
+      ]),
+    ],
     ['course-of-action', new Set(['investigates', 'mitigates'])],
     ['identity', new Set(['located-at'])],
     ['indicator', new Set(['indicates', 'based-on'])],
-    ['infrastructure', new Set(['communicates-with', 'consists-of', 'controls', 'delivers', 'has', 'hosts', 'located-at', 'uses'])],
-    ['intrusion-set', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'originates-from', 'targets', 'uses'])],
-    ['malware', new Set(['authored-by', 'beacons-to', 'exfiltrate-to', 'communicates-with', 'controls', 'downloads', 'drops', 'exploits', 'originates-from', 'targets', 'uses', 'variant-of'])],
-    ['malware-analysis', new Set(['characterizes', 'analysis-of', 'static-analysis-of', 'dynamic-analysis-of'])],
-    ['threat-actor', new Set(['attributed-to', 'compromises', 'hosts', 'owns', 'impersonates', 'located-at', 'targets', 'uses'])],
+    [
+      'infrastructure',
+      new Set([
+        'communicates-with',
+        'consists-of',
+        'controls',
+        'delivers',
+        'has',
+        'hosts',
+        'located-at',
+        'uses',
+      ]),
+    ],
+    [
+      'intrusion-set',
+      new Set([
+        'attributed-to',
+        'compromises',
+        'hosts',
+        'owns',
+        'originates-from',
+        'targets',
+        'uses',
+      ]),
+    ],
+    [
+      'malware',
+      new Set([
+        'authored-by',
+        'beacons-to',
+        'exfiltrate-to',
+        'communicates-with',
+        'controls',
+        'downloads',
+        'drops',
+        'exploits',
+        'originates-from',
+        'targets',
+        'uses',
+        'variant-of',
+      ]),
+    ],
+    [
+      'malware-analysis',
+      new Set([
+        'characterizes',
+        'analysis-of',
+        'static-analysis-of',
+        'dynamic-analysis-of',
+      ]),
+    ],
+    [
+      'threat-actor',
+      new Set([
+        'attributed-to',
+        'compromises',
+        'hosts',
+        'owns',
+        'impersonates',
+        'located-at',
+        'targets',
+        'uses',
+      ]),
+    ],
     ['tool', new Set(['delivers', 'drops', 'has', 'targets'])],
   ]);
 
@@ -41,35 +119,61 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
 
   private readonly validTargets = new Map<string, Set<string>>([
     ['delivers', new Set(['malware'])],
-    ['targets', new Set(['identity', 'location', 'vulnerability', 'infrastructure'])],
+    [
+      'targets',
+      new Set(['identity', 'location', 'vulnerability', 'infrastructure']),
+    ],
     ['uses', new Set(['attack-pattern', 'infrastructure', 'malware', 'tool'])],
     ['attributed-to', new Set(['intrusion-set', 'threat-actor', 'identity'])],
     ['compromises', new Set(['infrastructure'])],
     ['originates-from', new Set(['location'])],
     ['investigates', new Set(['indicator'])],
-    ['mitigates', new Set(['attack-pattern', 'indicator', 'malware', 'tool', 'vulnerability'])],
+    [
+      'mitigates',
+      new Set([
+        'attack-pattern',
+        'indicator',
+        'malware',
+        'tool',
+        'vulnerability',
+      ]),
+    ],
     ['located-at', new Set(['location'])],
-    ['indicates', new Set(['attack-pattern', 'campaign', 'infrastructure', 'intrusion-set', 'malware', 'threat-actor', 'tool'])],
-    ['based-on', new Set([
-      'observed-data',
-      'ipv4-addr',
-      'ipv6-addr',
-      'domain-name',
-      'url',
-      'email-addr',
-      'file',
-      'mutex',
-      'windows-registry-key',
-      'x509-certificate',
-      'autonomous-system',
-      'network-traffic',
-      'software',
-      'user-account',
-      'mac-addr',
-      'process',
-      'directory',
-      'artifact'
-    ])],
+    [
+      'indicates',
+      new Set([
+        'attack-pattern',
+        'campaign',
+        'infrastructure',
+        'intrusion-set',
+        'malware',
+        'threat-actor',
+        'tool',
+      ]),
+    ],
+    [
+      'based-on',
+      new Set([
+        'observed-data',
+        'ipv4-addr',
+        'ipv6-addr',
+        'domain-name',
+        'url',
+        'email-addr',
+        'file',
+        'mutex',
+        'windows-registry-key',
+        'x509-certificate',
+        'autonomous-system',
+        'network-traffic',
+        'software',
+        'user-account',
+        'mac-addr',
+        'process',
+        'directory',
+        'artifact',
+      ]),
+    ],
     ['communicates-with', new Set(['infrastructure'])],
     ['consists-of', new Set(['infrastructure'])],
     ['controls', new Set(['infrastructure', 'malware'])],
@@ -90,80 +194,91 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
     ['impersonates', new Set(['identity'])],
   ]);
 
-
   constructor(
     @Inject(PUB_SUB) pubSub: RedisPubSub,
-    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client,
   ) {
     super(pubSub);
   }
-
 
   async onModuleInit() {
     await this.ensureIndex();
   }
 
-
-  async create(createRelationshipInput: CreateRelationshipInput): Promise<StixRelationship> {
+  async create(
+    createRelationshipInput: CreateRelationshipInput,
+  ): Promise<StixRelationship> {
     try {
       // Relax validation for MITRE-specific relationships
       try {
         this.validateRelationship(
           createRelationshipInput.source_ref,
           createRelationshipInput.relationship_type,
-          createRelationshipInput.target_ref
+          createRelationshipInput.target_ref,
         );
       } catch (validationError) {
-        this.logger.warn(`Relationship validation warning: ${validationError.message}`);
+        this.logger.warn(
+          `Relationship validation warning: ${validationError.message}`,
+        );
       }
-  
+
       const now = new Date();
       const relationship: StixRelationship = {
         ...createRelationshipInput,
         id: createRelationshipInput.id,
         type: 'relationship',
         spec_version: '2.1',
-        start_time: this.safeParseDate(createRelationshipInput.start_time)?.toISOString(),
-        stop_time: this.safeParseDate(createRelationshipInput.stop_time)?.toISOString(),
-        created: this.safeParseDate(createRelationshipInput.created)?.toISOString() || now.toISOString(),
-        modified: this.safeParseDate(createRelationshipInput.modified)?.toISOString() || now.toISOString(),
+        start_time: this.safeParseDate(
+          createRelationshipInput.start_time,
+        )?.toISOString(),
+        stop_time: this.safeParseDate(
+          createRelationshipInput.stop_time,
+        )?.toISOString(),
+        created:
+          this.safeParseDate(createRelationshipInput.created)?.toISOString() ||
+          now.toISOString(),
+        modified:
+          this.safeParseDate(createRelationshipInput.modified)?.toISOString() ||
+          now.toISOString(),
       };
-  
+
       // Use create operation to prevent duplicates
-      const response = await this.openSearchService.index({
-        index: this.index,
-        id: relationship.id,
-        body: relationship,
-        op_type: 'create', // Prevent overwriting existing documents
-        refresh: 'wait_for',
-      }).catch(error => {
-        if (error.body?.error?.type === 'version_conflict_engine_exception') {
-          this.logger.log(`Document already exists: ${relationship.id}`);
-          return { body: { result: 'exists' } };
-        }
-        throw error;
-      });
-  
+      const response = await this.openSearchService
+        .index({
+          index: this.index,
+          id: relationship.id,
+          body: relationship,
+          op_type: 'create', // Prevent overwriting existing documents
+          refresh: 'wait_for',
+        })
+        .catch((error) => {
+          if (error.body?.error?.type === 'version_conflict_engine_exception') {
+            this.logger.log(`Document already exists: ${relationship.id}`);
+            return { body: { result: 'exists' } };
+          }
+          throw error;
+        });
+
       if (response.body?.result === 'created') {
         await this.publishCreated(relationship);
       }
-      
+
       return relationship;
-  
     } catch (error) {
-      this.logger.error(`Failed to store relationship ${createRelationshipInput.id}`, {
-        error: this.safeGetErrorMessage(error),
-        input: createRelationshipInput
-      });
+      this.logger.error(
+        `Failed to store relationship ${createRelationshipInput.id}`,
+        {
+          error: this.safeGetErrorMessage(error),
+          input: createRelationshipInput,
+        },
+      );
       throw new InternalServerErrorException({
         message: 'Failed to create relationship',
         details: this.safeGetErrorMessage(error),
-        objectId: createRelationshipInput?.id || 'unknown'
+        objectId: createRelationshipInput?.id || 'unknown',
       });
     }
   }
-  
-  
 
   // Helper method for safe date parsing (returns Date or undefined)
   private safeParseDate(dateInput?: Date | string | number): Date | undefined {
@@ -177,15 +292,17 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
     }
   }
 
-
-
   private safeGetErrorMessage(error: any): string {
-    return JSON.stringify({
-      message: error.message,
-      stack: error.stack,
-      meta: error.meta?.body?.error,
-      statusCode: error.meta?.statusCode
-    }, null, 2);
+    return JSON.stringify(
+      {
+        message: error.message,
+        stack: error.stack,
+        meta: error.meta?.body?.error,
+        statusCode: error.meta?.statusCode,
+      },
+      null,
+      2,
+    );
   }
 
   async findOne(id: string): Promise<StixRelationship> {
@@ -206,7 +323,6 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
         source_ref: source.source_ref,
         target_ref: source.target_ref,
         relationship_type: source.relationship_type,
-
       };
     } catch (error) {
       if (error.meta?.statusCode === 404) {
@@ -219,21 +335,32 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
     }
   }
 
-  async update(id: string, updateRelationshipInput: UpdateRelationshipInput): Promise<StixRelationship> {
+  async update(
+    id: string,
+    updateRelationshipInput: UpdateRelationshipInput,
+  ): Promise<StixRelationship> {
     try {
-      if (updateRelationshipInput.source_ref && updateRelationshipInput.relationship_type && updateRelationshipInput.target_ref) {
+      if (
+        updateRelationshipInput.source_ref &&
+        updateRelationshipInput.relationship_type &&
+        updateRelationshipInput.target_ref
+      ) {
         this.validateRelationship(
           updateRelationshipInput.source_ref,
           updateRelationshipInput.relationship_type,
-          updateRelationshipInput.target_ref
+          updateRelationshipInput.target_ref,
         );
       }
 
       const existingRelationship = await this.findOne(id);
       const updatedFields = {
         ...updateRelationshipInput,
-        start_time: updateRelationshipInput.start_time ? new Date(updateRelationshipInput.start_time) : existingRelationship.start_time,
-        stop_time: updateRelationshipInput.stop_time ? new Date(updateRelationshipInput.stop_time) : existingRelationship.stop_time,
+        start_time: updateRelationshipInput.start_time
+          ? new Date(updateRelationshipInput.start_time)
+          : existingRelationship.start_time,
+        stop_time: updateRelationshipInput.stop_time
+          ? new Date(updateRelationshipInput.stop_time)
+          : existingRelationship.stop_time,
         modified: new Date(),
       };
 
@@ -252,9 +379,18 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
         ...existingRelationship,
         ...updatedFields,
         spec_version: existingRelationship.spec_version || '2.1',
-        start_time: updatedFields.start_time instanceof Date ? updatedFields.start_time.toISOString() : updatedFields.start_time,
-        stop_time: updatedFields.stop_time instanceof Date ? updatedFields.stop_time.toISOString() : updatedFields.stop_time,
-        modified: updatedFields.modified instanceof Date ? updatedFields.modified.toISOString() : updatedFields.modified,
+        start_time:
+          updatedFields.start_time instanceof Date
+            ? updatedFields.start_time.toISOString()
+            : updatedFields.start_time,
+        stop_time:
+          updatedFields.stop_time instanceof Date
+            ? updatedFields.stop_time.toISOString()
+            : updatedFields.stop_time,
+        modified:
+          updatedFields.modified instanceof Date
+            ? updatedFields.modified.toISOString()
+            : updatedFields.modified,
       };
 
       await this.publishUpdated(updatedRelationship);
@@ -280,8 +416,7 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
         await this.publishDeleted(id);
       }
       return response.body.result === 'deleted';
-    }
-    catch (error) {
+    } catch (error) {
       if (error.meta?.statusCode === 404) {
         return false;
       }
@@ -294,13 +429,15 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
 
   async ensureIndex(): Promise<void> {
     try {
-      const exists = await this.openSearchService.indices.exists({ index: this.index });
+      const exists = await this.openSearchService.indices.exists({
+        index: this.index,
+      });
       if (!exists.body) {
         await this.openSearchService.indices.create({
           index: this.index,
           body: {
             mappings: {
-              dynamic: 'true', 
+              dynamic: 'true',
               properties: {
                 id: { type: 'keyword' },
                 type: { type: 'keyword' },
@@ -311,16 +448,16 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
                 description: { type: 'text' },
                 created: { type: 'date' },
                 modified: { type: 'date' },
-                start_time: { type: 'date' }, 
+                start_time: { type: 'date' },
                 stop_time: { type: 'date' },
                 // MITRE extensions
                 x_mitre_modified_by_ref: { type: 'keyword' },
                 x_mitre_deprecated: { type: 'boolean' },
                 x_mitre_attack_spec_version: { type: 'keyword' },
-                x_mitre_collection_layers: { type: 'keyword' }
-              }
-            }
-          }
+                x_mitre_collection_layers: { type: 'keyword' },
+              },
+            },
+          },
         });
       }
     } catch (error) {
@@ -328,20 +465,28 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
       throw error;
     }
   }
-  private validateRelationship(sourceRef: string, relationshipType: string, targetRef: string): void {
+  private validateRelationship(
+    sourceRef: string,
+    relationshipType: string,
+    targetRef: string,
+  ): void {
     const sourceType = sourceRef.split('--')[0];
     const targetType = targetRef.split('--')[0];
-  
+
     // Allow any relationship type with warning
     const validRelationshipsForSource = this.validRelationships.get(sourceType);
     if (!validRelationshipsForSource?.has(relationshipType)) {
-      this.logger.warn(`Uncommon relationship: ${sourceType} -> ${relationshipType}`);
+      this.logger.warn(
+        `Uncommon relationship: ${sourceType} -> ${relationshipType}`,
+      );
     }
-  
+
     // Log but allow unknown target types
     const validTargetTypes = this.validTargets.get(relationshipType);
     if (validTargetTypes && !validTargetTypes.has(targetType)) {
-      this.logger.warn(`Uncommon target for ${relationshipType}: ${targetType}`);
+      this.logger.warn(
+        `Uncommon target for ${relationshipType}: ${targetType}`,
+      );
     }
   }
 
@@ -350,7 +495,7 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
     page: number = 1,
     pageSize: number = 10,
     sortField: keyof StixRelationship = 'modified',
-    sortOrder: 'asc' | 'desc' = 'desc'
+    sortOrder: 'asc' | 'desc' = 'desc',
   ): Promise<{
     page: number;
     pageSize: number;
@@ -372,8 +517,13 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
           queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
         } else if (typeof value === 'boolean' || typeof value === 'number') {
           queryBuilder.query.bool.filter.push({ term: { [key]: value } });
-        } else if (['start_time', 'stop_time', 'created', 'modified'].includes(key)) {
-          if (typeof value === 'object' && ('gte' in value || 'lte' in value || 'gt' in value || 'lt' in value)) {
+        } else if (
+          ['start_time', 'stop_time', 'created', 'modified'].includes(key)
+        ) {
+          if (
+            typeof value === 'object' &&
+            ('gte' in value || 'lte' in value || 'gt' in value || 'lt' in value)
+          ) {
             queryBuilder.query.bool.filter.push({ range: { [key]: value } });
           } else if (value instanceof Date) {
             queryBuilder.query.bool.filter.push({
@@ -382,18 +532,28 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
           }
         } else if (typeof value === 'string') {
           if (value.includes('*')) {
-            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
+            queryBuilder.query.bool.must.push({
+              wildcard: { [key]: value.toLowerCase() },
+            });
           } else if (value.includes('~')) {
             queryBuilder.query.bool.should.push({
-              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
+              fuzzy: {
+                [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' },
+              },
             });
           } else {
-            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
+            queryBuilder.query.bool.must.push({
+              match_phrase: { [key]: value },
+            });
           }
         }
       }
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
+      if (
+        !queryBuilder.query.bool.must.length &&
+        !queryBuilder.query.bool.filter.length &&
+        !queryBuilder.query.bool.should.length
+      ) {
         queryBuilder.query = { match_all: {} };
       } else if (queryBuilder.query.bool.should.length > 0) {
         queryBuilder.query.bool.minimum_should_match = 1;
@@ -406,9 +566,10 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
         body: queryBuilder,
       });
 
-      const total = typeof response.body.hits.total === 'number'
-        ? response.body.hits.total
-        : response.body.hits.total?.value ?? 0;
+      const total =
+        typeof response.body.hits.total === 'number'
+          ? response.body.hits.total
+          : (response.body.hits.total?.value ?? 0);
 
       return {
         page,
@@ -427,7 +588,6 @@ export class RelationshipService extends BaseStixService<StixRelationship> imple
           modified: hit._source.modified || new Date(),
           start_time: hit._source.start_time,
           stop_time: hit._source.stop_time,
-
         })),
       };
     } catch (error) {

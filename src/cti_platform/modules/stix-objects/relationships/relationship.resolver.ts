@@ -1,15 +1,26 @@
-import { Resolver, Query,InputType, Mutation, Args, Int } from '@nestjs/graphql';
+import {
+  Resolver,
+  Query,
+  InputType,
+  Mutation,
+  Args,
+  Int,
+} from '@nestjs/graphql';
 import { RelationshipService } from './relationship.service';
 import { StixRelationship } from './relationship.entity';
-import { CreateRelationshipInput, UpdateRelationshipInput } from './relationship.input';
+import {
+  CreateRelationshipInput,
+  UpdateRelationshipInput,
+} from './relationship.input';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { BaseStixResolver } from '../base-stix.resolver';
-
+import { StixObject } from '../stix-objects.union';
 
 @InputType()
-export class SearchRelationshipInput extends PartialType(CreateRelationshipInput){}
-
+export class SearchRelationshipInput extends PartialType(
+  CreateRelationshipInput,
+) {}
 
 @ObjectType()
 export class StixRelationshipSearchResult {
@@ -28,9 +39,9 @@ export class StixRelationshipSearchResult {
 @Resolver(() => StixRelationship)
 export class RelationshipResolver extends BaseStixResolver(StixRelationship) {
   public typeName = 'indicator';
-  
+
   constructor(private readonly relationshipService: RelationshipService) {
-    super()
+    super();
   }
 
   @Mutation(() => StixRelationship)
@@ -42,13 +53,26 @@ export class RelationshipResolver extends BaseStixResolver(StixRelationship) {
 
   @Query(() => StixRelationshipSearchResult)
   async searchRelationships(
-    @Args('filters', { type: () => SearchRelationshipInput, nullable: true }) filters: SearchRelationshipInput = {},
+    @Args('filters', { type: () => SearchRelationshipInput, nullable: true })
+    filters: SearchRelationshipInput = {},
     @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
     @Args('pageSize', { type: () => Int, defaultValue: 10 }) pageSize: number,
-    @Args('sortField', { type: () => String, defaultValue: 'modified', nullable: true }) sortField: keyof StixRelationship = 'modified',
-    @Args('sortOrder', { type: () => String, defaultValue: 'desc' }) sortOrder: 'asc' | 'desc' = 'desc',
+    @Args('sortField', {
+      type: () => String,
+      defaultValue: 'modified',
+      nullable: true,
+    })
+    sortField: keyof StixRelationship = 'modified',
+    @Args('sortOrder', { type: () => String, defaultValue: 'desc' })
+    sortOrder: 'asc' | 'desc' = 'desc',
   ): Promise<StixRelationshipSearchResult> {
-    return this.relationshipService.searchWithFilters(filters, page, pageSize, sortField, sortOrder);
+    return this.relationshipService.searchWithFilters(
+      filters,
+      page,
+      pageSize,
+      sortField,
+      sortOrder,
+    );
   }
 
   @Query(() => StixRelationship, { nullable: true })
@@ -68,6 +92,13 @@ export class RelationshipResolver extends BaseStixResolver(StixRelationship) {
     @Args('objectId') objectId: string,
   ): Promise<any[]> {
     return this.relationshipService.findExpandedRelatedObjects(objectId);
+  }
+
+  @Query(() => [StixObject], { name: 'getObjectsByIDs' })
+  async getObjectsByIDs(
+    @Args('ids', { type: () => [String] }) ids: string[],
+  ): Promise<(typeof StixObject)[]> {
+    return this.relationshipService.getObjectsByIds(ids);
   }
 
   @Mutation(() => StixRelationship)

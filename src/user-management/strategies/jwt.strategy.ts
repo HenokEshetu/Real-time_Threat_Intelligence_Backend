@@ -25,7 +25,12 @@ export class JwtStrategy
     private readonly vaultService: VaultService,
   ) {
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([
+        (req: Request) => {
+          const token = ExtractJwt.fromAuthHeaderAsBearerToken()(req);
+          return token;
+        },
+      ]),
       ignoreExpiration: false,
       secretOrKeyProvider: (req, token, done) => {
         if (!this.secret) {
