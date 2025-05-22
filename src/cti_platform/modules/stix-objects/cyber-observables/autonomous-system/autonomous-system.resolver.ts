@@ -1,14 +1,32 @@
-import { Resolver,InputType, Query, Mutation, Int,ObjectType, Field, Args, } from '@nestjs/graphql';
+import {
+  Resolver,
+  InputType,
+  Query,
+  Mutation,
+  Int,
+  ObjectType,
+  Field,
+  Args,
+} from '@nestjs/graphql';
 import { AutonomousSystemService } from './autonomous-system.service';
 import { AutonomousSystem } from './autonomous-system.entity';
-import { CreateAutonomousSystemInput, UpdateAutonomousSystemInput } from './autonomous-system.input';
+import {
+  CreateAutonomousSystemInput,
+  UpdateAutonomousSystemInput,
+} from './autonomous-system.input';
 import { PartialType } from '@nestjs/graphql';
 import { BaseStixResolver } from '../../base-stix.resolver';
+import { UseGuards } from '@nestjs/common';
+import { RolesGuard } from 'src/user-management/guards/roles.guard';
+import { Permissions } from 'src/user-management/decorators/permissions.decorator';
+import { Permissions as permissions } from 'src/user-management/roles-permissions/permissions';
 @InputType()
-export class SearchAutonomousSystemInput extends PartialType(CreateAutonomousSystemInput) {}
+export class SearchAutonomousSystemInput extends PartialType(
+  CreateAutonomousSystemInput,
+) {}
 
 @ObjectType()
-export class AutonomousSystemSearchResult  {
+export class AutonomousSystemSearchResult {
   @Field(() => Int)
   page: number;
   @Field(() => Int)
@@ -22,12 +40,18 @@ export class AutonomousSystemSearchResult  {
 }
 
 @Resolver(() => AutonomousSystem)
-export class AutonomousSystemResolver extends BaseStixResolver(AutonomousSystem) {
+export class AutonomousSystemResolver extends BaseStixResolver(
+  AutonomousSystem,
+) {
   public typeName = 'autonomous-system';
-  constructor(private readonly autonomousSystemService: AutonomousSystemService) {
-    super()
+  constructor(
+    private readonly autonomousSystemService: AutonomousSystemService,
+  ) {
+    super();
   }
 
+  @UseGuards(RolesGuard)
+  @Permissions(permissions.STIX.AddAll)
   @Mutation(() => AutonomousSystem)
   async createAutonomousSystem(
     @Args('input') createAutonomousSystemInput: CreateAutonomousSystemInput,
@@ -35,25 +59,41 @@ export class AutonomousSystemResolver extends BaseStixResolver(AutonomousSystem)
     return this.autonomousSystemService.create(createAutonomousSystemInput);
   }
 
+  @UseGuards(RolesGuard)
+  @Permissions(permissions.STIX.ViewAll)
   @Query(() => AutonomousSystemSearchResult)
   async searchAutonomousSystems(
-    @Args('filters', { type: () => SearchAutonomousSystemInput, nullable: true }) filters: SearchAutonomousSystemInput = {},
+    @Args('filters', {
+      type: () => SearchAutonomousSystemInput,
+      nullable: true,
+    })
+    filters: SearchAutonomousSystemInput = {},
     @Args('from', { type: () => Int, defaultValue: 0 }) from: number,
     @Args('size', { type: () => Int, defaultValue: 10 }) size: number,
   ): Promise<AutonomousSystemSearchResult> {
     return this.autonomousSystemService.searchWithFilters(filters, from, size);
   }
 
+  @UseGuards(RolesGuard)
+  @Permissions(permissions.STIX.ViewAll)
   @Query(() => AutonomousSystem, { nullable: true })
-  async autonomousSystemById(@Args('id') id: string): Promise<AutonomousSystem> {
+  async autonomousSystemById(
+    @Args('id') id: string,
+  ): Promise<AutonomousSystem> {
     return this.autonomousSystemService.findOneById(id);
   }
 
+  @UseGuards(RolesGuard)
+  @Permissions(permissions.STIX.ViewAll)
   @Query(() => AutonomousSystem, { nullable: true })
-  async autonomousSystemByNumber(@Args('number', { type: () => Int }) number: number): Promise<AutonomousSystem> {
+  async autonomousSystemByNumber(
+    @Args('number', { type: () => Int }) number: number,
+  ): Promise<AutonomousSystem> {
     return this.autonomousSystemService.findByNumber(number);
   }
 
+  @UseGuards(RolesGuard)
+  @Permissions(permissions.STIX.UpdateAll)
   @Mutation(() => AutonomousSystem)
   async updateAutonomousSystem(
     @Args('id') id: string,
@@ -62,6 +102,8 @@ export class AutonomousSystemResolver extends BaseStixResolver(AutonomousSystem)
     return this.autonomousSystemService.update(id, updateAutonomousSystemInput);
   }
 
+  @UseGuards(RolesGuard)
+  @Permissions(permissions.STIX.RemoveAll)
   @Mutation(() => Boolean)
   async deleteAutonomousSystem(@Args('id') id: string): Promise<boolean> {
     return this.autonomousSystemService.remove(id);

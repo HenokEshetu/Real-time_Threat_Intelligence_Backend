@@ -32,7 +32,6 @@ import { LocalStrategy } from './strategies/local.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 
 import databaseConfig from '../config/database.config';
-import authConfig from '../config/auth.config';
 import { EmailVerificationToken } from './entities/email-verification-token.entity';
 import { EmailVerificationService } from './services/email-verification.service';
 import { MailerModule } from '@nestjs-modules/mailer';
@@ -40,12 +39,18 @@ import { join } from 'path';
 import { HandlebarsAdapter } from '@nestjs-modules/mailer/dist/adapters/handlebars.adapter';
 import { EmailVerificationResolver } from './resolvers/email-verification.resolver';
 import emailConfig from '../config/emai.config';
+import { APP_GUARD, Reflector } from '@nestjs/core';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { VaultService } from 'src/security/vault.service';
+import { VaultModule } from 'src/security/vault.module';
+import { RateLimiterService } from 'src/security/rate-limitter.service';
+import { RateLimiterGuard } from 'src/security/rate-limmiter.guard';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      load: [databaseConfig, authConfig, emailConfig],
+      load: [databaseConfig, emailConfig],
     }),
 
     TypeOrmModule.forRootAsync({
@@ -53,6 +58,7 @@ import emailConfig from '../config/emai.config';
       useFactory: (configService: ConfigService) => ({
         ...configService.get('database'),
         autoLoadEntities: true,
+        synchronize: true,
       }),
     }),
 
@@ -66,26 +72,40 @@ import emailConfig from '../config/emai.config';
 
     PassportModule.register({ defaultStrategy: 'jwt' }),
 
+    VaultModule,
+
     JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('AUTH_JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('AUTH_JWT_EXPIRES_IN') || '15m',
-        },
-      }),
+      imports: [ConfigModule, VaultModule],
+      inject: [VaultService],
+      useFactory: async (vaultService: VaultService) => {
+        const {
+          jwt_access_secret: access,
+          jwt_access_expires_in: accessExpires,
+        } = await vaultService.getSecret('encryption/data/jwt');
+        return {
+          secret: access,
+          signOptions: {
+            expiresIn: accessExpires || '15m',
+          },
+        };
+      },
     }),
 
     JwtModule.registerAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('AUTH_JWT_SECRET'),
-        signOptions: {
-          expiresIn: configService.get<string>('AUTH_JWT_REFRESH_IN') || '1d',
-        },
-      }),
+      imports: [ConfigModule, VaultModule],
+      inject: [VaultService],
+      useFactory: async (vaultService: VaultService) => {
+        const {
+          jwt_refresh_secret: refresh,
+          jwt_refresh_expires_in: refreshExpires,
+        } = await vaultService.getSecret('encryption/data/jwt');
+        return {
+          secret: refresh,
+          signOptions: {
+            expiresIn: refreshExpires || '1d',
+          },
+        };
+      },
     }),
 
     MailerModule.forRootAsync({
@@ -133,11 +153,22 @@ import emailConfig from '../config/emai.config';
     PasswordResetResolver,
     EmailVerificationResolver,
 
+    JwtAuthGuard,
     JwtStrategy,
     LocalStrategy,
     GoogleStrategy,
 
     EmailVerificationService,
+
+    RateLimiterService,
+    {
+      provide: APP_GUARD,
+      useFactory: (
+        rateLimiterService: RateLimiterService,
+        reflector: Reflector,
+      ) => new RateLimiterGuard(rateLimiterService, 10, 60, reflector),
+      inject: [RateLimiterService, Reflector],
+    },
   ],
 
   exports: [
@@ -147,6 +178,7 @@ import emailConfig from '../config/emai.config';
     PermissionService,
     AuthTokenService,
     JwtModule,
+    JwtAuthGuard,
   ],
 })
 export class UserManagementModule {}

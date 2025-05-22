@@ -1,30 +1,49 @@
 import { NestFactory } from '@nestjs/core';
+import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
-import { UnauthorizedExceptionFilter } from './gql-exception.filter';
+import helmet from 'helmet';
+import cookieParser from 'cookie-parser';
+import { CsrfMiddleware } from './security/csrf.middleware';
 
 async function bootstrap() {
- 
-// src/main.ts
-const app = await NestFactory.create(AppModule);
-if (process.env.status === 'production') {
-  app.useGlobalFilters(new UnauthorizedExceptionFilter());
-  app.useLogger(['error', 'warn']); // Disable verbose logging
-}
-  // Allow ALL origins (for testing only)
+  const app = await NestFactory.create(AppModule);
+
+  // const csrfMw = new CsrfMiddleware();
+
+  app.use(
+    helmet({
+      contentSecurityPolicy:
+        process.env.NODE_ENV === 'production' ? undefined : false,
+      crossOriginEmbedderPolicy: false,
+    }),
+  );
+
+  app.use(cookieParser());
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true }));
+
   app.enableCors({
-    origin: true,  
-    methods: ['GET', 'POST', 'OPTIONS'],
-    allowedHeaders: ['Content-Type'],
+    origin: process.env.CLIENT_URL?.split(',') || [
+      'http://localhost:5173', // Default Vite frontend
+      'http://localhost:3000', // Common Create-React-App port
+      'https://studio.apollographql.com', // GraphQL IDE
+    ],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Requested-With',
+      'XSRF-TOKEN',
+      'Apollo-Require-Preflight',
+    ],
+    exposedHeaders: ['XSRF-TOKEN'],
+    credentials: true,
+    maxAge: 259200, // 72-hour preflight cache
+    preflightContinue: false,
   });
 
-  const port = 4000;
-  await app.listen(port, '0.0.0.0'); // Listen on all network interfaces
+  // Apply CSRF middleware
+  // app.use((req, res, next) => csrfMw.use(req, res, next));
 
-  console.log(`
-   Backend is running on:
-  - Local: http://localhost:${port}
-  - Network: http://10.161.173.25:${port}
-  - GraphQL Playground: http://10.161.173.25:${port}/graphql
-  `);
+  await app.listen(process.env.PORT || 4000);
 }
 bootstrap();

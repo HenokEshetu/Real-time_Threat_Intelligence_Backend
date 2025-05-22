@@ -1,5 +1,5 @@
-// src/opensearch/opensearch.module.ts
 import { Global, Module } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Client } from '@opensearch-project/opensearch';
 
 @Global()
@@ -7,16 +7,24 @@ import { Client } from '@opensearch-project/opensearch';
   providers: [
     {
       provide: 'OPENSEARCH_CLIENT',
-      useFactory: () => {
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
         const clientOptions = {
-          node: process.env.OPENSEARCH_NODE || 'http://localhost:9200',
-          ssl: process.env.OPENSEARCH_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
-          auth: process.env.OPENSEARCH_USERNAME && process.env.OPENSEARCH_PASSWORD
-            ? {
-                username: process.env.OPENSEARCH_USERNAME,
-                password: process.env.OPENSEARCH_PASSWORD,
-              }
-            : undefined,
+          node:
+            configService.get<string>('opensearch.host') ||
+            'http://localhost:9200',
+          ssl:
+            configService.get<boolean>('opensearch.ssl') === true
+              ? { rejectUnauthorized: false }
+              : undefined,
+          auth:
+            configService.get<string>('opensearch.username') &&
+            configService.get<string>('opensearch.password')
+              ? {
+                  username: configService.get<string>('opensearch.username'),
+                  password: configService.get<string>('opensearch.password'),
+                }
+              : undefined,
         };
         return new Client(clientOptions);
       },

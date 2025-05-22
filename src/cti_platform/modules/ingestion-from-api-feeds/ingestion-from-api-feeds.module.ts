@@ -111,11 +111,10 @@ import { AttackIngestionService } from './feeds/attack-stix-service';
     ToolService,
     VulnerabilityService,
     SightingService,
-    LookupService ,
+    LookupService,
     EnrichmentService,
-    FeedConfigService, 
-    
+    FeedConfigService,
   ],
-  exports: [FeedIngesterService]
+  exports: [FeedIngesterService],
 })
 export class IngestionFromApiFeedsModule {}

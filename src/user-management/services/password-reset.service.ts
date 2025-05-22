@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, LessThan } from 'typeorm';
 import { PasswordReset } from 'src/user-management/entities/password-reset.entity';
@@ -24,11 +28,6 @@ export class PasswordResetService {
       throw new NotFoundException('User not found');
     }
 
-    // Clean up expired tokens
-    await this.passwordResetRepository.delete({
-      expiresAt: LessThan(new Date()),
-    });
-
     const token = this.passwordResetTokenService.generateToken();
     const expiresAt = this.passwordResetTokenService.generateExpirationDate();
 
@@ -48,7 +47,6 @@ export class PasswordResetService {
       where: {
         token,
         used: false,
-        expiresAt: LessThan(new Date()),
       },
     });
 
@@ -61,8 +59,6 @@ export class PasswordResetService {
       password: hashedPassword,
     });
 
-    // Mark token as used
-    passwordReset.used = true;
     await this.passwordResetRepository.save(passwordReset);
   }
 }

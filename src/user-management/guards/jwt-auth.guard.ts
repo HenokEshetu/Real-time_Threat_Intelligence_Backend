@@ -1,10 +1,14 @@
-import { Injectable, ExecutionContext, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  ExecutionContext,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { Request } from 'express';
 import { Reflector } from '@nestjs/core';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
-import { SKIP_VERIFIED_KEY } from '../decorators/skip-verified.decorator';
 
 @Injectable()
 export class JwtAuthGuard extends AuthGuard('jwt') {
@@ -22,18 +26,6 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
     if (isPublic) {
       return true;
     }
-
-    const skip = this.reflector.getAllAndOverride<boolean>(
-      SKIP_VERIFIED_KEY,
-      [
-        context.getHandler(),
-        context.getClass(),
-      ],
-    );
-    if (skip) {
-      return true;
-    }
-
     return super.canActivate(context);
   }
 
@@ -49,21 +41,27 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
       return req;
     } catch (error) {
       this.logger.error('Error extracting request from context', error.stack);
-      throw new UnauthorizedException({ 
+      throw new UnauthorizedException({
         message: 'Authentication context error',
-        code: 'AUTH_CONTEXT_ERROR' 
+        code: 'AUTH_CONTEXT_ERROR',
       });
     }
   }
 
-  handleRequest<TUser = any>(err: any, user: any, info: any, context: ExecutionContext): TUser {
+  handleRequest<TUser = any>(
+    err: any,
+    user: any,
+    info: any,
+    context: ExecutionContext,
+  ): TUser {
     if (err || !user) {
-      this.logger.warn(`Authentication failed: ${err?.message || info?.message}`);
-      
-      // Throw a clean error with custom message
+      this.logger.warn(
+        `Authentication failed: ${err?.message || info?.message}`,
+      );
+
       throw new UnauthorizedException({
-        message: 'Invalid or expired token',  // Custom message
-        code: 'UNAUTHENTICATED'              // Optional error code
+        message: 'Invalid or expired token',
+        code: 'UNAUTHENTICATED',
       });
     }
 

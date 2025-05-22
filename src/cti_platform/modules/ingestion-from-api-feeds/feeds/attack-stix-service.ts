@@ -48,7 +48,8 @@ import { SightingService } from '../../stix-objects/sighting/sighting.service';
 import { MarkingDefinitionService } from '../../stix-objects/marking-definition/marking-definition.service';
 import { BundleService } from '../../stix-objects/bundle/bundle.service';
 
-const DATA_URL = 'https://raw.githubusercontent.com/mitre-attack/attack-stix-data/refs/heads/master/enterprise-attack/enterprise-attack.json';
+const DATA_URL =
+  '//https://raw.githubusercontent.com/mitre-attack/attack-stix-data/refs/heads/master/enterprise-attack/enterprise-attack.json';
 const UPDATE_CHECK_CRON = '0 */12 * * *'; // Every 12 hours
 const STATE_INDEX = 'ingestion-state';
 
@@ -139,12 +140,16 @@ export class AttackIngestionService implements OnModuleInit {
     try {
       const state = await this.getIngestionState();
       if (!state) {
-        this.logger.log('No existing ingestion state detected. Performing initial ingestion...');
+        this.logger.log(
+          'No existing ingestion state detected. Performing initial ingestion...',
+        );
         await this.performIngestion();
         this.logger.log('Initial ingestion completed successfully');
         this.initialized = true;
       } else {
-        this.logger.log('Existing ingestion state found. Checking for updates...');
+        this.logger.log(
+          'Existing ingestion state found. Checking for updates...',
+        );
         await this.checkForUpdates();
         this.initialized = true;
       }
@@ -158,7 +163,10 @@ export class AttackIngestionService implements OnModuleInit {
     try {
       this.logger.log(`Fetching data from ${DATA_URL}`);
       const response = await fetch(DATA_URL);
-      if (!response.ok) throw new Error(`Failed to fetch data: ${response.status} ${response.statusText}`);
+      if (!response.ok)
+        throw new Error(
+          `Failed to fetch data: ${response.status} ${response.statusText}`,
+        );
       const lastModified = response.headers.get('last-modified');
       const etag = response.headers.get('etag');
       if (!response.body) throw new Error('Response body unavailable');
@@ -182,10 +190,16 @@ export class AttackIngestionService implements OnModuleInit {
       if (!currentState) return;
       this.logger.log('Checking for updates...');
       const response = await fetch(DATA_URL, { method: 'HEAD' });
-      if (!response.ok) throw new Error(`HEAD request failed: ${response.status} ${response.statusText}`);
+      if (!response.ok)
+        throw new Error(
+          `HEAD request failed: ${response.status} ${response.statusText}`,
+        );
       const remoteLastModified = response.headers.get('last-modified');
       const remoteETag = response.headers.get('etag');
-      if (remoteETag !== currentState.etag || remoteLastModified !== currentState.last_modified) {
+      if (
+        remoteETag !== currentState.etag ||
+        remoteLastModified !== currentState.last_modified
+      ) {
         this.logger.log('New data version detected. Starting update...');
         await this.performIngestion();
       } else {
@@ -205,10 +219,16 @@ export class AttackIngestionService implements OnModuleInit {
     });
     this.schedulerRegistry.addCronJob('attack-data-updates', job);
     job.start();
-    this.logger.log(`Scheduled update checks with cron pattern: ${UPDATE_CHECK_CRON}`);
+    this.logger.log(
+      `Scheduled update checks with cron pattern: ${UPDATE_CHECK_CRON}`,
+    );
   }
 
-  private async getIngestionState(): Promise<{ last_modified: string; etag: string; last_fetched: string } | null> {
+  private async getIngestionState(): Promise<{
+    last_modified: string;
+    etag: string;
+    last_fetched: string;
+  } | null> {
     try {
       const response = await this.openSearchService.search({
         index: STATE_INDEX,
@@ -218,8 +238,17 @@ export class AttackIngestionService implements OnModuleInit {
         },
       });
       const source = response.body.hits.hits[0]?._source;
-      if (source && source.last_modified && source.etag && source.last_fetched) {
-        return source as { last_modified: string; etag: string; last_fetched: string };
+      if (
+        source &&
+        source.last_modified &&
+        source.etag &&
+        source.last_fetched
+      ) {
+        return source as {
+          last_modified: string;
+          etag: string;
+          last_fetched: string;
+        };
       }
       return null;
     } catch (error) {
@@ -228,7 +257,11 @@ export class AttackIngestionService implements OnModuleInit {
     }
   }
 
-  private async updateIngestionState(state: { last_modified?: string; etag?: string; last_fetched: string }) {
+  private async updateIngestionState(state: {
+    last_modified?: string;
+    etag?: string;
+    last_fetched: string;
+  }) {
     try {
       await this.openSearchService.index({
         index: STATE_INDEX,
@@ -268,7 +301,10 @@ export class AttackIngestionService implements OnModuleInit {
 
           callback();
         } catch (error) {
-          this.logger.error(`Object processing error: ${error.message}`, error.stack);
+          this.logger.error(
+            `Object processing error: ${error.message}`,
+            error.stack,
+          );
           callback(); // Continue processing
         }
       },
@@ -287,13 +323,15 @@ export class AttackIngestionService implements OnModuleInit {
       await this.processBundleContents(obj);
       return;
     }
-  
+
     // Validate STIX 2.1 object requirements
     if (!this.isValidStixObject(obj)) {
-      this.logger.warn(`Skipping non-STIX object: ${JSON.stringify(obj, null, 2).substring(0, 200)}`);
+      this.logger.warn(
+        `Skipping non-STIX object: ${JSON.stringify(obj, null, 2).substring(0, 200)}`,
+      );
       return;
     }
-  
+
     // Store all proper STIX objects
     try {
       const service = this.getServiceForType(obj.type);
@@ -303,7 +341,9 @@ export class AttackIngestionService implements OnModuleInit {
         this.logger.log(`Successfully stored ${obj.type} ${obj.id}`);
       }
     } catch (error) {
-      this.logger.error(`Failed to store ${obj.type} ${obj.id}: ${error.message}`);
+      this.logger.error(
+        `Failed to store ${obj.type} ${obj.id}: ${error.message}`,
+      );
     }
   }
 
@@ -312,30 +352,35 @@ export class AttackIngestionService implements OnModuleInit {
       this.logger.warn('Invalid bundle structure - missing objects array');
       return;
     }
-  
-    this.logger.log(`Processing bundle with ${bundle.objects.length} contained objects`);
-    
+
+    this.logger.log(
+      `Processing bundle with ${bundle.objects.length} contained objects`,
+    );
+
     // Process all objects in parallel while maintaining order
     await Promise.allSettled(
-      bundle.objects.map((obj: any) => 
-        this.processStixObject(obj).catch(error => 
-          this.logger.error(`Error processing object ${obj.id}: ${error.message}`)
-        )
-      )
+      bundle.objects.map((obj: any) =>
+        this.processStixObject(obj).catch((error) =>
+          this.logger.error(
+            `Error processing object ${obj.id}: ${error.message}`,
+          ),
+        ),
+      ),
     );
   }
 
   private isValidStixObject(obj: any): boolean {
     // Required STIX 2.1 core properties
     const requiredProps = ['type', 'id', 'created', 'modified', 'spec_version'];
-    const hasRequired = requiredProps.every(prop => prop in obj);
-    
+    const hasRequired = requiredProps.every((prop) => prop in obj);
+
     // Validate STIX spec version
     const validSpecVersion = obj.spec_version === '2.1';
-    
+
     // Explicitly exclude bundle type from storage
-    const isValidType = obj.type !== 'bundle' && this.getServiceForType(obj.type);
-  
+    const isValidType =
+      obj.type !== 'bundle' && this.getServiceForType(obj.type);
+
     return hasRequired && validSpecVersion && isValidType;
   }
 
@@ -415,7 +460,7 @@ export class AttackIngestionService implements OnModuleInit {
         return this.userAccountService;
       case 'windows-registry-key':
         return this.windowsRegistryKeyService;
-        
+
       case 'x509-certificate':
         return this.x509CertificateService;
       case 'autonomous-system':

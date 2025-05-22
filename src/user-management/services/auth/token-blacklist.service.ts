@@ -1,32 +1,61 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { SignOutDto } from 'src/user-management/dto/sign-out.dto';
+import { createClient, RedisClientType } from 'redis';
+import * as crypto from 'crypto';
+import { VaultService } from 'src/security/vault.service';
 
 @Injectable()
 export class TokenBlacklistService {
-  private blacklistedTokens: Set<string> = new Set();
-  private readonly cleanupInterval: NodeJS.Timeout;
+  private redisClient: RedisClientType;
 
-  constructor(private configService: ConfigService) {
-    // Clean up expired tokens every hour
-    this.cleanupInterval = setInterval(() => this.cleanupExpiredTokens(), 3600000);
+  constructor(
+    private configService: ConfigService,
+    private vaultService: VaultService,
+  ) {
+    this.redisClient = createClient({
+      url: this.configService.get<string>('REDIS_URL'),
+    });
+    this.redisClient.connect();
   }
 
-  async addToBlacklist(token): Promise<void> {
-    this.blacklistedTokens.add(token);
+  async addToBlacklist(
+    token: string,
+    ttl: number,
+    tokenType: 'access' | 'refresh',
+  ): Promise<void> {
+    const encrypted = this.encryptToken(token);
+    await this.redisClient.setEx(
+      `${tokenType}_blacklist:${encrypted}`,
+      ttl,
+      '1',
+    );
   }
 
   async isBlacklisted(token: string): Promise<boolean> {
-    return this.blacklistedTokens.has(token);
+    const accessKey = `access_blacklist:${this.encryptToken(token)}`;
+    const refreshKey = `refresh_blacklist:${this.encryptToken(token)}`;
+
+    const exists = await Promise.all([
+      this.redisClient.exists(accessKey),
+      this.redisClient.exists(refreshKey),
+    ]);
+
+    return exists.some(Boolean);
   }
 
-  private cleanupExpiredTokens(): void {
-    // Implementation for cleaning up expired tokens
-    // This would be more sophisticated in a production environment
-    // potentially using Redis or another persistent store
+  private async encryptToken(token: string): Promise<string> {
+    const { encryption_key, encryption_iv } = await this.vaultService.getSecret(
+      'encryption/data/jwt',
+    );
+    const cipher = crypto.createCipheriv(
+      'aes-256-cbc',
+      Buffer.from(encryption_key, 'hex'),
+      Buffer.from(encryption_iv, 'hex'),
+    );
+    return cipher.update(token, 'utf8', 'hex') + cipher.final('hex');
   }
 
-  onModuleDestroy() {
-    clearInterval(this.cleanupInterval);
+  async onModuleDestroy() {
+    await this.redisClient.quit();
   }
 }

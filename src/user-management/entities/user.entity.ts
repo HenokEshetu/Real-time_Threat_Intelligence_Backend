@@ -1,4 +1,12 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToMany, JoinTable } from 'typeorm';
+import {
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  JoinTable,
+  ManyToOne,
+} from 'typeorm';
 import { ObjectType, Field, ID } from '@nestjs/graphql';
 import { Role } from './role.entity';
 
@@ -28,10 +36,13 @@ export class User {
   @Column({ default: false })
   isEmailVerified: boolean;
 
-  @Field(() => [Role])
-  @ManyToMany(() => Role, (role) => role.users)
-  @JoinTable()
-  roles: Role[];
+  @Field(() => Role)
+  @ManyToOne(() => Role, (role) => role.users)
+  role: Role;
+
+  @Field(() => Boolean)
+  @Column({ default: false })
+  deletionRequested: boolean;
 
   @Field()
   @CreateDateColumn()

@@ -1,5 +1,11 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsOptional, Length, IsString, IsEmail } from 'class-validator';
+import {
+  IsOptional,
+  Length,
+  IsString,
+  IsEmail,
+  IsBoolean,
+} from 'class-validator';
 
 @InputType()
 export class UpdateUserDto {
@@ -16,4 +22,8 @@ export class UpdateUserDto {
   @IsOptional()
   @IsString()
   password?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  deletionRequested?: boolean;
 }

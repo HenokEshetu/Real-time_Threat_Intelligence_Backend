@@ -1,6 +1,8 @@
-
-
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { User } from 'src/user-management/entities/user.entity';
@@ -19,8 +21,16 @@ export class UserQueryService {
   async findAllUsers(): Promise<User[]> {
     try {
       return await this.userRepository.find({
-        relations: ['roles', 'roles.permissions'],
-        select: ['userId', 'email', 'firstName', 'lastName', 'isEmailVerified', 'createdAt', 'updatedAt'],
+        relations: ['role', 'role.permissions'],
+        select: [
+          'userId',
+          'email',
+          'firstName',
+          'lastName',
+          'isEmailVerified',
+          'createdAt',
+          'updatedAt',
+        ],
       });
     } catch (error) {
       console.error('Error finding all users:', error.stack);
@@ -41,7 +51,7 @@ export class UserQueryService {
     try {
       const user = await this.userRepository.findOne({
         where: { userId: id },
-        relations: ['roles', 'roles.permissions'],
+        relations: ['role', 'role.permissions'],
       });
 
       if (!user) {
@@ -62,7 +72,7 @@ export class UserQueryService {
     try {
       const user = await this.userRepository.findOne({
         where: where,
-        relations: ['roles', 'roles.permissions'],
+        relations: ['role', 'role.permissions'],
       });
 
       if (!user) {
@@ -79,23 +89,11 @@ export class UserQueryService {
     }
   }
 
-
   async findUserByEmail(email: string): Promise<User> {
     try {
       const user = await this.userRepository.findOne({
         where: { email },
-        relations: ['roles', 'roles.permissions'],
-        select: {
-          userId: true,
-          email: true,
-          password: true,
-          firstName: true,
-          lastName: true,
-          isEmailVerified: true,
-          createdAt: true,
-          updatedAt: true,
-          roles: true
-        }
+        relations: ['role', 'role.permissions'],
       });
 
       if (!user) {
@@ -112,4 +110,3 @@ export class UserQueryService {
     }
   }
 }
-

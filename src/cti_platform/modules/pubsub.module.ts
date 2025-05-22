@@ -1,4 +1,5 @@
 import { Module, Global } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 import Redis from 'ioredis';
 
@@ -8,11 +9,12 @@ export const PUB_SUB = 'PUB_SUB';
 @Module({
   providers: [
     {
-      provide: PUB_SUB, 
-      useFactory: () => {
+      provide: PUB_SUB,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
         const options = {
-          host: process.env.REDIS_HOST || 'localhost',
-          port: parseInt(process.env.REDIS_PORT, 10) || 6379,
+          host: configService.get<string>('REDIS_HOST') || 'localhost',
+          port: configService.get<number>('REDIS_PORT') || 6379,
         };
         return new RedisPubSub({
           publisher: new Redis(options),
