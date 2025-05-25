@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { MailerService } from '@nestjs-modules/mailer';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -23,21 +27,24 @@ export class EmailVerificationService {
     const expiresAt = new Date();
     expiresAt.setMinutes(expiresAt.getMinutes() + 5); // Token expires in 5 minutes
 
-    const emailVerificationToken = this.emailVerificationTokenRepository.create({
-      token,
-      user,
-      expiresAt,
-    });
+    const emailVerificationToken = this.emailVerificationTokenRepository.create(
+      {
+        token,
+        user,
+        expiresAt,
+      },
+    );
 
     await this.emailVerificationTokenRepository.save(emailVerificationToken);
     return token;
   }
 
   async verifyEmail(token: string): Promise<User> {
-    const emailVerificationToken = await this.emailVerificationTokenRepository.findOne({
-      where: { token },
-      relations: ['user', 'user.roles', 'user.roles.permissions'],
-    });
+    const emailVerificationToken =
+      await this.emailVerificationTokenRepository.findOne({
+        where: { token },
+        relations: ['user', 'user.roles', 'user.role.permissions'],
+      });
 
     if (!emailVerificationToken) {
       throw new NotFoundException('Invalid or expired verification token');
@@ -48,14 +55,24 @@ export class EmailVerificationService {
     }
 
     const user = emailVerificationToken.user;
+
+    if (!user) {
+      throw new NotFoundException('Invalid verification token');
+    }
+    if (user.isEmailVerified) {
+      throw new BadRequestException('Already verified');
+    }
+
     user.isEmailVerified = true;
     await this.userRepository.save(user);
 
-    await this.emailVerificationTokenRepository.delete(emailVerificationToken.id);
+    await this.emailVerificationTokenRepository.delete(
+      emailVerificationToken.id,
+    );
 
     return this.userRepository.findOneOrFail({
       where: { userId: user.userId },
-      relations: ['roles', 'roles.permissions'],
+      relations: ['role', 'role.permissions'],
     });
   }
 

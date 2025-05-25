@@ -1,9 +1,7 @@
 import { Resolver, Mutation, Args } from '@nestjs/graphql';
-import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { EmailVerificationService } from '../services/email-verification.service';
-import { AuthResponse } from '../types/auth.types';
-import { SkipVerified } from '../decorators/skip-verified.decorator';
 import { User } from '../entities/user.entity';
+import { Public } from '../decorators/public.decorator';
 
 @Resolver()
 export class EmailVerificationResolver {
@@ -12,7 +10,7 @@ export class EmailVerificationResolver {
   ) {}
 
   @Mutation(() => User)
-  @SkipVerified()
+  @Public()
   async verifyEmail(
     @Args('token', { type: () => String }) token: string,
   ): Promise<User> {

@@ -1,4 +1,8 @@
-import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from '../services/user.service';
@@ -18,7 +22,6 @@ export class JwtMiddleware implements NestMiddleware {
         const payload = this.jwtService.verify(token);
         req['user'] = await this.userService.findOne(payload.sub);
       } catch (error) {
-        // Throw a structured error to be handled by global filters
         throw new UnauthorizedException({
           message: 'Invalid or expired token',
           code: 'UNAUTHENTICATED',

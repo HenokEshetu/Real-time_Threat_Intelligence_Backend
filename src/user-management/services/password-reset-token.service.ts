@@ -4,12 +4,12 @@ import { randomBytes } from 'crypto';
 @Injectable()
 export class PasswordResetTokenService {
   generateToken(): string {
-    return randomBytes(32).toString('hex');
+    return randomBytes(64).toString('hex');
   }
 
   generateExpirationDate(): Date {
     const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24); // Token expires in 24 hours
+    expiresAt.setMinutes(expiresAt.getMinutes() + 5); // Token expires in 5 minutes
     return expiresAt;
   }
 }

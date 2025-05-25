@@ -6,6 +6,9 @@ export class LoginResponse {
   @Field()
   access_token: string;
 
+  @Field()
+  refresh_token: string;
+
   @Field(() => User)
   user: User;
 }
@@ -18,8 +21,11 @@ export class TokenPayload {
   @Field()
   email: string;
 
-  @Field(() => [String])
-  roles: string[];
+  @Field()
+  role: string;
+
+  @Field()
+  token_type: 'access' | 'refresh';
 }
 
 @ObjectType()
@@ -30,3 +36,5 @@ export class AuthResponse {
   @Field({ nullable: true })
   message?: string;
 }
+
+export type TokenType = 'access' | 'refresh';

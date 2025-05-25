@@ -4,23 +4,29 @@ import { forgotPasswordDto } from 'src/user-management/dto/forgot-passwordDTO.dt
 
 import { PasswordResetService } from 'src/user-management/services/password-reset.service';
 import { AuthResponse } from '../types/auth.types';
+import { Public } from '../decorators/public.decorator';
 
 @Resolver()
 export class PasswordResetResolver {
   constructor(private readonly passwordResetService: PasswordResetService) {}
 
   @Mutation(() => AuthResponse)
+  @Public()
   async forgotPassword(
     @Args('input') ForgotPasswordDto: forgotPasswordDto,
   ): Promise<AuthResponse> {
-    await this.passwordResetService.createPasswordReset(ForgotPasswordDto.email);
+    await this.passwordResetService.createPasswordReset(
+      ForgotPasswordDto.email,
+    );
     return {
       success: true,
-      message: 'If an account exists with that email, a password reset link will be sent',
+      message:
+        'If an account exists with that email, a password reset link will be sent',
     };
   }
 
   @Mutation(() => AuthResponse)
+  @Public()
   async resetPassword(
     @Args('input') resetPasswordDto: ResetPasswordDto,
   ): Promise<AuthResponse> {

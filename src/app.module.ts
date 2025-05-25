@@ -4,54 +4,57 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { CtiPlatformModule } from './cti_platform/cti_platform.module';
 import { UserManagementModule } from './user-management/user-management.module';
 import { join } from 'path';
-import { PubSubModule, } from 'src/cti_platform/modules/pubsub.module';
+import { PubSubModule } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 import { DateTimeResolver } from 'graphql-scalars';
-import { APP_FILTER , APP_GUARD} from '@nestjs/core';
 import { JwtAuthGuard } from './user-management/guards/jwt-auth.guard';
+import { APP_GUARD } from '@nestjs/core';
+import { CsrfGuard } from './security/csrf.guard';
+import vaultConfig from './config/vault.config';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [vaultConfig],
+    }),
     GraphQLModule.forRoot<ApolloDriverConfig>({
       driver: ApolloDriver,
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
       sortSchema: true,
       playground: true,
       installSubscriptionHandlers: true,
+      // formatError: (err) => {
+      //   return {
+      //     message: err.message,
+      //   };
+      // },
       subscriptions: {
         'subscriptions-transport-ws': {
           path: '/graphql',
-          onConnect: () => {
-            console.log('WebSocket client connected');
-            // Provide pubSub instance into subscription context
-            return { pubSub: new RedisPubSub(/* your Redis options */) };
-          },
+          onConnect: () => ({ pubSub: new RedisPubSub(/* options */) }),
         },
       },
-      resolvers: {
-        DateTime: DateTimeResolver, // Register DateTime scalar
-      },
+      resolvers: { DateTime: DateTimeResolver },
       buildSchemaOptions: {
-        scalarsMap: [
-          { type: Date, scalar: DateTimeResolver }, // Map Date type to DateTime scalar
-        ],
+        scalarsMap: [{ type: Date, scalar: DateTimeResolver }],
       },
-      // Merge HTTP and WebSocket contexts
-      context: ({ req, connection }) => {
+      context: ({ req, res, connection }) => {
         if (connection) {
-          // subscription
           return connection.context;
         }
-        // query / mutation
-        return { req, pubSub: new RedisPubSub(/*  Redis options */) };
+        return { req, res, pubSub: new RedisPubSub(/* options */) };
       },
     }),
+
     PubSubModule,
     CtiPlatformModule,
     UserManagementModule,
   ],
   providers: [
-    
+    { provide: APP_GUARD, useClass: JwtAuthGuard },
+    { provide: APP_GUARD, useClass: CsrfGuard },
   ],
 })
 export class AppModule {}

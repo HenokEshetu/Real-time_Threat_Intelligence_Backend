@@ -1927,6 +1927,7 @@ input LoginDto {
 
 type LoginResponse {
   access_token: String!
+  refresh_token: String!
   user: User!
 }
 
@@ -2098,6 +2099,7 @@ type MarkingDefinitionSearchResult {
 }
 
 type Mutation {
+  approveAccountDeletion(userId: String!): Boolean!
   changePassword(input: ChangePasswordDto!): AuthResponse!
   createArtifact(input: CreateArtifactInput!): Artifact!
   createAttackPattern(input: CreateAttackPatternInput!): AttackPattern!
@@ -2184,9 +2186,10 @@ type Mutation {
   deleteX509Certificate(id: String!): Boolean!
   forgotPassword(input: forgotPasswordDto!): AuthResponse!
   login(input: LoginDto!): LoginResponse!
-  removeUser(id: ID!): Boolean!
+  refreshToken: LoginResponse!
+  requestAccountDeletion: Boolean!
   resetPassword(input: ResetPasswordDto!): AuthResponse!
-  signOut(input: SignOutDto!): AuthResponse!
+  signOut: AuthResponse!
   updateArtifact(id: String!, input: UpdateArtifactInput!): Artifact!
   updateAttackPattern(id: String!, input: UpdateAttackPatternInput!): AttackPattern!
   updateAutonomousSystem(id: String!, input: UpdateAutonomousSystemInput!): AutonomousSystem!
@@ -2510,6 +2513,7 @@ type Query {
   bundle(id: String!): Bundle
   campaign(id: String!): Campaign
   courseOfAction(id: String!): CourseOfAction
+  currentToken: LoginResponse!
   directoriesByPath(path: String!): [Directory!]!
   directory(id: String!): Directory
   domainName(id: String!): DomainName
@@ -3802,10 +3806,6 @@ type SightingSearchResult {
   results: [Sighting!]!
   total: Int!
   totalPages: Int!
-}
-
-input SignOutDto {
-  token: String!
 }
 
 type Software {
@@ -5199,11 +5199,12 @@ type UrlSearchResult {
 
 type User {
   createdAt: DateTime!
+  deletionRequested: Boolean!
   email: String!
   firstName: String!
   isEmailVerified: Boolean!
   lastName: String!
-  roles: [Role!]!
+  role: Role!
   updatedAt: DateTime!
   userId: ID!
 }
