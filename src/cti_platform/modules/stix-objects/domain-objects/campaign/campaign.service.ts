@@ -1,11 +1,35 @@
 import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Client,} from '@opensearch-project/opensearch';
-import { CreateCampaignInput, UpdateCampaignInput } from './campaign.input';
-import { SearchCampaignInput } from './campaign.resolver';
+import { CampaignSearchResult, CreateCampaignInput, UpdateCampaignInput } from './campaign.input';
 import { Campaign } from './campaign.entity';
 import { BaseStixService } from '../../base-stix.service';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
+import { Field, InputType, PartialType } from '@nestjs/graphql';
+
+@InputType()
+export class DateRangeInput {
+  @Field(() => String, { nullable: true })
+  gte?: string;
+
+  @Field(() => String, { nullable: true })
+  lte?: string;
+
+  @Field(() => String, { nullable: true })
+  gt?: string;
+
+  @Field(() => String, { nullable: true })
+  lt?: string;
+}
+
+@InputType()
+export class SearchCampaignInput extends PartialType(CreateCampaignInput) {
+  @Field(() => DateRangeInput, { nullable: true })
+  first_seen_range?: DateRangeInput;
+
+  @Field(() => DateRangeInput, { nullable: true })
+  last_seen_range?: DateRangeInput;
+}
 
 @Injectable()
 export class CampaignService extends BaseStixService<Campaign> implements OnModuleInit {
@@ -160,90 +184,233 @@ export class CampaignService extends BaseStixService<Campaign> implements OnModu
   async searchWithFilters(
     filters: SearchCampaignInput = {},
     page: number = 1,
-    pageSize: number = 10
-  ): Promise<{
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-    results: Campaign[];
-  }> {
+    pageSize: number = 10,
+  ): Promise<CampaignSearchResult> {
     try {
+      // Validate pagination parameters
+      if (page < 1 || pageSize < 1) {
+        throw new Error('Page and pageSize must be positive integers');
+      }
+      if (pageSize > 100) {
+        throw new Error('pageSize cannot exceed 100');
+      }
+
       const from = (page - 1) * pageSize;
-      const queryBuilder: { query: any; sort?: any[] } = {
-        query: { bool: { must: [], filter: [], should: [] } },
-        sort: [{ modified: { order: 'desc' as const } }],
-      };
-
-      for (const [key, value] of Object.entries(filters)) {
-        if (!value) continue;
-
-        if (Array.isArray(value)) {
-          queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
-        } else if (typeof value === 'boolean' || typeof value === 'number') {
-          queryBuilder.query.bool.filter.push({ term: { [key]: value } });
-        } else if (['created', 'modified', 'first_seen', 'last_seen'].includes(key)) {
-          if (typeof value === 'object' && ('gte' in value || 'lte' in value)) {
-            queryBuilder.query.bool.filter.push({ range: { [key]: value } });
-          } else if (value instanceof Date) {
-            queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value, lte: value } },
-            });
-          }
-        } else if (typeof value === 'string') {
-          if (value.includes('*')) {
-            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
-          } else if (value.includes('~')) {
-            queryBuilder.query.bool.should.push({
-              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
-            });
-          } else {
-            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
-          }
-        }
-      }
-
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
-        queryBuilder.query = { match_all: {} };
-      } else if (queryBuilder.query.bool.should.length > 0) {
-        queryBuilder.query.bool.minimum_should_match = 1;
-      }
+      const query = this.buildSearchQuery(filters);
 
       const response = await this.openSearchService.search({
         index: this.index,
         from,
         size: pageSize,
-        body: queryBuilder,
+        body: query,
       });
 
-      const total = typeof response.body.hits.total === 'number'
-        ? response.body.hits.total
-        : response.body.hits.total?.value ?? 0;
-
-      return {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        results: response.body.hits.hits.map((hit) => ({
-          ...hit._source,
-          id: hit._id,
-          type: 'campaign' as const,
-          spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date(),
-          modified: hit._source.modified || new Date(),
-          name: hit._source.name, // Required field
-          
-        })),
-      };
+      return this.transformSearchResponse(response, page, pageSize);
     } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to search campaigns',
-        details: error.meta?.body?.error || error.message,
+      throw this.handleOpenSearchError(error, 'search campaigns');
+    }
+  }
+
+  private buildSearchQuery(filters: SearchCampaignInput): any {
+    const query: { query: any; sort?: any[] } = {
+      query: { bool: { must: [], filter: [], should: [] } },
+      sort: [{ modified: { order: 'desc' } }],
+    };
+
+    Object.entries(filters).forEach(([key, value]) => {
+      if (!value) return;
+
+      // Handle date range filters (e.g., first_seen_range, last_seen_range)
+      if (key.endsWith('_range')) {
+        const field = key.replace('_range', '');
+        this.addDateRangeQuery(query, field, value);
+        return;
+      }
+
+      // Handle standard filters
+      if (Array.isArray(value)) {
+        query.query.bool.filter.push({ terms: { [key]: value } });
+      } else if (typeof value === 'boolean' || typeof value === 'number') {
+        query.query.bool.filter.push({ term: { [key]: value } });
+      } else if (['created', 'modified', 'first_seen', 'last_seen'].includes(key)) {
+        this.addDateRangeQuery(query, key, value);
+      } else if (typeof value === 'string') {
+        this.addStringQuery(query, key, value);
+      } else if (typeof value === 'object') {
+        this.handleNestedFilters(query, key, value);
+      }
+    });
+
+    this.finalizeQueryStructure(query);
+    return query;
+  }
+
+  private addDateRangeQuery(query: any, key: string, value: any): void {
+    if (typeof value === 'object') {
+      const range = this.validateAndConvertRange(value);
+      if (range) {
+        query.query.bool.filter.push({ range: { [key]: range } });
+      }
+    }
+  }
+
+  private addStringQuery(query: any, key: string, value: string): void {
+    if (value.includes('*')) {
+      query.query.bool.must.push({
+        wildcard: { [key]: { value: value.toLowerCase(), case_insensitive: true } },
+      });
+    } else if (value.includes('~')) {
+      query.query.bool.should.push({
+        fuzzy: {
+          [key]: {
+            value: value.replace('~', ''),
+            fuzziness: 'AUTO',
+            transpositions: true,
+          },
+        },
+      });
+    } else {
+      query.query.bool.must.push({
+        match: {
+          [key]: {
+            query: value,
+            operator: 'and',
+            fuzziness: 0,
+          },
+        },
       });
     }
   }
 
+  private handleNestedFilters(query: any, key: string, value: any): void {
+    // Example for kill_chain_phases or other nested fields
+    if (key === 'kill_chain_phases') {
+      query.query.bool.filter.push({
+        nested: {
+          path: 'kill_chain_phases',
+          query: {
+            bool: {
+              must: Object.entries(value).map(([nestedKey, nestedValue]) => ({
+                term: { [`kill_chain_phases.${nestedKey}`]: nestedValue },
+              })),
+            },
+          },
+        },
+      });
+    }
+  }
+
+  private finalizeQueryStructure(query: any): void {
+    if (
+      !query.query.bool.must.length &&
+      !query.query.bool.filter.length &&
+      !query.query.bool.should.length
+    ) {
+      query.query = { match_all: {} };
+    }
+
+    if (query.query.bool.should.length > 0) {
+      query.query.bool.minimum_should_match = 1;
+    }
+
+    if (query.query.bool.filter.length > 0) {
+      query.query.bool.filter = query.query.bool.filter.filter(Boolean);
+    }
+  }
+
+  private transformOpenSearchResponse(response: any): Campaign {
+    const source = response.body._source;
+    const dates = ['created', 'modified', 'first_seen', 'last_seen'];
+
+    dates.forEach((field) => {
+      if (source[field]) {
+        source[field] = new Date(source[field]);
+      }
+    });
+
+    return {
+      ...source,
+      id: response.body._id,
+      type: 'campaign',
+      spec_version: source.spec_version || '2.1',
+      created: source.created || new Date(),
+      modified: source.modified || new Date(),
+      name: source.name, // Required field
+    };
+  }
+
+  private transformSearchResponse(response: any, page: number, pageSize: number): CampaignSearchResult {
+    const total = response.body.hits.total?.value || response.body.hits.total || 0;
+
+    return {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.ceil(total / pageSize) || 1,
+      results: response.body.hits.hits.map((hit) =>
+        this.transformOpenSearchResponse({
+          body: {
+            _id: hit._id,
+            _source: hit._source,
+          },
+        }),
+      ),
+    };
+  }
+
+  private parseDateInput(input?: string): Date | null {
+    if (!input) return null;
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+      return new Date(`${input}T00:00:00Z`);
+    }
+
+    const date = new Date(input);
+    return isNaN(date.getTime()) ? null : date;
+  }
+
+  private validateAndConvertRange(range?: any): any {
+    if (!range) return null;
+
+    const converted: any = {};
+    const operators = ['gte', 'lte', 'gt', 'lt'] as const;
+
+    operators.forEach((op) => {
+      if (range[op]) {
+        const date = this.parseDateInput(range[op]);
+        if (!date) throw new Error(`Invalid date format for ${op}: ${range[op]}`);
+        converted[op] = date.toISOString();
+      }
+    });
+
+    // Validate logical consistency
+    if (converted.gte && converted.lte && new Date(converted.gte) > new Date(converted.lte)) {
+      throw new Error('gte cannot be later than lte');
+    }
+    if (converted.gt && converted.lt && new Date(converted.gt) >= new Date(converted.lt)) {
+      throw new Error('gt cannot be equal to or later than lt');
+    }
+
+    return converted;
+  }
+
+  private handleOpenSearchError(error: any, operation: string): InternalServerErrorException {
+    let details = error.message;
+    let errorType = 'UnknownError';
+
+    if (error.meta?.body?.error) {
+      errorType = error.meta.body.error.type || 'OpenSearchError';
+      details = error.meta.body.error.reason || JSON.stringify(error.meta.body.error);
+    }
+
+    this.logger.error(`OpenSearch ${operation} error (${errorType}): ${details}`);
+
+    return new InternalServerErrorException({
+      message: `Failed to ${operation}`,
+      details,
+      errorType,
+    });
+  }
   async ensureIndex(): Promise<void> {
     try {
       const exists = await this.openSearchService.indices.exists({ index: this.index });

@@ -5,9 +5,9 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
-  // Allow ALL origins (for timport { StixSchemaPlugin }esting only)
+  // Allow ALL origins 
   app.enableCors({
-    origin: true,  // Better than '*' (handles credentials)
+    origin: true,  
     methods: ['GET', 'POST', 'OPTIONS'],
     allowedHeaders: ['Content-Type'],
   });

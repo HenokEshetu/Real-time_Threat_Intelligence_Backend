@@ -32,10 +32,29 @@ export class CreateIndicatorInput extends CommonInput{
 export class UpdateIndicatorInput extends CreateIndicatorInput {
   
 }
+@InputType()
+export class DateRangeInput {
+  @Field(() => String, { nullable: true })
+  gte?: string;
+
+  @Field(() => String, { nullable: true })
+  lte?: string;
+
+  @Field(() => String, { nullable: true })
+  gt?: string;
+
+  @Field(() => String, { nullable: true })
+  lt?: string;
+}
 
 @InputType()
-export class SearchIndicatorInput extends PartialType(CreateIndicatorInput){}
+export class SearchIndicatorInput extends PartialType(CreateIndicatorInput) {
+  @Field(() => DateRangeInput, { nullable: true })
+  valid_from_range?: DateRangeInput;
 
+  @Field(() => DateRangeInput, { nullable: true })
+  valid_until_range?: DateRangeInput;
+}
 
 @ObjectType()
 export class IndicatorSearchResult {

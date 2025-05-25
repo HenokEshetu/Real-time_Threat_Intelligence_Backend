@@ -1,11 +1,12 @@
 import { Injectable, InternalServerErrorException, NotFoundException, OnModuleInit, Inject, Logger } from '@nestjs/common';
 import { Client,  } from '@opensearch-project/opensearch';
-import { CreateIndicatorInput, UpdateIndicatorInput, SearchIndicatorInput } from './indicator.input';
+import { CreateIndicatorInput, UpdateIndicatorInput, DateRangeInput, SearchIndicatorInput, IndicatorSearchResult } from './indicator.input';
 import { Indicator } from './indicator.entity';
 import { BaseStixService } from '../../base-stix.service';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { generateStixId } from '../../stix-id-generator';
+
 
 @Injectable()
 export class IndicatorService extends BaseStixService<Indicator> implements OnModuleInit {
@@ -222,125 +223,204 @@ export class IndicatorService extends BaseStixService<Indicator> implements OnMo
   }
 
   async searchWithFilters(
-    filters: SearchIndicatorInput = {},
-    page: number = 1,
-    pageSize: number = 10
-  ): Promise<{
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-    results: Indicator[];
-  }> {
-    try {
-      const from = (page - 1) * pageSize;
-      const query = this.buildSearchQuery(filters);
+  filters: SearchIndicatorInput = {},
+  page: number = 1,
+  pageSize: number = 10
+): Promise<IndicatorSearchResult> {
+  try {
+    const from = (page - 1) * pageSize;
+    const query = this.buildSearchQuery(filters);
 
-      const response = await this.openSearchService.search({
-        index: this.index,
-        from,
-        size: pageSize,
-        body: query,
-      });
-
-      return this.transformSearchResponse(response, page, pageSize);
-    } catch (error) {
-      throw this.handleOpenSearchError(error, 'search indicators');
-    }
-  }
-
-  private buildSearchQuery(filters: SearchIndicatorInput): any {
-    const query: { query: any; sort?: any[] } = {
-      query: { bool: { must: [], filter: [], should: [] } },
-      sort: [{ modified: { order: 'desc' } }],
-    };
-
-    Object.entries(filters).forEach(([key, value]) => {
-      if (!value) return;
-
-      if (Array.isArray(value)) {
-        query.query.bool.filter.push({ terms: { [key]: value } });
-      } else if (typeof value === 'boolean' || typeof value === 'number') {
-        query.query.bool.filter.push({ term: { [key]: value } });
-      } else if (['created', 'modified', 'valid_from', 'valid_until'].includes(key)) {
-        this.addDateRangeQuery(query, key, value);
-      } else if (typeof value === 'string') {
-        this.addStringQuery(query, key, value);
-      }
+    const response = await this.openSearchService.search({
+      index: this.index,
+      from,
+      size: pageSize,
+      body: query,
     });
 
-    this.finalizeQueryStructure(query);
-    return query;
+    return this.transformSearchResponse(response, page, pageSize);
+  } catch (error) {
+    throw this.handleOpenSearchError(error, 'search indicators');
   }
+}
 
-  private addDateRangeQuery(query: any, key: string, value: any): void {
-    if (typeof value === 'object' && ('gte' in value || 'lte' in value)) {
-      query.query.bool.filter.push({ range: { [key]: value } });
-    } else if (value instanceof Date) {
-      query.query.bool.filter.push({
-        range: { [key]: { gte: value.toISOString(), lte: value.toISOString() } },
-      });
+private buildSearchQuery(filters: SearchIndicatorInput): any {
+  const query: { query: any; sort?: any[] } = {
+    query: { bool: { must: [], filter: [], should: [] } },
+    sort: [{ modified: { order: 'desc' } }],
+  };
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (!value) return;
+
+    // Handle date range filters (e.g., valid_from_range)
+    if (key.endsWith('_range')) {
+      const field = key.replace('_range', '');
+      this.addDateRangeQuery(query, field, value);
+      return;
+    }
+
+    // Handle standard filters
+    if (Array.isArray(value)) {
+      query.query.bool.filter.push({ terms: { [key]: value } });
+    } else if (typeof value === 'boolean' || typeof value === 'number') {
+      query.query.bool.filter.push({ term: { [key]: value } });
+    } else if (['created', 'modified', 'valid_from', 'valid_until'].includes(key)) {
+      this.addDateRangeQuery(query, key, value);
+    } else if (typeof value === 'string') {
+      this.addStringQuery(query, key, value);
+    } else if (typeof value === 'object') {
+      this.handleNestedFilters(query, key, value);
+    }
+  });
+
+  this.finalizeQueryStructure(query);
+  return query;
+}
+private addDateRangeQuery(query: any, key: string, value: any): void {
+  if (typeof value === 'object') {
+    const range = this.validateAndConvertRange(value);
+    if (range) {
+      query.query.bool.filter.push({ range: { [key]: range } });
     }
   }
+}
 
-  private addStringQuery(query: any, key: string, value: string): void {
-    if (value.includes('*')) {
-      query.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
-    } else if (value.includes('~')) {
-      query.query.bool.should.push({
-        fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
-      });
-    } else {
-      query.query.bool.must.push({ match_phrase: { [key]: value } });
+private addStringQuery(query: any, key: string, value: string): void {
+  if (value.includes('*')) {
+    query.query.bool.must.push({ 
+      wildcard: { [key]: { value: value.toLowerCase(), case_insensitive: true } }
+    });
+  } else if (value.includes('~')) {
+    query.query.bool.should.push({
+      fuzzy: { [key]: { 
+        value: value.replace('~', ''),
+        fuzziness: 'AUTO',
+        transpositions: true
+      }},
+    });
+  } else {
+    query.query.bool.must.push({ 
+      match: { [key]: { 
+        query: value,
+        operator: 'and',
+        fuzziness: 0
+      }}
+    });
+  }
+}
+
+private handleNestedFilters(query: any, key: string, value: any): void {
+  // Handle nested objects (e.g., kill_chain_phases)
+  if (key === 'kill_chain_phases') {
+    query.query.bool.filter.push({
+      nested: {
+        path: 'kill_chain_phases',
+        query: {
+          bool: {
+            must: Object.entries(value).map(([nestedKey, nestedValue]) => ({
+              term: { [`kill_chain_phases.${nestedKey}`]: nestedValue }
+            }))
+          }
+        }
+      }
+    });
+  }
+}
+
+private finalizeQueryStructure(query: any): void {
+  // Convert empty query to match_all
+  if (!query.query.bool.must.length &&
+    !query.query.bool.filter.length &&
+    !query.query.bool.should.length) {
+    query.query = { match_all: {} };
+  }
+  
+  // Handle should clauses
+  if (query.query.bool.should.length > 0) {
+    query.query.bool.minimum_should_match = 1;
+  }
+  
+  // Optimize filter clauses
+  if (query.query.bool.filter.length > 0) {
+    query.query.bool.filter = query.query.bool.filter.filter(Boolean);
+  }
+}
+
+private transformOpenSearchResponse(response: any): Indicator {
+  const source = response.body._source;
+  const dates = ['created', 'modified', 'valid_from', 'valid_until'];
+  
+  // Convert all date fields
+  dates.forEach(field => {
+    if (source[field]) {
+      source[field] = new Date(source[field]);
     }
-  }
+  });
 
-  private finalizeQueryStructure(query: any): void {
-    if (!query.query.bool.must.length &&
-      !query.query.bool.filter.length &&
-      !query.query.bool.should.length) {
-      query.query = { match_all: {} };
-    } else if (query.query.bool.should.length > 0) {
-      query.query.bool.minimum_should_match = 1;
-    }
-  }
+  return {
+    ...source,
+    id: response.body._id,
+    type: 'indicator',
+    spec_version: source.spec_version || '2.1',
+    created: source.created || new Date(),
+    modified: source.modified || new Date(),
+  };
+}
 
-  private transformOpenSearchResponse(response: any): Indicator {
-    const source = response.body._source;
-    return {
-      ...source,
-      id: response.body._id,
-      type: 'indicator',
-      spec_version: source.spec_version || '2.1',
-      valid_from: source.valid_from ? new Date(source.valid_from) : new Date(),
-      valid_until: source.valid_until ? new Date(source.valid_until) : new Date(),
-      created: source.created || new Date().toISOString(),
-      modified: source.modified || new Date().toISOString(),
-    };
-  }
-
-  private transformSearchResponse(
-    response: any,
-    page: number,
-    pageSize: number
-  ) {
-    const total = typeof response.body.hits.total === 'number'
-      ? response.body.hits.total
-      : response.body.hits.total?.value ?? 0;
-
-    return {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.ceil(total / pageSize),
-      results: response.body.hits.hits.map(hit => this.transformOpenSearchResponse({
+private transformSearchResponse(
+  response: any,
+  page: number,
+  pageSize: number
+): IndicatorSearchResult {
+  const total = response.body.hits.total?.value || response.body.hits.total || 0;
+  
+  return {
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize) || 1,
+    results: response.body.hits.hits.map(hit => 
+      this.transformOpenSearchResponse({
         body: {
           _id: hit._id,
           _source: hit._source
         }
-      })),
-    };
+      })
+    ),
+  };
+}
+
+private parseDateInput(input?: string): Date | null {
+  if (!input) return null;
+  
+  // Handle date-only format (YYYY-MM-DD)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) {
+    return new Date(`${input}T00:00:00Z`);
   }
+
+  // Handle full ISO format
+  const date = new Date(input);
+  return isNaN(date.getTime()) ? null : date;
+}
+
+private validateAndConvertRange(range?: DateRangeInput): any {
+  if (!range) return null;
+
+  const converted: any = {};
+  const operators = ['gte', 'lte', 'gt', 'lt'] as const;
+
+  operators.forEach(op => {
+    if (range[op]) {
+      const date = this.parseDateInput(range[op]);
+      if (!date) throw new Error(`Invalid date format for ${op}: ${range[op]}`);
+      converted[op] = date.toISOString();
+    }
+  });
+
+  return converted;
+}
+
 
   private handleOpenSearchError(error: any, operation: string): InternalServerErrorException {
     let details = error.message;

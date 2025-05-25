@@ -1,4 +1,4 @@
-import { Resolver, InputType, Query, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
+import { Resolver, InputType, Query, Mutation, Args, Int, Subscription, OmitType } from '@nestjs/graphql';
 import { AttackPatternService } from './attack-pattern.service';
 import { AttackPattern } from './attack-pattern.entity';
 import { CreateAttackPatternInput, UpdateAttackPatternInput } from './attack-pattern.input';
@@ -9,10 +9,18 @@ import { PartialType } from '@nestjs/graphql';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { Inject } from '@nestjs/common';
+import { DateRangeInput } from '../indicator/indicator.input';
 
 
 @InputType()
-export class SearchAttackPatternInput extends PartialType(CreateAttackPatternInput) { }
+export class SearchAttackPatternInput extends PartialType(OmitType(CreateAttackPatternInput, ['modified', 'created'] as const)) {      
+
+@Field(() => DateRangeInput, { nullable: true })
+  created?: DateRangeInput;
+
+  @Field(() => DateRangeInput, { nullable: true })
+  modified?: DateRangeInput;
+}
 
 
 @ObjectType()

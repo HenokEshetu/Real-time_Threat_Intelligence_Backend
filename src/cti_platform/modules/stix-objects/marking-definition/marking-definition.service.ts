@@ -10,36 +10,35 @@ import { BaseStixService } from '../base-stix.service';
 import { PUB_SUB } from '../../pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 
-
 @Injectable()
 export class MarkingDefinitionService extends BaseStixService<MarkingDefinition> implements OnModuleInit {
   protected typeName = 'marking-definition';
   private readonly index = 'marking-definitions';
   private readonly logger = console; 
 
-
   constructor(
-          @Inject(PUB_SUB) pubSub: RedisPubSub,
-          @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
-        ) {
-          super(pubSub);
-        }
+    @Inject(PUB_SUB) pubSub: RedisPubSub,
+    @Inject('OPENSEARCH_CLIENT') private readonly openSearchService: Client
+  ) {
+    super(pubSub);
+  }
 
   async onModuleInit() {
     await this.ensureIndex();
   }
 
   async create(createMarkingDefinitionInput: CreateMarkingDefinitionInput): Promise<MarkingDefinition> {
-
+    const currentDate = new Date().toISOString();
     const markingDefinition: MarkingDefinition = {
       ...createMarkingDefinitionInput,
       id: createMarkingDefinitionInput.id,
       type: 'marking-definition' as const,
       spec_version: '2.1',
       definition_type: createMarkingDefinitionInput.definition_type,
-      definition: createMarkingDefinitionInput.definition || {}, 
+      definition: createMarkingDefinitionInput.definition || {},
+      created: createMarkingDefinitionInput.created ?? currentDate,
+      modified: createMarkingDefinitionInput.modified ?? currentDate,
     };
-
 
     // Check if document already exists
     const exists = await this.openSearchService.exists({
@@ -49,11 +48,15 @@ export class MarkingDefinitionService extends BaseStixService<MarkingDefinition>
 
     if (exists.body) {
       this.logger?.warn(`Document already exists`, { id: markingDefinition.id });
-      
-      const existingDoc = await this.findOne(markingDefinition.id);
-      return existingDoc;
+      try {
+        const existingDoc = await this.findOne(markingDefinition.id);
+        return existingDoc;
+      } catch (error) {
+        this.logger?.error(`Failed to fetch existing marking definition`, error.stack);
+        throw error;
+      }
     }
-    
+
     try {
       const response = await this.openSearchService.index({
         index: this.index,
@@ -83,22 +86,27 @@ export class MarkingDefinitionService extends BaseStixService<MarkingDefinition>
       });
 
       const source = response.body._source;
+      // Handle missing or invalid dates gracefully
+      const createdDate = source.created ? new Date(source.created) : new Date();
+      const modifiedDate = source.modified ? new Date(source.modified) : new Date();
+
       return {
         ...source,
         id: response.body._id,
         type: 'marking-definition' as const,
         spec_version: source.spec_version || '2.1',
         definition_type: source.definition_type,
-        definition: source.definition || {}, // Ensure 'definition' is always provided
-        created: new Date(source.created).toISOString(),
-        modified: new Date(source.modified).toISOString(),
+        definition: source.definition || {},
+        created: createdDate.toISOString(),
+        modified: modifiedDate.toISOString(),
         created_by_ref: source.created_by_ref,
         object_marking_refs: source.object_marking_refs,
         external_references: source.external_references,
         granular_markings: source.granular_markings,
       };
     } catch (error) {
-      if (error.meta?.statusCode === 404) {
+      // Correctly check for 404 status code
+      if (error.statusCode === 404) {
         throw new NotFoundException(`Marking Definition with ID ${id} not found`);
       }
       throw new InternalServerErrorException({

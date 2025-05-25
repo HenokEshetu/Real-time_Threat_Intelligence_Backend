@@ -1271,6 +1271,34 @@ input CreateX509CertificateInput {
   x509_v3_extensions: [String!]
 }
 
+input DateRangeInput {
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+}
+
+input DateRangeInput_attack_pattern {
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+}
+
+input DateRangeInput_domain_name {
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+}
+
+input DateRangeInput_intrusion_set {
+  gt: String
+  gte: String
+  lt: String
+  lte: String
+}
+
 """
 A date-time string at UTC, such as 2007-12-03T10:15:30Z, compliant with the `date-time` format outlined in section 5.6 of the RFC 3339 profile of the ISO 8601 standard for representation of dates and times using the Gregorian calendar.
 """
@@ -2718,7 +2746,7 @@ input SearchArtifactInput {
 input SearchAttackPatternInput {
   aliases: [String!]
   confidence: Float
-  created: String
+  created: DateRangeInput
   created_by_ref: String
   description: String
   extensions: JSONObject
@@ -2727,7 +2755,7 @@ input SearchAttackPatternInput {
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
   lang: String
-  modified: String
+  modified: DateRangeInput
   name: String
   object_marking_refs: [String!]
   relationship: [RelationshipCommonInput!]
@@ -2792,10 +2820,12 @@ input SearchCampaignInput {
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
+  first_seen_range: DateRangeInput_attack_pattern
   id: ID
   labels: [String!]
   lang: String
   last_seen: DateTime
+  last_seen_range: DateRangeInput_attack_pattern
   modified: String
   name: String
   object_marking_refs: [String!]
@@ -2869,6 +2899,7 @@ input SearchDomainNameInput {
   confidence: Float
   created: String
   created_by_ref: String
+  created_range: DateRangeInput_domain_name
   defanged: Boolean
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
@@ -2876,6 +2907,7 @@ input SearchDomainNameInput {
   labels: [String!]
   lang: String
   modified: String
+  modified_range: DateRangeInput_domain_name
   object_marking_refs: [String!]
   resolves_to_refs: [String!]
   revoked: Boolean
@@ -3102,7 +3134,9 @@ input SearchIndicatorInput {
   spec_version: String
   type: String
   valid_from: DateTime
+  valid_from_range: DateRangeInput
   valid_until: DateTime
+  valid_until_range: DateRangeInput
 }
 
 input SearchInfrastructureInput {
@@ -3139,12 +3173,14 @@ input SearchIntrusionSetInput {
   extensions: JSONObject
   external_references: [ExternalReferenceInput!]
   first_seen: DateTime
+  first_seen_range: DateRangeInput_intrusion_set
   goals: [String!]
   id: ID
   kill_chain_phases: [KillChainPhaseInput!]
   labels: [String!]
   lang: String
   last_seen: DateTime
+  last_seen_range: DateRangeInput_intrusion_set
   modified: String
   name: String
   object_marking_refs: [String!]

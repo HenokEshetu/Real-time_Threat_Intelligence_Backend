@@ -15,8 +15,8 @@ export class UserResolver {
   constructor(private readonly userService: UserService) {}
 
   @Query(() => [User])
-  @UseGuards(PermissionsGuard)
-  @Permissions('VIEW_USERS')
+
+
   async users(): Promise<User[]> {
     return this.userService.findAll();
   }

@@ -1,7 +1,7 @@
 import { Resolver, Query,InputType, Int, Mutation, Args, Subscription } from '@nestjs/graphql';
 import { CampaignService } from './campaign.service';
 import { Campaign } from './campaign.entity';
-import { CreateCampaignInput, UpdateCampaignInput } from './campaign.input';
+import { CampaignSearchResult, CreateCampaignInput, SearchCampaignInput, UpdateCampaignInput } from './campaign.input';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PartialType } from '@nestjs/graphql';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
@@ -9,22 +9,8 @@ import { Inject } from '@nestjs/common';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 
 
-@InputType()
-export class SearchCampaignInput extends PartialType(CreateCampaignInput){}
 
-@ObjectType()
-export class CampaignSearchResult {
-  @Field(() => Int)
-  page: number;
-  @Field(() => Int)
-  pageSize: number;
-  @Field(() => Int)
-  total: number;
-  @Field(() => Int)
-  totalPages: number;
-  @Field(() => [Campaign])
-  results: Campaign[];
-}
+
 
 @Resolver(() => Campaign)
 export class CampaignResolver  {

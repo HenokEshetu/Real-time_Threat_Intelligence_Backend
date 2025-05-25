@@ -1,32 +1,15 @@
 import { Resolver, Query, InputType, Mutation, Args, Int, Subscription } from '@nestjs/graphql';
 import { IntrusionSetService } from './intrusion-set.service';
-import { CreateIntrusionSetInput, UpdateIntrusionSetInput } from './intrusion-set.input';
+import { CreateIntrusionSetInput, IntrusionSetSearchResult, SearchIntrusionSetInput, UpdateIntrusionSetInput } from './intrusion-set.input';
 import { IntrusionSet } from './intrusion-set.entity';
 import { PartialType } from '@nestjs/graphql';
 import { ObjectType, Field } from '@nestjs/graphql';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { Inject } from '@nestjs/common';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
-@InputType()
-export class SearchIntrusionSetInput extends PartialType(CreateIntrusionSetInput) { }
 
-@ObjectType()
-export class IntrusionSetSearchResult {
-  @Field(() => Int)
-  page: number;
 
-  @Field(() => Int)
-  pageSize: number;
 
-  @Field(() => Int)
-  total: number;
-
-  @Field(() => Int)
-  totalPages: number;
-
-  @Field(() => [IntrusionSet])
-  results: IntrusionSet[];
-}
 
 @Resolver(() => IntrusionSet)
 export class IntrusionSetResolver {

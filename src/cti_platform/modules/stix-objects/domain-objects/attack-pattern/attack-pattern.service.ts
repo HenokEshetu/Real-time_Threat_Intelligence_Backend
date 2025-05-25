@@ -1,7 +1,7 @@
-import { Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Inject, Injectable, InternalServerErrorException, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { Client } from '@opensearch-project/opensearch';
 import { CreateAttackPatternInput, UpdateAttackPatternInput } from './attack-pattern.input';
-import { SearchAttackPatternInput } from './attack-pattern.resolver';
+import { AttackPatternSearchResult, SearchAttackPatternInput } from './attack-pattern.resolver';
 import { AttackPattern } from './attack-pattern.entity';
 import { PUB_SUB } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
@@ -173,94 +173,206 @@ export class AttackPatternService extends BaseStixService<AttackPattern> impleme
       });
     }
   }
+async searchWithFilters(
+  filters: SearchAttackPatternInput = {},
+  page: number = 1,
+  pageSize: number = 10
+): Promise<AttackPatternSearchResult> {
+  try {
+    // Validate input parameters
+    if (page < 1) throw new BadRequestException('Page must be greater than 0');
+    if (pageSize < 1 || pageSize > 1000) {
+      throw new BadRequestException('Page size must be between 1 and 1000');
+    }
 
-  async searchWithFilters(
-    filters: SearchAttackPatternInput = {},
-    page: number = 1,
-    pageSize: number = 10
-  ): Promise<{
-    page: number;
-    pageSize: number;
-    total: number;
-    totalPages: number;
-    results: AttackPattern[];
-  }> {
-    try {
-      const from = (page - 1) * pageSize;
-      const queryBuilder: { query: any; sort?: any[] } = {
-        query: { bool: { must: [], filter: [], should: [] } },
-        sort: [{ modified: { order: 'desc' as const } }],
-      };
+    const from = (page - 1) * pageSize;
+    const query = this.buildSearchQuery(filters);
 
-      for (const [key, value] of Object.entries(filters)) {
-        if (!value) continue;
+    const response = await this.openSearchService.search({
+      index: this.index,
+      from,
+      size: pageSize,
+      body: query,
+    });
 
-        if (Array.isArray(value)) {
-          queryBuilder.query.bool.filter.push({ terms: { [key]: value } });
-        } else if (typeof value === 'boolean' || typeof value === 'number') {
-          queryBuilder.query.bool.filter.push({ term: { [key]: value } });
-        } else if (['created', 'modified'].includes(key)) {
-          if (typeof value === 'object' && ('gte' in value || 'lte' in value)) {
-            queryBuilder.query.bool.filter.push({ range: { [key]: value } });
-          } else if (value instanceof Date) {
-            queryBuilder.query.bool.filter.push({
-              range: { [key]: { gte: value, lte: value } },
-            });
-          }
-        } else if (typeof value === 'string') {
-          if (value.includes('*')) {
-            queryBuilder.query.bool.must.push({ wildcard: { [key]: value.toLowerCase() } });
-          } else if (value.includes('~')) {
-            queryBuilder.query.bool.should.push({
-              fuzzy: { [key]: { value: value.replace('~', ''), fuzziness: 'AUTO' } },
-            });
-          } else {
-            queryBuilder.query.bool.must.push({ match_phrase: { [key]: value } });
+    return this.transformSearchResponse(response, page, pageSize);
+  } catch (error) {
+    if (error instanceof BadRequestException) throw error;
+    throw this.handleSearchError(error);
+  }
+}
+
+private buildSearchQuery(filters: SearchAttackPatternInput): any {
+  const query: { query: any; sort?: any[] } = {
+    query: { bool: { must: [], filter: [], should: [] } },
+    sort: [{ modified: { order: 'desc' } }]
+  };
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (value === null || value === undefined) return;
+
+    if (Array.isArray(value)) {
+      this.handleArrayFilter(query, key, value);
+    } else if (typeof value === 'object') {
+      this.handleDateRangeFilter(query, key, value);
+    } else if (typeof value === 'string') {
+      this.handleStringFilter(query, key, value);
+    } else {
+      query.query.bool.filter.push({ term: { [key]: value } });
+    }
+  });
+
+  this.optimizeQueryStructure(query);
+  return query;
+}
+
+private handleArrayFilter(query: any, key: string, value: any[]): void {
+  if (value.length === 0) return;
+  
+  if (key === 'kill_chain_phases') {
+    this.handleNestedFilter(query, key, value);
+  } else {
+    query.query.bool.filter.push({ terms: { [key]: value } });
+  }
+}
+
+private handleDateRangeFilter(query: any, key: string, value: any): void {
+  if (!['created', 'modified'].includes(key)) return;
+
+  const range: any = {};
+  if (value.gte) range.gte = this.parseDateInput(value.gte);
+  if (value.lte) range.lte = this.parseDateInput(value.lte);
+  if (value.gt) range.gt = this.parseDateInput(value.gt);
+  if (value.lt) range.lt = this.parseDateInput(value.lt);
+
+  if (Object.keys(range).length > 0) {
+    query.query.bool.filter.push({ range: { [key]: range } });
+  }
+}
+
+private handleStringFilter(query: any, key: string, value: string): void {
+  if (value.includes('*')) {
+    query.query.bool.must.push({
+      wildcard: { 
+        [key]: {
+          value: value.toLowerCase(),
+          case_insensitive: true
+        }
+      }
+    });
+  } else if (value.includes('~')) {
+    query.query.bool.should.push({
+      fuzzy: {
+        [key]: {
+          value: value.replace('~', ''),
+          fuzziness: 'AUTO',
+          transpositions: true
+        }
+      }
+    });
+  } else {
+    query.query.bool.must.push({
+      match: {
+        [key]: {
+          query: value,
+          operator: 'and'
+        }
+      }
+    });
+  }
+}
+
+private handleNestedFilter(query: any, path: string, values: any[]): void {
+  values.forEach(value => {
+    query.query.bool.filter.push({
+      nested: {
+        path,
+        query: {
+          bool: {
+            must: Object.entries(value).map(([field, val]) => ({
+              term: { [`${path}.${field}`]: val }
+            }))
           }
         }
       }
+    });
+  });
+}
 
-      if (!queryBuilder.query.bool.must.length && !queryBuilder.query.bool.filter.length && !queryBuilder.query.bool.should.length) {
-        queryBuilder.query = { match_all: {} };
-      } else if (queryBuilder.query.bool.should.length > 0) {
-        queryBuilder.query.bool.minimum_should_match = 1;
-      }
+private optimizeQueryStructure(query: any): void {
+  // Remove empty clauses
+  ['must', 'filter', 'should'].forEach(clause => {
+    query.query.bool[clause] = query.query.bool[clause].filter(Boolean);
+  });
 
-      const response = await this.openSearchService.search({
-        index: this.index,
-        from,
-        size: pageSize,
-        body: queryBuilder,
-      });
-
-      const total = typeof response.body.hits.total === 'number'
-        ? response.body.hits.total
-        : response.body.hits.total?.value ?? 0;
-
-      return {
-        page,
-        pageSize,
-        total,
-        totalPages: Math.ceil(total / pageSize),
-        results: response.body.hits.hits.map((hit) => ({
-          ...hit._source,
-          id: hit._id,
-          name:hit._source.name,
-          type: 'attack-pattern' as const,
-          spec_version: hit._source.spec_version || '2.1',
-          created: hit._source.created || new Date(),
-          modified: hit._source.modified || new Date(),
-          
-        })),
-      };
-    } catch (error) {
-      throw new InternalServerErrorException({
-        message: 'Failed to search attack patterns',
-        details: error.meta?.body?.error || error.message,
-      });
-    }
+  if (query.query.bool.should.length > 0) {
+    query.query.bool.minimum_should_match = 1;
   }
 
+  if (query.query.bool.must.length === 0 &&
+      query.query.bool.filter.length === 0 &&
+      query.query.bool.should.length === 0) {
+    query.query = { match_all: {} };
+  }
+}
+
+private transformSearchResponse(
+  response: any,
+  page: number,
+  pageSize: number
+): AttackPatternSearchResult {
+  const total = response.body.hits.total?.value ?? response.body.hits.total ?? 0;
+  
+  return {
+    page,
+    pageSize,
+    total,
+    totalPages: Math.ceil(total / pageSize) || 1,
+    results: response.body.hits.hits.map(hit => ({
+      ...hit._source,
+      id: hit._id,
+      type: 'attack-pattern',
+      spec_version: hit._source.spec_version || '2.1',
+      created: this.parseDateField(hit._source.created),
+      modified: this.parseDateField(hit._source.modified),
+      name: hit._source.name || 'Unnamed Pattern'
+    }))
+  };
+}
+
+private parseDateInput(input: string | Date): string {
+  if (input instanceof Date) return input.toISOString();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(input)) return `${input}T00:00:00Z`;
+  return new Date(input).toISOString();
+}
+
+ private parseDateField(date: any): Date {
+  try {
+    return date ? new Date(date) : new Date();
+  } catch (e) {
+    this.logger.warn('Invalid date format in record', { date });
+    return new Date();
+  }
+}
+
+private handleSearchError(error: any): never {
+  const openSearchError = error.meta?.body?.error || {};
+  const statusCode = error.meta?.statusCode || 500;
+
+  this.logger.error('Search failed', {
+    error: openSearchError,
+    stack: error.stack
+  });
+
+  throw new InternalServerErrorException({
+    message: 'Failed to execute search query',
+    code: openSearchError.type || 'SEARCH_ERROR',
+    details: {
+      reason: openSearchError.reason,
+      root_cause: openSearchError.root_cause
+    }
+  });
+}
   async ensureIndex(): Promise<void> {
     try {
       const exists = await this.openSearchService.indices.exists({ index: this.index });

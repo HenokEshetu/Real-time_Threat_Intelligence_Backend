@@ -1,6 +1,7 @@
 // campaign.input.ts
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, InputType, Int, ObjectType, PartialType } from '@nestjs/graphql';
 import { CommonInput, RelationshipCommonInput } from '../../../../core/types/common-data-types';
+import { Campaign } from './campaign.entity';
 
 @InputType()
 export class CreateCampaignInput extends CommonInput {
@@ -53,5 +54,47 @@ export class CreateCampaignInput extends CommonInput {
 
 @InputType()
 export class UpdateCampaignInput extends CreateCampaignInput {
-  // Inherits all fields from CreateCampaignInput
 }
+
+@InputType()
+export class DateRangeInput_attack_pattern {
+  @Field(() => String, { nullable: true })
+  gte?: string;
+
+  @Field(() => String, { nullable: true })
+  lte?: string;
+
+  @Field(() => String, { nullable: true })
+  gt?: string;
+
+  @Field(() => String, { nullable: true })
+  lt?: string;
+}
+
+@InputType()
+export class SearchCampaignInput extends PartialType(CreateCampaignInput) {
+  @Field(() => DateRangeInput_attack_pattern, { nullable: true })
+  first_seen_range?: DateRangeInput_attack_pattern;
+
+  @Field(() => DateRangeInput_attack_pattern, { nullable: true })
+  last_seen_range?: DateRangeInput_attack_pattern;
+}
+
+@ObjectType()
+export class CampaignSearchResult {
+  @Field(() => Int)
+  page: number;
+
+  @Field(() => Int)
+  pageSize: number;
+
+  @Field(() => Int)
+  total: number;
+
+  @Field(() => Int)
+  totalPages: number;
+
+  @Field(() => [Campaign])
+  results: Campaign[];
+}
+

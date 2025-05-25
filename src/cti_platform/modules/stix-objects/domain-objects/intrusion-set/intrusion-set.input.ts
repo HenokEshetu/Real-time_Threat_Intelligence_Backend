@@ -1,6 +1,7 @@
-import { Field, InputType } from '@nestjs/graphql';
+import { Field, InputType, Int, ObjectType, PartialType } from '@nestjs/graphql';
 import { KillChainPhase, RelationshipCommonInput, RelationshipCommonProperties, 
   KillChainPhaseInput, CommonInput} from '../../../../core/types/common-data-types';
+import { IntrusionSet } from './intrusion-set.entity';
 
 @InputType()
 export class CreateIntrusionSetInput extends CommonInput{
@@ -62,4 +63,48 @@ export class CreateIntrusionSetInput extends CommonInput{
 @InputType()
 export class UpdateIntrusionSetInput extends CreateIntrusionSetInput {
   
+}
+
+
+
+@InputType()
+export class DateRangeInput_intrusion_set {
+  @Field(() => String, { nullable: true })
+  gte?: string;
+
+  @Field(() => String, { nullable: true })
+  lte?: string;
+
+  @Field(() => String, { nullable: true })
+  gt?: string;
+
+  @Field(() => String, { nullable: true })
+  lt?: string;
+}
+
+@InputType()
+export class SearchIntrusionSetInput extends PartialType(CreateIntrusionSetInput) {
+  @Field(() => DateRangeInput_intrusion_set, { nullable: true })
+  first_seen_range?: DateRangeInput_intrusion_set;
+
+  @Field(() => DateRangeInput_intrusion_set, { nullable: true })
+  last_seen_range?: DateRangeInput_intrusion_set;
+}
+
+@ObjectType()
+export class IntrusionSetSearchResult {
+  @Field(() => Int)
+  page: number;
+
+  @Field(() => Int)
+  pageSize: number;
+
+  @Field(() => Int)
+  total: number;
+
+  @Field(() => Int)
+  totalPages: number;
+
+  @Field(() => [IntrusionSet])
+  results: IntrusionSet[];
 }

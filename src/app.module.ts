@@ -8,7 +8,6 @@ import { PubSubModule, } from 'src/cti_platform/modules/pubsub.module';
 import { RedisPubSub } from 'graphql-redis-subscriptions';
 import { DateTimeResolver } from 'graphql-scalars';
 import { APP_FILTER , APP_GUARD} from '@nestjs/core';
-import { UnauthorizedExceptionFilter } from './gql-exception.filter';
 import { JwtAuthGuard } from './user-management/guards/jwt-auth.guard';
 
 @Module({
